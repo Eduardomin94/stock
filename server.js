@@ -33,9 +33,10 @@ const upload = multer({
 
 app.use(cors({
   origin: [
-    "http://localhost:3000",
-    "https://TU_FRONTEND.vercel.app"
-  ],
+  "http://localhost:3000",
+  "https://tonicastock.com",
+  "https://www.tonicastock.com"
+],
   credentials: true
 }));
 
