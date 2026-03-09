@@ -35,7 +35,8 @@ app.use(cors({
   origin: [
   "http://localhost:3000",
   "https://tonicastock.com",
-  "https://www.tonicastock.com"
+  "https://www.tonicastock.com",
+  "https://stock-three-psi.vercel.app"
 ],
   credentials: true
 }));
