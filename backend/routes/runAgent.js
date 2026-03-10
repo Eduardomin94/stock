@@ -23,7 +23,8 @@ import {
   getPendingDraft,
   clearPendingDraft,
   improveAgent,
-  repairAgent
+  repairAgent,
+  createAgentFromPrompt
 } from "../services/masterAgent.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -729,52 +730,7 @@ if (lowerMessage.startsWith("crear agente:") || lowerMessage.startsWith("crea ag
     });
   }
 
-  const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
-  const response = await client.responses.create({
-    model: "gpt-5",
-    input: [
-      {
-        role: "system",
-        content: `Sos un arquitecto de agentes. Devolvé solo JSON válido con estos campos:
-name, role, objective, capabilities, limitations, tools, safety_rules, response_style, example_requests, system_prompt`
-      },
-      {
-        role: "user",
-        content: requestText,
-      },
-    ],
-  });
-
-  const text = response.output_text || "";
-  let parsed;
-
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return res.json({
-      reply: "No pude crear el agente porque la IA no devolvió JSON válido.",
-      raw: text
-    });
-  }
-
-  const rawFile = fs.existsSync(DATA_FILE)
-    ? fs.readFileSync(DATA_FILE, "utf-8")
-    : "[]";
-
-  const agents = rawFile ? JSON.parse(rawFile) : [];
-
-  const newAgent = {
-    id: Date.now().toString(),
-    created_at: new Date().toISOString(),
-    created_by_master: true,
-    ...parsed,
-  };
-
-  agents.push(newAgent);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(agents, null, 2), "utf-8");
+  const newAgent = await createAgentFromPrompt(requestText);
 
   return res.json({
     reply: `Agente creado correctamente: ${newAgent.name}`,
