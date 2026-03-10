@@ -28,7 +28,12 @@ import {
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
 import { decryptText } from "../services/crypto.js";
+import multer from "multer";
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 
 
 const router = express.Router();

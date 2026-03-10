@@ -50,7 +50,7 @@ app.use("/register", registerRoute);
 app.use("/login", loginRoute);
 app.use("/create-agent", createAgentRoute);
 app.use("/agents", listAgentsRoute);
-app.use("/run-agent", upload.array("images", 10), runAgentRoute);
+app.use("/run-agent", runAgentRoute);
 app.use("/test-woo-audit", testWooAuditRoute);
 app.use("/test-enable-manage-stock-dry-run", testEnableManageStockDryRunRoute);
 app.use("/test-enable-manage-stock", testEnableManageStockRoute);

@@ -12,6 +12,8 @@ type ChatWindowProps = {
   agentName: string;
 };
 
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
 export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -63,7 +65,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
 
       const token = localStorage.getItem("token") || "";
 
-const res = await fetch("http://localhost:3001/run-agent", {
+const res = await fetch(`${API}/run-agent`, {
   method: "POST",
   headers: token
     ? {
