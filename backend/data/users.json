@@ -6,14 +6,5 @@
     "store_url": "",
     "consumer_key": "",
     "consumer_secret": ""
-  },
-  {
-    "id": "1773122168921",
-    "email": "cliente@test.com",
-    "password": "$2b$10$0q6R71bCy59MeaLU0.z9pe9NoS7jJDByG.JfpPhiAF8AZ6KDyJy3i",
-    "store_url": "https://mitienda.com/wp-json/wc/v3",
-    "consumer_key": "36155a5b826d3d52634ef1baf6d6086d:69127a6e40efff22247618b232b88b6c",
-    "consumer_secret": "76e5bd64b7070b7e71b345853524c4aa:949fabbc14dee3f4b8c59bb595c88e07",
-    "created_at": "2026-03-10T05:56:08.936Z"
   }
 ]

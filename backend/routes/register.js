@@ -17,7 +17,17 @@ router.post("/", requireAdmin, async (req, res) => {
   try {
     const { email, password, store_url, consumer_key, consumer_secret } = req.body;
 
-    if (!email || !password || !store_url || !consumer_key || !consumer_secret) {
+    let normalizedStoreUrl = String(store_url || "").trim();
+
+if (normalizedStoreUrl.endsWith("/")) {
+  normalizedStoreUrl = normalizedStoreUrl.slice(0, -1);
+}
+
+if (!normalizedStoreUrl.includes("/wp-json/wc")) {
+  normalizedStoreUrl = normalizedStoreUrl + "/wp-json/wc/v3";
+}
+
+    if (!email || !password || !normalizedStoreUrl || !consumer_key || !consumer_secret) {
       return res.status(400).json({ error: "Faltan datos" });
     }
 
@@ -42,7 +52,7 @@ router.post("/", requireAdmin, async (req, res) => {
       id: Date.now().toString(),
       email: String(email).trim(),
       password: hashedPassword,
-      store_url: String(store_url).trim(),
+      store_url: normalizedStoreUrl,
       consumer_key: encryptText(String(consumer_key).trim()),
       consumer_secret: encryptText(String(consumer_secret).trim()),
       created_at: new Date().toISOString(),
