@@ -12,7 +12,156 @@ type ChatWindowProps = {
   agentName: string;
 };
 
+type CreateProductForm = {
+  nombre: string;
+  colores: string;
+  talles: string;
+  precio: string;
+  precioRebajado: string;
+  descripcionCorta: string;
+  categoria: string;
+  subcategoria: string;
+};
+
+type CreateStepKey =
+  | "fotos"
+  | "nombre"
+  | "colores"
+  | "talles"
+  | "precio"
+  | "precioRebajado"
+  | "descripcionCorta"
+  | "categoria"
+  | "subcategoria";
+
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
+const CREATE_STEPS: {
+  key: CreateStepKey;
+  title: string;
+  helper: string;
+  placeholder?: string;
+  optional?: boolean;
+}[] = [
+  {
+    key: "fotos",
+    title: "Fotos",
+    helper: "Primero agregá las fotos del producto. La primera queda como principal.",
+    optional: true,
+  },
+  {
+    key: "nombre",
+    title: "Nombre",
+    helper: "Escribí el nombre del producto.",
+    placeholder: "Ej: Remera básica premium",
+  },
+  {
+    key: "colores",
+    title: "Colores",
+    helper: "Si tiene colores, separalos con coma. Si no tiene, dejalo vacío.",
+    placeholder: "Ej: Negro, Blanco, Azul",
+    optional: true,
+  },
+  {
+    key: "talles",
+    title: "Talles",
+    helper: "Si tiene talles, separalos con coma. Si no tiene, dejalo vacío.",
+    placeholder: "Ej: S, M, L o Talle 2, Talle 3",
+    optional: true,
+  },
+  {
+    key: "precio",
+    title: "Precio",
+    helper: "Ingresá el precio normal del producto.",
+    placeholder: "Ej: 12900",
+  },
+  {
+    key: "precioRebajado",
+    title: "Precio rebajado",
+    helper: "Si tiene oferta, cargalo acá. Si no tiene, dejalo vacío.",
+    placeholder: "Ej: 10900",
+    optional: true,
+  },
+  {
+    key: "descripcionCorta",
+    title: "Descripción corta",
+    helper: "Podés dejar una descripción breve. Si no tenés, dejalo vacío.",
+    placeholder: "Ej: Remera de algodón peinado, calce clásico.",
+    optional: true,
+  },
+  {
+    key: "categoria",
+    title: "Categoría",
+    helper: "Escribí la categoría principal.",
+    placeholder: "Ej: Remeras",
+  },
+  {
+    key: "subcategoria",
+    title: "Subcategoría",
+    helper: "Si tiene subcategoría, escribila. Si no tiene, dejalo vacío.",
+    placeholder: "Ej: Manga corta",
+    optional: true,
+  },
+];
+
+const initialCreateForm: CreateProductForm = {
+  nombre: "",
+  colores: "",
+  talles: "",
+  precio: "",
+  precioRebajado: "",
+  descripcionCorta: "",
+  categoria: "",
+  subcategoria: "",
+};
+
+function normalizeCommaField(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function cleanMoney(value: string) {
+  return String(value || "").replace(/[^\d]/g, "");
+}
+
+function buildCreateProductMessage(form: CreateProductForm) {
+  const cleanColors = normalizeCommaField(form.colores);
+  const cleanSizes = normalizeCommaField(form.talles);
+  const cleanPrice = cleanMoney(form.precio);
+  const cleanSalePrice = cleanMoney(form.precioRebajado);
+  const shortDescription = form.descripcionCorta.trim();
+  const category = form.categoria.trim();
+  const subcategory = form.subcategoria.trim();
+  const name = form.nombre.trim();
+
+  const lines: string[] = [];
+
+  if (cleanColors || cleanSizes) {
+    lines.push("crear producto variable");
+    lines.push(`nombre: ${name}`);
+    if (cleanColors) lines.push(`color: ${cleanColors}`);
+    if (cleanSizes) lines.push(`talle: ${cleanSizes}`);
+    lines.push(`precio: ${cleanPrice}`);
+    if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+    if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
+    lines.push(`categoria: ${category}`);
+    if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+    return lines.join("\n");
+  }
+
+  lines.push("crear producto simple");
+  lines.push(`nombre: ${name}`);
+  lines.push(`precio: ${cleanPrice}`);
+  if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+  if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
+  lines.push(`categoria: ${category}`);
+  if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+
+  return lines.join("\n");
+}
 
 export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,25 +169,34 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+
+  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  const [createStepIndex, setCreateStepIndex] = useState(0);
+  const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const storageKey = useMemo(() => {
-  if (typeof window === "undefined") return "";
-  const userRaw = localStorage.getItem("user");
-  let userId = "guest";
+    if (typeof window === "undefined") return "";
+    const userRaw = localStorage.getItem("user");
+    let userId = "guest";
 
-  if (userRaw) {
-    try {
-      const user = JSON.parse(userRaw);
-      userId = user?.id || "guest";
-    } catch {}
-  }
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        userId = user?.id || "guest";
+      } catch {}
+    }
 
-  return `chat_history_${userId}_${agentId}`;
-}, [agentId]);
+    return `chat_history_${userId}_${agentId}`;
+  }, [agentId]);
 
-  async function handleSend(filesOverride?: File[]) {
+  const currentCreateStep = activeAction === "create" ? CREATE_STEPS[createStepIndex] : null;
+  const isCreateStepPhotos = currentCreateStep?.key === "fotos";
+
+  async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
     const filesToSend = filesOverride ?? selectedFiles;
-    const cleanText = text.trim();
+    const cleanText = messageToSend.trim();
 
     if ((!cleanText && filesToSend.length === 0) || loading) return;
 
@@ -65,25 +223,21 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
 
       const token = localStorage.getItem("token") || "";
 
-const res = await fetch(`${API}/run-agent`, {
-  method: "POST",
-  headers: token
-    ? {
-        Authorization: `Bearer ${token}`,
-      }
-    : undefined,
-  body: form,
-});
+      const res = await fetch(`${API}/run-agent`, {
+        method: "POST",
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
+        body: form,
+      });
 
       const response = await res.json();
 
       const assistantMessage: Message = {
         role: "assistant",
-        text:
-  response.reply ||
-  response.error ||
-  response.detail ||
-  "Sin respuesta del agente.",
+        text: response.reply || response.error || response.detail || "Sin respuesta del agente.",
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -104,47 +258,220 @@ const res = await fetch(`${API}/run-agent`, {
     }
   }
 
-  function mergeFiles(newFiles: File[]) {
-  setSelectedFiles((prev) => {
-    const map = new Map<string, File>();
+  async function handleSend(filesOverride?: File[]) {
+    await sendToAgent(text, filesOverride);
+  }
 
-    [...prev, ...newFiles].forEach((file) => {
-      const key = `${file.name}-${file.size}-${file.lastModified}`;
-      map.set(key, file);
+  function mergeFiles(newFiles: File[]) {
+    setSelectedFiles((prev) => {
+      const map = new Map<string, File>();
+
+      [...prev, ...newFiles].forEach((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        map.set(key, file);
+      });
+
+      return Array.from(map.values());
+    });
+  }
+
+  function pushAssistantInfo(textMessage: string) {
+    setMessages((prev) => [...prev, { role: "assistant", text: textMessage }]);
+  }
+
+  function startCreateProduct() {
+    setActiveAction("create");
+    setCreateForm(initialCreateForm);
+    setCreateStepIndex(0);
+    setText("");
+    pushAssistantInfo(
+      "Vamos a crear un producto paso por paso. Orden: fotos, nombre, colores, talles, precio, precio rebajado, descripción corta, categoría y subcategoría."
+    );
+  }
+
+  function cancelCreateProduct() {
+    setActiveAction(null);
+    setCreateStepIndex(0);
+    setCreateForm(initialCreateForm);
+    setText("");
+  }
+
+  function saveCurrentCreateStepValue() {
+    if (!currentCreateStep || currentCreateStep.key === "fotos") return true;
+
+    const rawValue = text.trim();
+    const isOptional = Boolean(currentCreateStep.optional);
+
+    if (!rawValue && !isOptional) {
+      return false;
+    }
+
+    setCreateForm((prev) => {
+      switch (currentCreateStep.key) {
+        case "nombre":
+          return { ...prev, nombre: rawValue };
+        case "colores":
+          return { ...prev, colores: rawValue };
+        case "talles":
+          return { ...prev, talles: rawValue };
+        case "precio":
+          return { ...prev, precio: rawValue };
+        case "precioRebajado":
+          return { ...prev, precioRebajado: rawValue };
+        case "descripcionCorta":
+          return { ...prev, descripcionCorta: rawValue };
+        case "categoria":
+          return { ...prev, categoria: rawValue };
+        case "subcategoria":
+          return { ...prev, subcategoria: rawValue };
+        default:
+          return prev;
+      }
     });
 
-    return Array.from(map.values());
-  });
-}
+    setText("");
+    return true;
+  }
 
-useEffect(() => {
-  if (!storageKey) return;
+  function loadCurrentStepValue(stepIndex: number) {
+    const step = CREATE_STEPS[stepIndex];
+    if (!step || step.key === "fotos") {
+      setText("");
+      return;
+    }
 
-  try {
-    const saved = localStorage.getItem(storageKey);
+    setText(
+      step.key === "nombre"
+        ? createForm.nombre
+        : step.key === "colores"
+          ? createForm.colores
+          : step.key === "talles"
+            ? createForm.talles
+            : step.key === "precio"
+              ? createForm.precio
+              : step.key === "precioRebajado"
+                ? createForm.precioRebajado
+                : step.key === "descripcionCorta"
+                  ? createForm.descripcionCorta
+                  : step.key === "categoria"
+                    ? createForm.categoria
+                    : createForm.subcategoria
+    );
+  }
 
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        setMessages(parsed);
+  function nextCreateStep() {
+    if (!currentCreateStep) return;
+
+    if (!saveCurrentCreateStepValue()) {
+      pushAssistantInfo(`Falta completar: ${currentCreateStep.title}.`);
+      return;
+    }
+
+    const nextIndex = createStepIndex + 1;
+
+    if (nextIndex >= CREATE_STEPS.length) {
+      return;
+    }
+
+    setCreateStepIndex(nextIndex);
+    setText("");
+  }
+
+  function previousCreateStep() {
+    if (createStepIndex === 0) return;
+
+    if (!isCreateStepPhotos) {
+      saveCurrentCreateStepValue();
+    }
+
+    const prevIndex = createStepIndex - 1;
+    setCreateStepIndex(prevIndex);
+    loadCurrentStepValue(prevIndex);
+  }
+
+  async function submitCreateProduct() {
+    if (activeAction !== "create") return;
+
+    if (!saveCurrentCreateStepValue()) {
+      if (currentCreateStep) {
+        pushAssistantInfo(`Falta completar: ${currentCreateStep.title}.`);
+      }
+      return;
+    }
+
+    const finalForm = {
+      ...createForm,
+      ...(currentCreateStep?.key === "nombre" ? { nombre: text.trim() } : {}),
+      ...(currentCreateStep?.key === "colores" ? { colores: text.trim() } : {}),
+      ...(currentCreateStep?.key === "talles" ? { talles: text.trim() } : {}),
+      ...(currentCreateStep?.key === "precio" ? { precio: text.trim() } : {}),
+      ...(currentCreateStep?.key === "precioRebajado" ? { precioRebajado: text.trim() } : {}),
+      ...(currentCreateStep?.key === "descripcionCorta" ? { descripcionCorta: text.trim() } : {}),
+      ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {}),
+      ...(currentCreateStep?.key === "subcategoria" ? { subcategoria: text.trim() } : {}),
+    };
+
+    const missingRequired: string[] = [];
+
+    if (!finalForm.nombre.trim()) missingRequired.push("Nombre");
+    if (!cleanMoney(finalForm.precio)) missingRequired.push("Precio");
+    if (!finalForm.categoria.trim()) missingRequired.push("Categoría");
+
+    if (missingRequired.length > 0) {
+      pushAssistantInfo(`Faltan estos datos para crear el producto: ${missingRequired.join(", ")}.`);
+      return;
+    }
+
+    const builtMessage = buildCreateProductMessage(finalForm);
+
+    await sendToAgent(builtMessage, selectedFiles);
+
+    setActiveAction(null);
+    setCreateStepIndex(0);
+    setCreateForm(initialCreateForm);
+    setText("");
+  }
+
+  useEffect(() => {
+    if (!storageKey) return;
+
+    try {
+      const saved = localStorage.getItem(storageKey);
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setMessages(parsed);
+        } else {
+          setMessages([]);
+        }
       } else {
         setMessages([]);
       }
-    } else {
+    } catch {
       setMessages([]);
     }
-  } catch {
-    setMessages([]);
-  }
-}, [storageKey]);
+  }, [storageKey]);
 
-useEffect(() => {
-  if (!storageKey) return;
+  useEffect(() => {
+    if (!storageKey) return;
 
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(messages));
-  } catch {}
-}, [messages, storageKey]);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch {}
+  }, [messages, storageKey]);
+
+  useEffect(() => {
+    if (activeAction !== "create" || !currentCreateStep) return;
+
+    if (currentCreateStep.key === "fotos") {
+      setText("");
+      return;
+    }
+
+    loadCurrentStepValue(createStepIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAction, createStepIndex]);
 
   return (
     <div
@@ -160,46 +487,132 @@ useEffect(() => {
       }}
     >
       <div
-  style={{
-    padding: "18px 20px",
-    borderBottom: "1px solid #182235",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
-  }}
->
-  <div
-    style={{
-      fontWeight: 700,
-      fontSize: 18,
-    }}
-  >
-    Chat con {agentName}
-  </div>
+        style={{
+          padding: "18px 20px",
+          borderBottom: "1px solid #182235",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 18,
+          }}
+        >
+          Chat con {agentName}
+        </div>
 
-  <button
-    type="button"
-    onClick={() => {
-      setMessages([]);
-      if (storageKey) {
-        localStorage.removeItem(storageKey);
-      }
-    }}
-    style={{
-      border: "1px solid #243041",
-      background: "#0f172a",
-      color: "#e5e7eb",
-      borderRadius: 12,
-      padding: "8px 12px",
-      cursor: "pointer",
-      fontSize: 13,
-    }}
-  >
-    Limpiar chat
-  </button>
-</div>
+        <button
+          type="button"
+          onClick={() => {
+            setMessages([]);
+            if (storageKey) {
+              localStorage.removeItem(storageKey);
+            }
+          }}
+          style={{
+            border: "1px solid #243041",
+            background: "#0f172a",
+            color: "#e5e7eb",
+            borderRadius: 12,
+            padding: "8px 12px",
+            cursor: "pointer",
+            fontSize: 13,
+          }}
+        >
+          Limpiar chat
+        </button>
+      </div>
+
+      <div
+        style={{
+          padding: "14px 16px 0 16px",
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <button type="button" onClick={startCreateProduct} style={quickActionPrimaryStyle}>
+          Crear producto
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveAction("edit");
+            pushAssistantInfo("Editar producto lo dejamos para el siguiente paso.");
+          }}
+          style={quickActionSecondaryStyle}
+        >
+          Editar producto
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveAction("delete");
+            pushAssistantInfo("Eliminar producto lo dejamos para el siguiente paso.");
+          }}
+          style={quickActionSecondaryStyle}
+        >
+          Eliminar producto
+        </button>
+      </div>
+
+      {activeAction === "create" && currentCreateStep && (
+        <div
+          style={{
+            margin: "14px 16px 0 16px",
+            padding: 14,
+            borderRadius: 16,
+            border: "1px solid #1d4ed8",
+            background: "rgba(37,99,235,0.12)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ color: "#93c5fd", fontSize: 12, marginBottom: 4 }}>
+                Paso {createStepIndex + 1} de {CREATE_STEPS.length}
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{currentCreateStep.title}</div>
+              <div style={{ color: "#cbd5e1", fontSize: 14, marginTop: 6 }}>{currentCreateStep.helper}</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <button type="button" onClick={cancelCreateProduct} style={wizardSecondaryButtonStyle}>
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={previousCreateStep}
+                disabled={createStepIndex === 0}
+                style={{
+                  ...wizardSecondaryButtonStyle,
+                  opacity: createStepIndex === 0 ? 0.55 : 1,
+                  cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                Anterior
+              </button>
+
+              {createStepIndex < CREATE_STEPS.length - 1 ? (
+                <button type="button" onClick={nextCreateStep} style={wizardPrimaryButtonStyle}>
+                  Siguiente
+                </button>
+              ) : (
+                <button type="button" onClick={submitCreateProduct} style={wizardPrimaryButtonStyle}>
+                  Crear producto
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         style={{
@@ -260,32 +673,32 @@ useEffect(() => {
       </div>
 
       <div
-  onDragOver={(e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }}
-  onDragLeave={(e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }}
-  onDrop={(e) => {
-    e.preventDefault();
-    setIsDragging(false);
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
 
-    const files = Array.from(e.dataTransfer.files || []).filter((file) =>
-      file.type.startsWith("image/")
-    );
+          const files = Array.from(e.dataTransfer.files || []).filter((file) =>
+            file.type.startsWith("image/")
+          );
 
-    if (files.length > 0) {
-      mergeFiles(files);
-    }
-  }}
-  style={{
-    borderTop: "1px solid #182235",
-    padding: 16,
-    background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
-  }}
->
+          if (files.length > 0) {
+            mergeFiles(files);
+          }
+        }}
+        style={{
+          borderTop: "1px solid #182235",
+          padding: 16,
+          background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
+        }}
+      >
         {selectedFiles.length > 0 && (
           <div
             style={{
@@ -310,7 +723,8 @@ useEffect(() => {
                   color: "#d1d5db",
                 }}
               >
-                <span>{file.name}</span>
+                <span>{index === 0 ? `Principal · ${file.name}` : file.name}</span>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -338,14 +752,14 @@ useEffect(() => {
         )}
 
         <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    gap: 12,
-    alignItems: "end",
-  }}
-  className="chat-input-grid"
->
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 12,
+            alignItems: "end",
+          }}
+          className="chat-input-grid"
+        >
           <div
             style={{
               border: "1px solid #243041",
@@ -354,29 +768,45 @@ useEffect(() => {
               padding: 12,
             }}
           >
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Escribí tu mensaje..."
-              rows={3}
-              style={{
-                width: "100%",
-                resize: "none",
-                border: "none",
-                background: "transparent",
-                color: "white",
-                outline: "none",
-                fontSize: 15,
-                lineHeight: 1.5,
-                marginBottom: 10,
-              }}
-            />
+            {isCreateStepPhotos ? (
+              <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
+                Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
+              </div>
+            ) : (
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+
+                    if (activeAction === "create") {
+                      if (createStepIndex < CREATE_STEPS.length - 1) {
+                        nextCreateStep();
+                      } else {
+                        submitCreateProduct();
+                      }
+                      return;
+                    }
+
+                    handleSend();
+                  }
+                }}
+                placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
+                rows={3}
+                style={{
+                  width: "100%",
+                  resize: "none",
+                  border: "none",
+                  background: "transparent",
+                  color: "white",
+                  outline: "none",
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  marginBottom: 10,
+                }}
+              />
+            )}
 
             <div
               style={{
@@ -387,7 +817,7 @@ useEffect(() => {
                 flexWrap: "wrap",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -405,8 +835,10 @@ useEffect(() => {
                 </button>
 
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>
-  Arrastrá fotos acá · Enter envía · Shift + Enter baja de línea
-</span>
+                  {activeAction === "create"
+                    ? "Modo crear producto activo"
+                    : "Arrastrá fotos acá · Enter envía · Shift + Enter baja de línea"}
+                </span>
               </div>
 
               <input
@@ -415,36 +847,80 @@ useEffect(() => {
                 multiple
                 accept="image/*"
                 onChange={(e) => {
-  const files = Array.from(e.target.files || []).filter((file) =>
-    file.type.startsWith("image/")
-  );
-  mergeFiles(files);
-}}
+                  const files = Array.from(e.target.files || []).filter((file) =>
+                    file.type.startsWith("image/")
+                  );
+                  mergeFiles(files);
+                }}
                 style={{ display: "none" }}
               />
             </div>
           </div>
 
-          <button
-            onClick={() => handleSend()}
-            disabled={loading}
-            style={{
-              height: 56,
-              minWidth: 120,
-              padding: "0 20px",
-              borderRadius: 14,
-              border: "none",
-              background: loading ? "#374151" : "#2563eb",
-              color: "white",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontSize: 15,
-              fontWeight: 600,
-            }}
-          >
-            Enviar
-          </button>
+          {activeAction !== "create" && (
+            <button
+              onClick={() => handleSend()}
+              disabled={loading}
+              style={{
+                height: 56,
+                minWidth: 120,
+                padding: "0 20px",
+                borderRadius: 14,
+                border: "none",
+                background: loading ? "#374151" : "#2563eb",
+                color: "white",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize: 15,
+                fontWeight: 600,
+              }}
+            >
+              Enviar
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+const quickActionPrimaryStyle: React.CSSProperties = {
+  border: "1px solid #2563eb",
+  background: "#2563eb",
+  color: "white",
+  borderRadius: 12,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const quickActionSecondaryStyle: React.CSSProperties = {
+  border: "1px solid #243041",
+  background: "#111827",
+  color: "#e5e7eb",
+  borderRadius: 12,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+};
+
+const wizardPrimaryButtonStyle: React.CSSProperties = {
+  border: "none",
+  background: "#2563eb",
+  color: "white",
+  borderRadius: 12,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
+const wizardSecondaryButtonStyle: React.CSSProperties = {
+  border: "1px solid #334155",
+  background: "#0f172a",
+  color: "#e5e7eb",
+  borderRadius: 12,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+};

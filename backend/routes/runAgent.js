@@ -13,6 +13,7 @@ import {
   createSimpleProduct,
   createVariableProduct,
   ensureCategoryByName,
+  ensureCategoryPath,
   suggestCategoriesByName,
   uploadImageToWordpress
 } from "../tools/woocommerce.js";
@@ -603,18 +604,22 @@ function parseSupplierStockBlock(raw) {
   return stockMap;
 }
 
-function buildSupplierVariableVariations({ colors = [], sizes = [], price, stockMap = null }) {
+function buildSupplierVariableVariations({ colors = [], sizes = [], price, salePrice = null, stockMap = null }) {
   const variations = [];
 
   for (const color of colors) {
     for (const size of sizes) {
-      const variation = {
+            const variation = {
         attributes: [
           { name: "Color", option: color },
           { name: "Talle", option: size },
         ],
         regular_price: String(price),
       };
+
+      if (Number.isFinite(salePrice)) {
+        variation.sale_price = String(salePrice);
+      }
 
       const key = `${normalizeKeyName(color)}__${normalizeKeyName(size)}`;
       const hasStock = stockMap instanceof Map && stockMap.has(key);
@@ -661,11 +666,16 @@ function parseSupplierVariableProductMessage(message) {
   const name = normalizeSpaces(data.nombre || "");
   const priceRaw = normalizeSpaces(data.precio || "");
   const categoryName = normalizeSpaces(data.categoria || "");
+  const subcategoryName = normalizeSpaces(data.subcategoria || "");
+  const shortDescription = normalizeSpaces(data.descripcion_corta || "");
+  const salePriceRaw = normalizeSpaces(data.precio_rebajado || "");
   const colorRaw = normalizeSpaces(data.color || "");
   const sizeRaw = normalizeSpaces(data.talle || "");
 
   const cleanPrice = priceRaw.replace(/[^\d]/g, "");
   const price = cleanPrice ? Number(cleanPrice) : null;
+  const cleanSalePrice = salePriceRaw.replace(/[^\d]/g, "");
+  const salePrice = cleanSalePrice ? Number(cleanSalePrice) : null;
 
   const colors = colorRaw
     .split(",")
@@ -691,20 +701,24 @@ function parseSupplierVariableProductMessage(message) {
     });
   }
 
-  const variations =
+    const variations =
     Number.isFinite(price) && colors.length > 0 && sizes.length > 0
       ? buildSupplierVariableVariations({
           colors: [...new Set(colors)],
           sizes: [...new Set(sizes)],
           price,
+          salePrice,
           stockMap,
         })
       : [];
 
-  return {
+    return {
     name,
     price,
+    salePrice,
     categoryName,
+    subcategoryName,
+    shortDescription,
     colors: [...new Set(colors)],
     sizes: [...new Set(sizes)],
     attributes,
@@ -956,11 +970,17 @@ if (
       }
 
       const name = extractField(message, "nombre");
+
       const regularPriceRaw = extractField(message, "precio");
+      const subcategoryName = extractField(message, "subcategoria");
+      const salePriceRaw = extractField(message, "precio_rebajado");
       const stockQuantityRaw = extractField(message, "stock");
       const categoryName = extractField(message, "categoria") || extractLooseCategoryValue(message);
 
       const regularPrice = regularPriceRaw ? Number(regularPriceRaw) : null;
+      const salePrice = salePriceRaw
+      ? Number(String(salePriceRaw).replace(/[^\d]/g, ""))
+      : null;
       const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
       const description = extractField(message, "descripcion");
       const shortDescription = extractField(message, "descripcion_corta");
@@ -1030,16 +1050,15 @@ if (stockQuantityRaw && Number.isNaN(stockQuantity)) {
 let categories = [];
 
 if (categoryName) {
-
-  const categoryResult = await ensureCategoryByName({
+  const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,
     consumerSecret,
-    name: categoryName,
+    categoryName,
+    subcategoryName,
   });
 
-  categories = [categoryResult.category.id];
-
+  categories = categoryResult.categories;
 }
 
 let uploadedImages = [];
@@ -1073,6 +1092,7 @@ if (files.length > 0) {
   consumerSecret,
   name,
   regularPrice,
+  salePrice: Number.isFinite(salePrice) ? salePrice : "",
   description,
   shortDescription,
   categories,
@@ -1253,11 +1273,12 @@ if (looksLikeSupplierVariableProductMessage(message)) {
     });
   }
 
-  const categoryResult = await ensureCategoryByName({
+    const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,
     consumerSecret,
-    name: parsed.categoryName,
+    categoryName: parsed.categoryName,
+    subcategoryName: parsed.subcategoryName,
   });
 
   let uploadedImages = [];
@@ -1282,14 +1303,14 @@ if (looksLikeSupplierVariableProductMessage(message)) {
     }
   }
 
-  const result = await createVariableProduct({
+    const result = await createVariableProduct({
     baseUrl,
     consumerKey,
     consumerSecret,
     name: parsed.name,
     description: "",
-    shortDescription: "",
-    categories: [categoryResult.category.id],
+    shortDescription: parsed.shortDescription || "",
+    categories: categoryResult.categories,
     attributes: parsed.attributes,
     variations: parsed.variations,
     images: uploadedImages,

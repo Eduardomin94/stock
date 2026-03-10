@@ -203,10 +203,18 @@ async function searchCategoriesByName(baseUrl, consumerKey, consumerSecret, sear
   return Array.isArray(response.data) ? response.data : [];
 }
 
-async function createCategory(baseUrl, consumerKey, consumerSecret, name) {
+async function createCategory(baseUrl, consumerKey, consumerSecret, name, parentId = 0) {
+  const payload = {
+    name: String(name || "").trim(),
+  };
+
+  if (Number(parentId) > 0) {
+    payload.parent = Number(parentId);
+  }
+
   const response = await axios.post(
     `${normalizeBaseUrl(baseUrl)}/products/categories`,
-    { name: String(name || "").trim() },
+    payload,
     {
       params: buildAuthParams(consumerKey, consumerSecret),
       headers: {
@@ -271,6 +279,79 @@ export async function ensureCategoryByName({
     },
   };
 }
+export async function ensureCategoryPath({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  categoryName,
+  subcategoryName = "",
+}) {
+  const mainCategory = await ensureCategoryByName({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    name: categoryName,
+  });
+
+  if (!subcategoryName) {
+    return {
+      ok: true,
+      parentCategory: mainCategory.category,
+      finalCategory: mainCategory.category,
+      categories: [mainCategory.category.id],
+    };
+  }
+
+  const cleanSubcategory = String(subcategoryName || "").trim();
+
+  const found = await searchCategoriesByName(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    cleanSubcategory
+  );
+
+  const exactChild = found.find((cat) => {
+    const sameName =
+      String(cat?.name || "").trim().toLowerCase() === cleanSubcategory.toLowerCase();
+    const sameParent = Number(cat?.parent || 0) === Number(mainCategory.category.id);
+    return sameName && sameParent;
+  });
+
+  if (exactChild) {
+    return {
+      ok: true,
+      parentCategory: mainCategory.category,
+      finalCategory: {
+        id: exactChild.id,
+        name: exactChild.name,
+        slug: exactChild.slug ?? "",
+        parent: exactChild.parent ?? 0,
+      },
+      categories: [exactChild.id],
+    };
+  }
+
+  const createdChild = await createCategory(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    cleanSubcategory,
+    mainCategory.category.id
+  );
+
+  return {
+    ok: true,
+    parentCategory: mainCategory.category,
+    finalCategory: {
+      id: createdChild.id,
+      name: createdChild.name,
+      slug: createdChild.slug ?? "",
+      parent: createdChild.parent ?? 0,
+    },
+    categories: [createdChild.id],
+  };
+}
 
 export async function suggestCategoriesByName({
   baseUrl,
@@ -307,6 +388,7 @@ export async function createSimpleProduct({
   consumerSecret,
   name,
   regularPrice,
+  salePrice = "",
   description = "",
   shortDescription = "",
   categories = [],
@@ -329,6 +411,9 @@ export async function createSimpleProduct({
     manage_stock: Boolean(manageStock),
     stock_quantity: stockQuantity == null ? null : Number(stockQuantity),
   };
+    if (salePrice !== undefined && salePrice !== null && String(salePrice).trim() !== "") {
+    payload.sale_price = String(salePrice).trim();
+  }
   if (Array.isArray(images) && images.length > 0) {
   payload.images = images
     .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
@@ -1005,6 +1090,14 @@ export async function createVariableProduct({
       option: a.option,
     })),
   };
+
+    if (
+    variation.sale_price !== undefined &&
+    variation.sale_price !== null &&
+    variation.sale_price !== ""
+  ) {
+    payload.sale_price = String(variation.sale_price);
+  }
 
   const variationColor = variation.attributes.find(
     (a) => String(a.name || "").trim().toLowerCase() === "color"
