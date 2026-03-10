@@ -4,8 +4,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { requireAdmin } from "../middleware/requireAdmin.js";
-import architectPromptModule from "../architectPrompt.js";
-const { AGENT_ARCHITECT_PROMPT } = architectPromptModule;
+import { AGENT_ARCHITECT_PROMPT } from "../architectPrompt.js";
 
 const router = express.Router();
 
