@@ -713,7 +713,7 @@ function parseSupplierVariableProductMessage(message) {
   };
 }
 import { requireAdmin } from "../middleware/requireAdmin.js";
-router.post("/", requireAdmin, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { agentId, message } = req.body;
     const files = req.files || [];
