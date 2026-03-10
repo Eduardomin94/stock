@@ -3,7 +3,9 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { AGENT_ARCHITECT_PROMPT } from "../architectPrompt.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
+import architectPromptModule from "../../architectPrompt.js";
+const { AGENT_ARCHITECT_PROMPT } = architectPromptModule;
 
 const router = express.Router();
 
@@ -11,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_FILE = path.join(__dirname, "../data/agents.json");
 
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,

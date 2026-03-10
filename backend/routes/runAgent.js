@@ -21,9 +21,10 @@ import {
   findAgent,
   savePendingDraft,
   getPendingDraft,
-  clearPendingDraft
+  clearPendingDraft,
+  improveAgent,
+  repairAgent
 } from "../services/masterAgent.js";
-import { improveAgent } from "../services/masterAgent.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
 import { decryptText } from "../services/crypto.js";
@@ -706,17 +707,77 @@ function parseSupplierVariableProductMessage(message) {
     stockLinesParsed: stockMap.size,
   };
 }
-
-router.post("/", async (req, res) => {
+import { requireAdmin } from "../middleware/requireAdmin.js";
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const { agentId, message } = req.body;
     const files = req.files || [];
     // ===== MASTER AGENT COMMANDS =====
 
 const lowerMessage = String(message || "").toLowerCase();
+if (lowerMessage.startsWith("crear agente:") || lowerMessage.startsWith("crea agente:")) {
+  const requestText = message.split(":").slice(1).join(":").trim();
+
+  if (!requestText) {
+    return res.json({
+      reply: "Pasame qué agente querés crear. Ejemplo: crear agente: un agente que administre cupones de WooCommerce"
+    });
+  }
+
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const response = await client.responses.create({
+    model: "gpt-5",
+    input: [
+      {
+        role: "system",
+        content: `Sos un arquitecto de agentes. Devolvé solo JSON válido con estos campos:
+name, role, objective, capabilities, limitations, tools, safety_rules, response_style, example_requests, system_prompt`
+      },
+      {
+        role: "user",
+        content: requestText,
+      },
+    ],
+  });
+
+  const text = response.output_text || "";
+  let parsed;
+
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return res.json({
+      reply: "No pude crear el agente porque la IA no devolvió JSON válido.",
+      raw: text
+    });
+  }
+
+  const rawFile = fs.existsSync(DATA_FILE)
+    ? fs.readFileSync(DATA_FILE, "utf-8")
+    : "[]";
+
+  const agents = rawFile ? JSON.parse(rawFile) : [];
+
+  const newAgent = {
+    id: Date.now().toString(),
+    created_at: new Date().toISOString(),
+    created_by_master: true,
+    ...parsed,
+  };
+
+  agents.push(newAgent);
+  fs.writeFileSync(DATA_FILE, JSON.stringify(agents, null, 2), "utf-8");
+
+  return res.json({
+    reply: `Agente creado correctamente: ${newAgent.name}`,
+    agent: newAgent
+  });
+}
 
 if (lowerMessage.includes("arregla agente")) {
-
   const targetIdMatch = message.match(/agentid\s*=\s*(\d+)/i);
 
   if (!targetIdMatch) {
@@ -726,7 +787,6 @@ if (lowerMessage.includes("arregla agente")) {
   }
 
   const targetId = targetIdMatch[1];
-
   const targetAgent = findAgent(targetId);
 
   if (!targetAgent) {
@@ -735,12 +795,21 @@ if (lowerMessage.includes("arregla agente")) {
     });
   }
 
+  const repaired = repairAgent(targetAgent);
   const updated = updateAgent(targetId, {
+    ...repaired.agent,
     repaired_by_master: true
   });
 
+  if (!repaired.repaired) {
+    return res.json({
+      reply: "El agente ya estaba sano. No hizo falta repararlo.",
+      agent: updated
+    });
+  }
+
   return res.json({
-    reply: "El agente fue marcado como reparado por el agente maestro.",
+    reply: `El agente fue reparado automáticamente. Campos corregidos: ${repaired.missing.join(", ")}`,
     agent: updated
   });
 }

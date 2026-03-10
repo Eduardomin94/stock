@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Agent = {
   id: string;
@@ -15,6 +16,11 @@ type ChatMessage = {
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
 export default function MasterPage() {
+  const router = useRouter();
+  const ADMIN_EMAIL = String(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "").trim().toLowerCase();
+
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(true);
   const [agentsError, setAgentsError] = useState("");
@@ -27,12 +33,44 @@ export default function MasterPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userRaw = localStorage.getItem("user");
+
+    if (!token || !userRaw) {
+      router.push("/login");
+      return;
+    }
+
+    try {
+      const user = JSON.parse(userRaw);
+      const email = String(user?.email || "").trim().toLowerCase();
+
+      if (!email || email !== ADMIN_EMAIL) {
+        router.push("/");
+        return;
+      }
+    } catch {
+      router.push("/");
+      return;
+    } finally {
+      setAuthChecking(false);
+    }
+  }, [router, ADMIN_EMAIL]);
+
+  useEffect(() => {
+    if (authChecking) return;
+
     async function loadAgents() {
       try {
         setLoadingAgents(true);
         setAgentsError("");
 
-        const res = await fetch(`${API}/agents`);
+        const token = localStorage.getItem("token");
+
+        const res = await fetch(`${API}/agents`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
         if (!res.ok) {
           throw new Error("No se pudieron cargar los agentes");
         }
@@ -58,7 +96,7 @@ export default function MasterPage() {
     }
 
     loadAgents();
-  }, []);
+  }, [authChecking]);
 
   const masterAgentName = useMemo(() => {
     return agents.find((a) => a.id === masterAgentId)?.name || "";
@@ -110,10 +148,13 @@ export default function MasterPage() {
       pushMessage("user", cleanMessage);
       setMessage("");
 
+      const token = localStorage.getItem("token");
+
       const res = await fetch(`${API}/run-agent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           agentId: masterAgentId,
@@ -138,6 +179,16 @@ export default function MasterPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  if (authChecking) {
+    return (
+      <main style={styles.page}>
+        <div style={styles.container}>
+          <p style={styles.info}>Verificando acceso...</p>
+        </div>
+      </main>
+    );
   }
 
   return (

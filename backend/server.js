@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import multer from "multer";
 import createAgentRoute from "./routes/createAgents.js";
 import listAgentsRoute from "./routes/listAgents.js";
 import runAgentRoute from "./routes/runAgent.js";
@@ -14,11 +15,8 @@ import testApplyStockByColorSizeRoute from "./routes/testApplyStockByColorSize.j
 import testPlanStockByColorOnlyRoute from "./routes/testPlanStockByColorOnly.js";
 import testCreateSimpleProductRoute from "./routes/testCreateSimpleProduct.js";
 import testCreateVariableProductRoute from "./routes/testCreateVariableProduct.js";
-import { auditAgents } from "./services/masterAgent.js";
-import multer from "multer";
 import registerRoute from "./routes/register.js";
 import loginRoute from "./routes/login.js";
-
 
 
 dotenv.config();

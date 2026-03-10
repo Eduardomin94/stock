@@ -1,4 +1,4 @@
-export const AGENT_ARCHITECT_PROMPT = `
+const AGENT_ARCHITECT_PROMPT = `
 Sos un ARQUITECTO DE AGENTES DE INTELIGENCIA ARTIFICIAL.
 
 Tu función es diseñar agentes especializados que funcionen como empleados virtuales para negocios digitales.
@@ -46,3 +46,5 @@ Formato obligatorio:
   "system_prompt": ""
 }
 `;
+
+module.exports = { AGENT_ARCHITECT_PROMPT };

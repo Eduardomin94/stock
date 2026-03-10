@@ -29,10 +29,20 @@ router.post("/", async (req, res) => {
     }
 
     const raw = fs.readFileSync(USERS_FILE, "utf-8");
-    const users = raw ? JSON.parse(raw) : [];
+
+    let parsed;
+    try {
+      parsed = raw ? JSON.parse(raw) : [];
+    } catch {
+      return res.status(500).json({
+        error: "users.json no tiene JSON válido",
+      });
+    }
+
+    const users = Array.isArray(parsed) ? parsed : [];
 
     const user = users.find(
-      (item) => String(item.email || "").toLowerCase() === String(email).toLowerCase()
+      (u) => String(u.email || "").trim().toLowerCase() === String(email).trim().toLowerCase()
     );
 
     if (!user) {
@@ -51,7 +61,7 @@ router.post("/", async (req, res) => {
 
     const token = jwt.sign(
       {
-        userId: user.id,
+        id: user.id,
         email: user.email,
       },
       process.env.AUTH_JWT_SECRET || "dev_secret_change_this",
@@ -60,7 +70,7 @@ router.post("/", async (req, res) => {
       }
     );
 
-    res.json({
+    return res.json({
       ok: true,
       token,
       user: {
@@ -69,8 +79,8 @@ router.post("/", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
-      error: error.message,
+    return res.status(500).json({
+      error: error.message || "Error interno en login",
     });
   }
 });

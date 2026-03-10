@@ -20,11 +20,19 @@ export default function Page() {
   const [authChecking, setAuthChecking] = useState(true);
   const [error, setError] = useState("");
 
+  const [userEmail, setUserEmail] = useState("");
+
+  const isAdmin =
+    userEmail.trim().toLowerCase() ===
+    String(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "")
+      .trim()
+      .toLowerCase();
+
   function handleLogout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-  router.push("/login");
-}
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    router.push("/login");
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -32,6 +40,15 @@ export default function Page() {
     if (!token) {
       router.push("/login");
       return;
+    }
+
+    const userRaw = localStorage.getItem("user");
+
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        setUserEmail(user.email || "");
+      } catch {}
     }
 
     setAuthChecking(false);
@@ -64,19 +81,7 @@ export default function Page() {
   const selectedAgent = useMemo(() => {
     return agents.find((agent) => agent.id === selectedAgentId) || null;
   }, [agents, selectedAgentId]);
-const [userEmail, setUserEmail] = useState("");
 
-useEffect(() => {
-  const userRaw = localStorage.getItem("user");
-
-  if (userRaw) {
-    try {
-      const user = JSON.parse(userRaw);
-      setUserEmail(user.email || "");
-    } catch {}
-  }
-}, []);
-  
   if (authChecking) {
     return (
       <main
@@ -94,8 +99,6 @@ useEffect(() => {
     );
   }
 
-  
-
   return (
     <main
       style={{
@@ -106,41 +109,48 @@ useEffect(() => {
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: 16,
-      marginBottom: 24,
-      flexWrap: "wrap",
-    }}
-  >
-    <div>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
-        AI WooCommerce Manager
-      </h1>
+        {/* Barra superior */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            marginBottom: 24,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            {isAdmin && (
+              <button
+                onClick={() => router.push("/admin/users")}
+                style={buttonStyle}
+              >
+                Crear usuarios
+              </button>
+            )}
 
-      <p style={{ color: "#9ca3af" }}>
-        Seleccioná un agente y hablá con él.
-      </p>
-    </div>
+            {isAdmin && (
+              <button
+                onClick={() => router.push("/master")}
+                style={buttonStyle}
+              >
+                Agente maestro
+              </button>
+            )}
 
-    <button
-      onClick={handleLogout}
-      style={{
-        height: 44,
-        padding: "0 16px",
-        borderRadius: 12,
-        border: "1px solid #243041",
-        background: "#0b1220",
-        color: "white",
-        cursor: "pointer",
-      }}
-    >
-      Cerrar sesión
-    </button>
-  </div>
+            <button onClick={handleLogout} style={logoutButtonStyle}>
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+
         {loading && <p>Cargando agentes...</p>}
         {error && <p>{error}</p>}
 
@@ -181,3 +191,23 @@ useEffect(() => {
     </main>
   );
 }
+
+const buttonStyle: React.CSSProperties = {
+  height: 44,
+  padding: "0 16px",
+  borderRadius: 12,
+  border: "1px solid #243041",
+  background: "#111827",
+  color: "white",
+  cursor: "pointer",
+};
+
+const logoutButtonStyle: React.CSSProperties = {
+  height: 44,
+  padding: "0 16px",
+  borderRadius: 12,
+  border: "1px solid #243041",
+  background: "#0b1220",
+  color: "white",
+  cursor: "pointer",
+};
