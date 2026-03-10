@@ -712,8 +712,8 @@ function parseSupplierVariableProductMessage(message) {
     stockLinesParsed: stockMap.size,
   };
 }
-import { requireAdmin } from "../middleware/requireAdmin.js";
-router.post("/", async (req, res) => {
+
+router.post("/", upload.array("images", 10), async (req, res) => {
   try {
     const { agentId, message } = req.body;
     const files = req.files || [];
@@ -895,7 +895,7 @@ if (token) {
       process.env.AUTH_JWT_SECRET || "dev_secret_change_this"
     );
 
-    const user = findUserById(decoded.userId);
+   const user = findUserById(decoded.id);
 
     if (user) {
   baseUrl = user.store_url;

@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import multer from "multer";
 import createAgentRoute from "./routes/createAgents.js";
 import listAgentsRoute from "./routes/listAgents.js";
 import runAgentRoute from "./routes/runAgent.js";

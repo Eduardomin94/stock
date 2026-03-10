@@ -79,7 +79,11 @@ const res = await fetch(`${API}/run-agent`, {
 
       const assistantMessage: Message = {
         role: "assistant",
-        text: response.reply || "Sin respuesta del agente.",
+        text:
+  response.reply ||
+  response.error ||
+  response.detail ||
+  "Sin respuesta del agente.",
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
