@@ -21,12 +21,7 @@ import loginRoute from "./routes/login.js";
 dotenv.config();
 console.log("OPENAI_API_KEY cargada:", process.env.OPENAI_API_KEY ? "SI" : "NO");
 const app = express();
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  }
-});
+
 
 app.use(cors({
   origin: [
