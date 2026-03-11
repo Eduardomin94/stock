@@ -5,10 +5,21 @@ function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || "").replace(/\/+$/, "");
 }
 
-function buildAuthParams(consumerKey, consumerSecret) {
+function buildAuthHeader(consumerKey, consumerSecret) {
+  const token = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+
   return {
-    consumer_key: consumerKey,
-    consumer_secret: consumerSecret,
+    Authorization: `Basic ${token}`,
+  };
+}
+
+function buildWooConfig(consumerKey, consumerSecret, extra = {}) {
+  return {
+    ...extra,
+    headers: {
+      ...(extra.headers || {}),
+      ...buildAuthHeader(consumerKey, consumerSecret),
+    },
   };
 }
 
@@ -17,14 +28,16 @@ async function fetchAllVariableProducts(baseUrl, consumerKey, consumerSecret) {
   let page = 1;
 
   while (true) {
-    const response = await axios.get(`${normalizeBaseUrl(baseUrl)}/products`, {
-      params: {
-        ...buildAuthParams(consumerKey, consumerSecret),
-        type: "variable",
-        per_page: 100,
-        page,
-      },
-    });
+    const response = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          type: "variable",
+          per_page: 100,
+          page,
+        },
+      })
+    );
 
     const batch = Array.isArray(response.data) ? response.data : [];
 
@@ -38,14 +51,16 @@ async function fetchAllVariableProducts(baseUrl, consumerKey, consumerSecret) {
 }
 
 async function searchVariableProductsByName(baseUrl, consumerKey, consumerSecret, search) {
-  const response = await axios.get(`${normalizeBaseUrl(baseUrl)}/products`, {
-    params: {
-      ...buildAuthParams(consumerKey, consumerSecret),
-      type: "variable",
-      search,
-      per_page: 20,
-    },
-  });
+  const response = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        type: "variable",
+        search,
+        per_page: 20,
+      },
+    })
+  );
 
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -126,13 +141,12 @@ async function fetchAllVariations(baseUrl, consumerKey, consumerSecret, productI
   while (true) {
     const response = await axios.get(
       `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
-      {
+      buildWooConfig(consumerKey, consumerSecret, {
         params: {
-          ...buildAuthParams(consumerKey, consumerSecret),
           per_page: 100,
           page,
         },
-      }
+      })
     );
 
     const batch = Array.isArray(response.data) ? response.data : [];
@@ -150,12 +164,11 @@ async function updateVariation(baseUrl, consumerKey, consumerSecret, productId, 
   const response = await axios.put(
     `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variationId}`,
     payload,
-    {
-      params: buildAuthParams(consumerKey, consumerSecret),
+    buildWooConfig(consumerKey, consumerSecret, {
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    })
   );
 
   return response.data;
@@ -165,12 +178,11 @@ async function updateProduct(baseUrl, consumerKey, consumerSecret, productId, pa
   const response = await axios.put(
     `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
     payload,
-    {
-      params: buildAuthParams(consumerKey, consumerSecret),
+    buildWooConfig(consumerKey, consumerSecret, {
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    })
   );
 
   return response.data;
@@ -180,25 +192,179 @@ async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
   const response = await axios.post(
     `${normalizeBaseUrl(baseUrl)}/products`,
     payload,
-    {
-      params: buildAuthParams(consumerKey, consumerSecret),
+    buildWooConfig(consumerKey, consumerSecret, {
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    })
   );
 
   return response.data;
 }
 
-async function searchCategoriesByName(baseUrl, consumerKey, consumerSecret, search) {
-  const response = await axios.get(`${normalizeBaseUrl(baseUrl)}/products/categories`, {
-    params: {
-      ...buildAuthParams(consumerKey, consumerSecret),
-      search,
-      per_page: 20,
+async function fetchAllGlobalAttributes(baseUrl, consumerKey, consumerSecret) {
+  const response = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/attributes`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        per_page: 100,
+      },
+    })
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+async function createGlobalAttribute(baseUrl, consumerKey, consumerSecret, name) {
+  const response = await axios.post(
+    `${normalizeBaseUrl(baseUrl)}/products/attributes`,
+    {
+      name: String(name || "").trim(),
+      type: "select",
+      order_by: "menu_order",
+      has_archives: false,
     },
-  });
+    buildWooConfig(consumerKey, consumerSecret, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  return response.data;
+}
+
+async function fetchTermsForGlobalAttribute(baseUrl, consumerKey, consumerSecret, attributeId) {
+  const response = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/attributes/${attributeId}/terms`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        per_page: 100,
+      },
+    })
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+async function createTermForGlobalAttribute(baseUrl, consumerKey, consumerSecret, attributeId, name) {
+  const response = await axios.post(
+    `${normalizeBaseUrl(baseUrl)}/products/attributes/${attributeId}/terms`,
+    {
+      name: String(name || "").trim(),
+    },
+    buildWooConfig(consumerKey, consumerSecret, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  return response.data;
+}
+
+export async function ensureGlobalAttributeWithTerms({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  attributeName,
+  options = [],
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!attributeName) throw new Error("Falta attributeName");
+
+  const cleanAttributeName = String(attributeName || "").trim();
+  const cleanOptions = Array.from(
+    new Set(
+      (Array.isArray(options) ? options : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  const allAttributes = await fetchAllGlobalAttributes(
+    baseUrl,
+    consumerKey,
+    consumerSecret
+  );
+
+  let attribute = allAttributes.find(
+    (item) =>
+      String(item?.name || "").trim().toLowerCase() ===
+      cleanAttributeName.toLowerCase()
+  );
+
+  if (!attribute) {
+    attribute = await createGlobalAttribute(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      cleanAttributeName
+    );
+  }
+
+  const existingTerms = await fetchTermsForGlobalAttribute(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    attribute.id
+  );
+
+  const ensuredTerms = [];
+
+  for (const option of cleanOptions) {
+    const exactTerm = existingTerms.find(
+      (term) =>
+        String(term?.name || "").trim().toLowerCase() === option.toLowerCase()
+    );
+
+    if (exactTerm) {
+      ensuredTerms.push({
+        id: exactTerm.id,
+        name: exactTerm.name,
+        slug: exactTerm.slug ?? "",
+      });
+      continue;
+    }
+
+    const createdTerm = await createTermForGlobalAttribute(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      attribute.id,
+      option
+    );
+
+    ensuredTerms.push({
+      id: createdTerm.id,
+      name: createdTerm.name,
+      slug: createdTerm.slug ?? "",
+    });
+  }
+
+  return {
+    ok: true,
+    attribute: {
+      id: attribute.id,
+      name: attribute.name,
+      slug: attribute.slug ?? "",
+    },
+    terms: ensuredTerms,
+  };
+}
+
+async function searchCategoriesByName(baseUrl, consumerKey, consumerSecret, search) {
+  const response = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/categories`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        search,
+        per_page: 20,
+      },
+    })
+  );
 
   return Array.isArray(response.data) ? response.data : [];
 }
@@ -215,12 +381,11 @@ async function createCategory(baseUrl, consumerKey, consumerSecret, name, parent
   const response = await axios.post(
     `${normalizeBaseUrl(baseUrl)}/products/categories`,
     payload,
-    {
-      params: buildAuthParams(consumerKey, consumerSecret),
+    buildWooConfig(consumerKey, consumerSecret, {
       headers: {
         "Content-Type": "application/json",
       },
-    }
+    })
   );
 
   return response.data;
@@ -279,6 +444,7 @@ export async function ensureCategoryByName({
     },
   };
 }
+
 export async function ensureCategoryPath({
   baseUrl,
   consumerKey,
@@ -411,16 +577,18 @@ export async function createSimpleProduct({
     manage_stock: Boolean(manageStock),
     stock_quantity: stockQuantity == null ? null : Number(stockQuantity),
   };
-    if (salePrice !== undefined && salePrice !== null && String(salePrice).trim() !== "") {
+
+  if (salePrice !== undefined && salePrice !== null && String(salePrice).trim() !== "") {
     payload.sale_price = String(salePrice).trim();
   }
+
   if (Array.isArray(images) && images.length > 0) {
-  payload.images = images
-    .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
-    .map((img) => ({
-      id: img.id,
-    }));
-}
+    payload.images = images
+      .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+      .map((img) => ({
+        id: img.id,
+      }));
+  }
 
   if (Array.isArray(categories) && categories.length > 0) {
     payload.categories = categories
@@ -583,7 +751,6 @@ export async function auditVariableProductsStock({
   if (!consumerSecret) throw new Error("Falta consumerSecret");
 
   const products = await fetchAllVariableProducts(baseUrl, consumerKey, consumerSecret);
-
 
   const withoutSku = [];
   const manageStockDisabled = [];
@@ -840,6 +1007,7 @@ export async function planStockUpdateByColorAndSize({
     },
   };
 }
+
 export async function applyStockUpdateByColorAndSize({
   baseUrl,
   consumerKey,
@@ -1056,7 +1224,7 @@ export async function createVariableProduct({
     description: String(description || ""),
     short_description: String(shortDescription || ""),
     attributes: attributes.map((attr) => ({
-      name: attr.name,
+      ...(attr.id ? { id: Number(attr.id) } : { name: attr.name }),
       visible: true,
       variation: true,
       options: attr.options,
@@ -1064,12 +1232,24 @@ export async function createVariableProduct({
   };
 
   if (Array.isArray(categories) && categories.length > 0) {
-  productPayload.categories = categories
-    .filter((id) => Number.isFinite(Number(id)))
-    .map((id) => ({
-      id: Number(id),
-    }));
-}
+    productPayload.categories = categories
+      .filter((id) => Number.isFinite(Number(id)))
+      .map((id) => ({
+        id: Number(id),
+      }));
+  }
+
+  if (Array.isArray(images) && images.length > 0) {
+    const sortedImages = [...images]
+      .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+      .map((img) => ({
+        id: img.id,
+      }));
+
+    if (sortedImages.length > 0) {
+      productPayload.images = sortedImages;
+    }
+  }
 
   const createdProduct = await createProduct(
     baseUrl,
@@ -1079,67 +1259,65 @@ export async function createVariableProduct({
   );
 
   const productId = createdProduct.id;
-
   const createdVariations = [];
 
- for (const variation of variations) {
-  const payload = {
-    regular_price: String(variation.regular_price),
-    attributes: variation.attributes.map((a) => ({
-      name: a.name,
-      option: a.option,
-    })),
-  };
+  for (const variation of variations) {
+    const payload = {
+      regular_price: String(variation.regular_price),
+      attributes: variation.attributes.map((a) => ({
+        name: a.name,
+        option: a.option,
+      })),
+    };
 
     if (
-    variation.sale_price !== undefined &&
-    variation.sale_price !== null &&
-    variation.sale_price !== ""
-  ) {
-    payload.sale_price = String(variation.sale_price);
-  }
+      variation.sale_price !== undefined &&
+      variation.sale_price !== null &&
+      variation.sale_price !== ""
+    ) {
+      payload.sale_price = String(variation.sale_price);
+    }
 
-  const variationColor = variation.attributes.find(
-    (a) => String(a.name || "").trim().toLowerCase() === "color"
-  );
-
-  if (variationColor) {
-    const matchedImage = images.find(
-      (img) =>
-        String(img.color || "").trim().toLowerCase() ===
-        String(variationColor.option || "").trim().toLowerCase()
+    const variationColor = variation.attributes.find(
+      (a) => String(a.name || "").trim().toLowerCase() === "color"
     );
 
-    if (matchedImage?.id) {
-      payload.image = { id: matchedImage.id };
+    if (variationColor) {
+      const matchedImage = images.find(
+        (img) =>
+          String(img.color || "").trim().toLowerCase() ===
+          String(variationColor.option || "").trim().toLowerCase()
+      );
+
+      if (matchedImage?.id) {
+        payload.image = { id: matchedImage.id };
+      }
     }
-  }
 
-  if (
-    variation.stock_quantity !== undefined &&
-    variation.stock_quantity !== null &&
-    variation.stock_quantity !== ""
-  ) {
-    payload.manage_stock = true;
-    payload.stock_quantity = Number(variation.stock_quantity);
-  } else {
-    payload.manage_stock = false;
-    payload.stock_status = "instock";
-  }
-
-  const response = await axios.post(
-    `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
-    payload,
-    {
-      params: buildAuthParams(consumerKey, consumerSecret),
-      headers: {
-        "Content-Type": "application/json",
-      },
+    if (
+      variation.stock_quantity !== undefined &&
+      variation.stock_quantity !== null &&
+      variation.stock_quantity !== ""
+    ) {
+      payload.manage_stock = true;
+      payload.stock_quantity = Number(variation.stock_quantity);
+    } else {
+      payload.manage_stock = false;
+      payload.stock_status = "instock";
     }
-  );
 
-  createdVariations.push(response.data);
-}
+    const response = await axios.post(
+      `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
+      payload,
+      buildWooConfig(consumerKey, consumerSecret, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+    );
+
+    createdVariations.push(response.data);
+  }
 
   return {
     ok: true,
@@ -1150,7 +1328,6 @@ export async function createVariableProduct({
   };
 }
 
-
 export async function uploadImageToWordpress({
   baseUrl,
   consumerKey,
@@ -1158,13 +1335,12 @@ export async function uploadImageToWordpress({
   buffer,
   filename,
 }) {
-
   const form = new FormData();
 
   form.append("file", buffer, filename);
 
   const response = await axios.post(
-    `${normalizeBaseUrl(baseUrl).replace("/wp-json/wc/v3","")}/wp-json/wp/v2/media`,
+    `${normalizeBaseUrl(baseUrl).replace("/wp-json/wc/v3", "")}/wp-json/wp/v2/media`,
     form,
     {
       headers: {
@@ -1173,7 +1349,7 @@ export async function uploadImageToWordpress({
       auth: {
         username: process.env.WP_USER,
         password: process.env.WP_APP_PASSWORD,
-},
+      },
     }
   );
 

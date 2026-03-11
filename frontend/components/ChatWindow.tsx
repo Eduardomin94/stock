@@ -18,6 +18,8 @@ type CreateProductForm = {
   talles: string;
   precio: string;
   precioRebajado: string;
+  usarStockPorVariacion: boolean;
+  stockGeneral: string;
   descripcionCorta: string;
   categoria: string;
   subcategoria: string;
@@ -30,6 +32,7 @@ type CreateStepKey =
   | "talles"
   | "precio"
   | "precioRebajado"
+  | "stock"
   | "descripcionCorta"
   | "categoria"
   | "subcategoria";
@@ -82,6 +85,13 @@ const CREATE_STEPS: {
     placeholder: "Ej: 10900",
     optional: true,
   },
+    {
+    key: "stock",
+    title: "Stock",
+    helper: "Podés dejarlo sin stock numérico para que quede 'hay existencias', o cargar stock por variación.",
+    placeholder: "Ej: 10",
+    optional: true,
+  },
   {
     key: "descripcionCorta",
     title: "Descripción corta",
@@ -110,6 +120,8 @@ const initialCreateForm: CreateProductForm = {
   talles: "",
   precio: "",
   precioRebajado: "",
+  usarStockPorVariacion: false,
+  stockGeneral: "",
   descripcionCorta: "",
   categoria: "",
   subcategoria: "",
@@ -127,7 +139,17 @@ function cleanMoney(value: string) {
   return String(value || "").replace(/[^\d]/g, "");
 }
 
-function buildCreateProductMessage(form: CreateProductForm) {
+function getFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+function getVariationKey(color: string, size: string) {
+  return `${String(color || "").trim()}__${String(size || "").trim()}`;
+}
+
+function buildCreateProductMessage(
+  form: CreateProductForm,
+  stockByVariationMap: Record<string, string>
+) {
   const cleanColors = normalizeCommaField(form.colores);
   const cleanSizes = normalizeCommaField(form.talles);
   const cleanPrice = cleanMoney(form.precio);
@@ -139,23 +161,43 @@ function buildCreateProductMessage(form: CreateProductForm) {
 
   const lines: string[] = [];
 
-  if (cleanColors || cleanSizes) {
+    if (cleanColors || cleanSizes) {
     lines.push("crear producto variable");
     lines.push(`nombre: ${name}`);
-    if (cleanColors) lines.push(`color: ${cleanColors}`);
-    if (cleanSizes) lines.push(`talle: ${cleanSizes}`);
     lines.push(`precio: ${cleanPrice}`);
     if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+
+    lines.push("atributos:");
+    if (cleanColors) lines.push(`Color: ${cleanColors}`);
+    if (cleanSizes) lines.push(`Talle: ${cleanSizes}`);
+
+    if (form.usarStockPorVariacion) {
+      const stockLines = Object.entries(stockByVariationMap)
+        .map(([key, qty]) => {
+          const [color, talle] = key.split("__");
+          const cleanQty = String(qty || "").trim();
+          if (!color || !talle || !cleanQty) return "";
+          return `${color} ${talle} ${cleanQty}`;
+        })
+        .filter(Boolean);
+
+      if (stockLines.length > 0) {
+        lines.push("stock:");
+        lines.push(...stockLines);
+      }
+    }
+
     if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
     lines.push(`categoria: ${category}`);
     if (subcategory) lines.push(`subcategoria: ${subcategory}`);
     return lines.join("\n");
   }
 
-  lines.push("crear producto simple");
+    lines.push("crear producto simple");
   lines.push(`nombre: ${name}`);
   lines.push(`precio: ${cleanPrice}`);
   if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+  if (form.stockGeneral.trim()) lines.push(`stock: ${form.stockGeneral.trim()}`);
   if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
   lines.push(`categoria: ${category}`);
   if (subcategory) lines.push(`subcategoria: ${subcategory}`);
@@ -169,6 +211,11 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
+  const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
+  const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
+  const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+
 
   const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
   const [createStepIndex, setCreateStepIndex] = useState(0);
@@ -218,8 +265,9 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
       form.append("message", cleanText);
 
       filesToSend.forEach((file) => {
-        form.append("images", file);
-      });
+  form.append("images", file);
+  form.append(`imageColor_${getFileKey(file)}`, imageColorMap[getFileKey(file)] || "");
+});
 
       const token = localStorage.getItem("token") || "";
 
@@ -263,17 +311,38 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   }
 
   function mergeFiles(newFiles: File[]) {
-    setSelectedFiles((prev) => {
-      const map = new Map<string, File>();
+  setSelectedFiles((prev) => {
+    const map = new Map<string, File>();
 
-      [...prev, ...newFiles].forEach((file) => {
-        const key = `${file.name}-${file.size}-${file.lastModified}`;
-        map.set(key, file);
-      });
-
-      return Array.from(map.values());
+    [...prev, ...newFiles].forEach((file) => {
+      const key = getFileKey(file);
+      map.set(key, file);
     });
-  }
+
+    return Array.from(map.values());
+  });
+}
+
+function moveSelectedFile(fromIndex: number, toIndex: number) {
+  setSelectedFiles((prev) => {
+    const next = [...prev];
+
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= next.length ||
+      toIndex >= next.length ||
+      fromIndex === toIndex
+    ) {
+      return prev;
+    }
+
+    const [movedItem] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, movedItem);
+
+    return next;
+  });
+}
 
   function pushAssistantInfo(textMessage: string) {
     setMessages((prev) => [...prev, { role: "assistant", text: textMessage }]);
@@ -284,9 +353,10 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
     setCreateForm(initialCreateForm);
     setCreateStepIndex(0);
     setText("");
+    setStockByVariationMap({});
     pushAssistantInfo(
-      "Vamos a crear un producto paso por paso. Orden: fotos, nombre, colores, talles, precio, precio rebajado, descripción corta, categoría y subcategoría."
-    );
+  "Vamos a crear un producto paso por paso. Orden: fotos, nombre, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
+);
   }
 
   function cancelCreateProduct() {
@@ -294,6 +364,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
     setCreateStepIndex(0);
     setCreateForm(initialCreateForm);
     setText("");
+    setStockByVariationMap({});
   }
 
   function saveCurrentCreateStepValue() {
@@ -318,6 +389,8 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
           return { ...prev, precio: rawValue };
         case "precioRebajado":
           return { ...prev, precioRebajado: rawValue };
+        case "stock":
+          return { ...prev, stockGeneral: rawValue };
         case "descripcionCorta":
           return { ...prev, descripcionCorta: rawValue };
         case "categoria":
@@ -341,22 +414,24 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
     }
 
     setText(
-      step.key === "nombre"
-        ? createForm.nombre
-        : step.key === "colores"
-          ? createForm.colores
-          : step.key === "talles"
-            ? createForm.talles
-            : step.key === "precio"
-              ? createForm.precio
-              : step.key === "precioRebajado"
-                ? createForm.precioRebajado
-                : step.key === "descripcionCorta"
-                  ? createForm.descripcionCorta
-                  : step.key === "categoria"
-                    ? createForm.categoria
-                    : createForm.subcategoria
-    );
+  step.key === "nombre"
+    ? createForm.nombre
+    : step.key === "colores"
+      ? createForm.colores
+      : step.key === "talles"
+        ? createForm.talles
+        : step.key === "precio"
+          ? createForm.precio
+          : step.key === "precioRebajado"
+            ? createForm.precioRebajado
+            : step.key === "stock"
+              ? createForm.stockGeneral
+              : step.key === "descripcionCorta"
+                ? createForm.descripcionCorta
+                : step.key === "categoria"
+                  ? createForm.categoria
+                  : createForm.subcategoria
+);
   }
 
   function nextCreateStep() {
@@ -422,7 +497,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
       return;
     }
 
-    const builtMessage = buildCreateProductMessage(finalForm);
+    const builtMessage = buildCreateProductMessage(finalForm, stockByVariationMap);
 
     await sendToAgent(builtMessage, selectedFiles);
 
@@ -430,6 +505,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
     setCreateStepIndex(0);
     setCreateForm(initialCreateForm);
     setText("");
+    setStockByVariationMap({});
   }
 
   useEffect(() => {
@@ -700,41 +776,158 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
         }}
       >
         {selectedFiles.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginBottom: 12,
-            }}
-          >
+  <>
+    <div
+      style={{
+        color: "#94a3b8",
+        fontSize: 13,
+        marginBottom: 6,
+      }}
+    >
+      Arrastrá las fotos para ordenar. La primera será la principal.
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        marginBottom: 12,
+      }}
+    >
             {selectedFiles.map((file, index) => (
               <div
-                key={`${file.name}-${index}`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 10px",
-                  borderRadius: 999,
-                  background: "#111827",
-                  border: "1px solid #243041",
-                  fontSize: 13,
-                  color: "#d1d5db",
-                }}
-              >
-                <span>{index === 0 ? `Principal · ${file.name}` : file.name}</span>
+  key={getFileKey(file)}
+  draggable
+  onDragStart={() => {
+  setDraggedFileIndex(index);
+}}
+onDragOver={(e) => {
+  e.preventDefault();
+  setDragOverFileIndex(index);
+}}
+onDragLeave={() => {
+  setDragOverFileIndex((prev) => (prev === index ? null : prev));
+}}
+onDrop={() => {
+  if (draggedFileIndex === null) return;
+  moveSelectedFile(draggedFileIndex, index);
+  setDraggedFileIndex(null);
+  setDragOverFileIndex(null);
+}}
+onDragEnd={() => {
+  setDraggedFileIndex(null);
+  setDragOverFileIndex(null);
+}}
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    borderRadius: 999,
+    background: "#111827",
+    border: "1px solid #243041",
+    fontSize: 13,
+    color: "#d1d5db",
+    cursor: "grab",
+opacity: draggedFileIndex === index ? 0.65 : 1,
+boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
+  }}
+>
+                <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  }}
+>
+  <img
+  src={URL.createObjectURL(file)}
+  alt={file.name}
+  draggable={false}
+  style={{
+    width: 44,
+    height: 44,
+    objectFit: "cover",
+    borderRadius: 8,
+    border: "1px solid #334155",
+    display: "block",
+    pointerEvents: "none",
+    userSelect: "none",
+  }}
+/>
+
+  <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
+</div>
+
+               <select
+  value={imageColorMap[getFileKey(file)] || ""}
+    onMouseDown={(e) => e.stopPropagation()}
+  onChange={(e) => {
+    const key = getFileKey(file);
+    const value = e.target.value;
+
+    setImageColorMap((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }}
+  style={{
+    marginLeft: 10,
+    background: "#020617",
+    color: "#fff",
+    border: "1px solid #334155",
+    borderRadius: 8,
+    padding: "4px 6px",
+    fontSize: 12,
+  }}
+>
+  <option value="">Sin color</option>
+  {(createForm.colores || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((color) => {
+      const currentFileKey = getFileKey(file);
+      const currentSelectedColor = imageColorMap[currentFileKey] || "";
+
+      const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
+        ([fileKey, selectedColor]) =>
+          fileKey !== currentFileKey && selectedColor === color
+      );
+
+      return (
+        <option
+          key={color}
+          value={color}
+          disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
+        >
+          {color}
+        </option>
+      );
+    })}
+</select>
 
                 <button
                   type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
                   onClick={() => {
-                    const nextFiles = selectedFiles.filter((_, i) => i !== index);
-                    setSelectedFiles(nextFiles);
+  const removedFile = selectedFiles[index];
+  const removedKey = getFileKey(removedFile);
 
-                    if (nextFiles.length === 0 && fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
-                  }}
+  const nextFiles = selectedFiles.filter((_, i) => i !== index);
+  setSelectedFiles(nextFiles);
+
+  setImageColorMap((prev) => {
+    const next = { ...prev };
+    delete next[removedKey];
+    return next;
+  });
+
+  if (nextFiles.length === 0 && fileInputRef.current) {
+    fileInputRef.current.value = "";
+  }
+}}
                   style={{
                     border: "none",
                     background: "transparent",
@@ -749,7 +942,8 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
               </div>
             ))}
           </div>
-        )}
+  </>
+)}
 
         <div
           style={{
@@ -769,46 +963,141 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
             }}
           >
             {isCreateStepPhotos ? (
-              <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
-                Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
-              </div>
-            ) : (
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
+  <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
+    Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
+  </div>
+) : (
+  <>
+    {currentCreateStep?.key === "stock" && (
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "#e5e7eb",
+          fontSize: 14,
+          marginBottom: 8,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={createForm.usarStockPorVariacion}
+          onChange={(e) =>
+            setCreateForm((prev) => ({
+              ...prev,
+              usarStockPorVariacion: e.target.checked,
+            }))
+          }
+        />
+        Cargar stock por variación
+      </label>
+    )}
 
-                    if (activeAction === "create") {
-                      if (createStepIndex < CREATE_STEPS.length - 1) {
-                        nextCreateStep();
-                      } else {
-                        submitCreateProduct();
-                      }
-                      return;
+        {currentCreateStep?.key === "stock" && createForm.usarStockPorVariacion ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+        {(createForm.colores || "")
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .flatMap((color) =>
+            ((createForm.talles || "")
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)).map((talle) => {
+              const variationKey = getVariationKey(color, talle);
+
+              return (
+                <div
+                  key={variationKey}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 120px",
+                    gap: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ color: "#e5e7eb", fontSize: 14 }}>
+                    {color} / {talle}
+                  </div>
+
+                  <input
+                    type="number"
+                    min="0"
+                    value={stockByVariationMap[variationKey] || ""}
+                    onChange={(e) =>
+                      setStockByVariationMap((prev) => ({
+                        ...prev,
+                        [variationKey]: e.target.value,
+                      }))
                     }
+                    placeholder="Stock"
+                    style={{
+                      width: "100%",
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      color: "white",
+                      borderRadius: 10,
+                      padding: "8px 10px",
+                      outline: "none",
+                      fontSize: 14,
+                    }}
+                  />
+                </div>
+              );
+            })
+          )}
 
-                    handleSend();
-                  }
-                }}
-                placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
-                rows={3}
-                style={{
-                  width: "100%",
-                  resize: "none",
-                  border: "none",
-                  background: "transparent",
-                  color: "white",
-                  outline: "none",
-                  fontSize: 15,
-                  lineHeight: 1.5,
-                  marginBottom: 10,
-                }}
-              />
-            )}
+        {((createForm.colores || "")
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean).length === 0 ||
+          (createForm.talles || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean).length === 0) && (
+          <div style={{ color: "#94a3b8", fontSize: 13 }}>
+            Para cargar stock por variación primero completá colores y talles.
+          </div>
+        )}
+      </div>
+    ) : (
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
 
-            <div
+            if (activeAction === "create") {
+              if (createStepIndex < CREATE_STEPS.length - 1) {
+                nextCreateStep();
+              } else {
+                submitCreateProduct();
+              }
+              return;
+            }
+
+            handleSend();
+          }
+        }}
+        placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
+        rows={3}
+        style={{
+          width: "100%",
+          resize: "none",
+          border: "none",
+          background: "transparent",
+          color: "white",
+          outline: "none",
+          fontSize: 15,
+          lineHeight: 1.5,
+          marginBottom: 10,
+        }}
+      />
+    )}
+  </>
+)}
+              <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",

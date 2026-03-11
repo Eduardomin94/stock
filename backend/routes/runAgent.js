@@ -14,6 +14,7 @@ import {
   createVariableProduct,
   ensureCategoryByName,
   ensureCategoryPath,
+  ensureGlobalAttributeWithTerms,
   suggestCategoriesByName,
   uploadImageToWordpress
 } from "../tools/woocommerce.js";
@@ -175,6 +176,35 @@ function extractMultiValueField(message, fieldName) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+function extractBlock(message, blockName, stopFields = []) {
+  const normalized = String(message || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+
+  const lines = normalized.split("\n");
+
+  const startIndex = lines.findIndex(
+    (line) => line.trim().toLowerCase() === `${blockName.toLowerCase()}:`
+  );
+
+  if (startIndex === -1) return "";
+
+  const collected = [];
+
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    const lower = line.toLowerCase();
+
+    const shouldStop = stopFields.some((field) =>
+      lower.startsWith(`${field.toLowerCase()}:`)
+    );
+
+    if (shouldStop) break;
+    if (line) collected.push(line);
+  }
+
+  return collected.join("\n").trim();
+}
 
 function extractLooseCategoryValue(message) {
   const lines = String(message || "")
@@ -239,14 +269,20 @@ function looksLikeOnlyCategoryReply(message) {
   return true;
 }
 
-function extractOrderedImages(files = []) {
+function extractOrderedImages(files = [], body = {}) {
   return files
     .filter((file) => file && file.buffer)
-    .map((file, index) => ({
-      file,
-      position: index + 1,
-      isMain: index === 0,
-    }));
+    .map((file, index) => {
+      const fileKey = `${file.originalname}-${file.size}-${file.lastModified || 0}`;
+      const assignedColor = body[`imageColor_${fileKey}`] || "";
+
+      return {
+        file,
+        position: index + 1,
+        isMain: index === 0,
+        assignedColor: String(assignedColor || "").trim(),
+      };
+    });
 }
 
 function parseVariableAttributesText(raw) {
@@ -332,15 +368,13 @@ function parseVariableVariationsText(raw) {
 function looksLikeHumanVariableProductCreate(message) {
   const text = String(message || "").toLowerCase();
 
-  return (
-    text.includes("crear producto variable") ||
-    text.includes("producto variable") ||
-    (
-      text.includes("nombre:") &&
-      text.includes("atributos:") &&
-      text.includes("variaciones:")
-    )
-  );
+  const hasNombre = /nombre\s*:/i.test(text);
+  const hasPrecio = /precio\s*:/i.test(text);
+  const hasAtributos = /atributos\s*:/i.test(text);
+  const hasColor = /color\s*:/i.test(text);
+  const hasTalle = /talle\s*:/i.test(text);
+
+  return hasNombre && hasPrecio && hasAtributos && (hasColor || hasTalle);
 }
 
 function looksLikeVariableProductCreateReply(message) {
@@ -531,21 +565,17 @@ function normalizeKeyName(value) {
 }
 
 function looksLikeSupplierVariableProductMessage(message) {
-  const text = String(message || "");
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const text = String(message || "").toLowerCase();
 
-  if (lines.length < 4) return false;
+  const hasNombre = text.includes("nombre:");
+  const hasPrecio = text.includes("precio:");
+  const hasCategoria = text.includes("categoria:");
 
-  const hasNombre = lines.some((line) => /^nombre\s*:/i.test(line));
-  const hasPrecio = lines.some((line) => /^precio\s*:/i.test(line));
-  const hasCategoria = lines.some((line) => /^(categoria|categoría)\s*:/i.test(line));
-  const hasColor = lines.some((line) => /^color\s*:/i.test(line));
-  const hasTalle = lines.some((line) => /^talle\s*:/i.test(line));
+  const hasAtributosBlock = text.includes("atributos:");
+  const hasColor = text.includes("color:");
+  const hasTalle = text.includes("talle:");
 
-  return hasNombre && hasPrecio && hasCategoria && hasColor && hasTalle;
+  return hasNombre && hasPrecio && hasCategoria && hasAtributosBlock && hasColor && hasTalle;
 }
 
 function parseSizeRangeExpression(raw) {
@@ -729,6 +759,11 @@ function parseSupplierVariableProductMessage(message) {
 }
 
 router.post("/", upload.array("images", 10), async (req, res) => {
+  console.log("RUNAGENT HIT", {
+    time: new Date().toISOString(),
+    message: req.body?.message,
+    agentId: req.body?.agentId,
+  });
   try {
     const { agentId, message } = req.body;
     const files = req.files || [];
@@ -867,10 +902,16 @@ if (token) {
 
    const user = findUserById(decoded.id);
 
-    if (user) {
-  baseUrl = user.store_url;
-  consumerKey = decryptText(user.consumer_key);
-  consumerSecret = decryptText(user.consumer_secret);
+   if (user) {
+  const userBaseUrl = String(user.store_url || "").trim();
+  const userConsumerKey = String(decryptText(user.consumer_key) || "").trim();
+  const userConsumerSecret = String(decryptText(user.consumer_secret) || "").trim();
+
+  if (userBaseUrl && userConsumerKey && userConsumerSecret) {
+    baseUrl = userBaseUrl;
+    consumerKey = userConsumerKey;
+    consumerSecret = userConsumerSecret;
+  }
 }
   } catch (error) {
     return res.status(401).json({
@@ -1065,24 +1106,23 @@ let uploadedImages = [];
 
 if (files.length > 0) {
 
-  const orderedImages = extractOrderedImages(files);
+ const orderedImages = extractOrderedImages(files, req.body);
 
-  for (const image of orderedImages) {
+for (const image of orderedImages) {
+  const uploaded = await uploadImageToWordpress({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    buffer: image.file.buffer,
+    filename: image.file.originalname,
+  });
 
-    const uploaded = await uploadImageToWordpress({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      buffer: image.file.buffer,
-      filename: image.file.originalname,
-    });
-
-    uploadedImages.push({
-      id: uploaded.id,
-      position: image.position
-    });
-
-  }
+  uploadedImages.push({
+    id: uploaded.id,
+    color: image.assignedColor || "",
+    position: image.position,
+  });
+}
 
 }
 
@@ -1136,14 +1176,99 @@ if (files.length > 0) {
   }
 
   const name = extractField(message, "nombre");
-  const description = extractField(message, "descripcion");
-  const shortDescription = extractField(message, "descripcion_corta");
-  const categories = extractMultiValueField(message, "categorias").map(Number);
-  const attributesRaw = String(message || "").match(/atributos\s*:\s*([\s\S]*?)\nvariaciones\s*:/i)?.[1]?.trim() || "";
-  const variationsRaw = String(message || "").match(/variaciones\s*:\s*([\s\S]*)$/i)?.[1]?.trim() || "";
+const description = extractField(message, "descripcion");
+const shortDescription = extractField(message, "descripcion_corta");
+const categoryName = extractField(message, "categoria");
+const subcategoryName = extractField(message, "subcategoria");
+const attributesRaw = extractBlock(message, "atributos", [
+  "stock",
+  "categoria",
+  "subcategoria",
+  "descripcion",
+  "descripcion_corta",
+  "precio",
+  "precio_rebajado",
+  "variaciones",
+]);
 
-  const attributes = parseVariableAttributesText(attributesRaw);
-  const variations = parseVariableVariationsText(variationsRaw);
+const variationsRaw = extractBlock(message, "variaciones", [
+  "stock",
+  "categoria",
+  "subcategoria",
+  "descripcion",
+  "descripcion_corta",
+  "precio_rebajado",
+]);
+
+const attributes = parseVariableAttributesText(attributesRaw);
+let variations = parseVariableVariationsText(variationsRaw);
+
+const regularPriceRaw = extractField(message, "precio");
+const salePriceRaw = extractField(message, "precio_rebajado");
+
+const regularPrice = regularPriceRaw
+  ? Number(String(regularPriceRaw).replace(/[^\d]/g, ""))
+  : null;
+
+const salePrice = salePriceRaw
+  ? Number(String(salePriceRaw).replace(/[^\d]/g, ""))
+  : null;
+
+const stockBlockMatch = String(message || "").match(/\nstock\s*:\s*([\s\S]*?)(\ncategoria\s*:|\nsubcategoria\s*:|$)/i);
+const stockRaw = stockBlockMatch ? stockBlockMatch[1].trim() : "";
+const stockMap = parseSupplierStockBlock(stockRaw);
+
+if (
+  variations.length === 0 &&
+  Number.isFinite(regularPrice) &&
+  attributes.length > 0
+) {
+  const colorAttr = attributes.find(
+    (attr) => normalizeKeyName(attr.name) === "color"
+  );
+  const talleAttr = attributes.find(
+    (attr) => normalizeKeyName(attr.name) === "talle"
+  );
+
+  const colors = colorAttr?.options || [];
+  const sizes = talleAttr?.options || [];
+
+  if (colors.length > 0 && sizes.length > 0) {
+    variations = buildSupplierVariableVariations({
+      colors,
+      sizes,
+      price: regularPrice,
+      salePrice,
+      stockMap: stockRaw ? stockMap : null,
+    });
+  } else if (colors.length > 0) {
+    variations = colors.map((color) => {
+      const variation = {
+        attributes: [{ name: "Color", option: color }],
+        regular_price: String(regularPrice),
+      };
+
+      if (Number.isFinite(salePrice)) {
+        variation.sale_price = String(salePrice);
+      }
+
+      return variation;
+    });
+  } else if (sizes.length > 0) {
+    variations = sizes.map((size) => {
+      const variation = {
+        attributes: [{ name: "Talle", option: size }],
+        regular_price: String(regularPrice),
+      };
+
+      if (Number.isFinite(salePrice)) {
+        variation.sale_price = String(salePrice);
+      }
+
+      return variation;
+    });
+  }
+}
 
   if (!name) {
   return res.json({
@@ -1161,7 +1286,7 @@ if (attributes.length === 0) {
     agentName: agent.name,
     usedTool: false,
     reply:
-      "Faltan los atributos. Usá el formato:\natributos:\nColor: Negro, Blanco\nTalle: S, M, L",
+      "No pude interpretar los atributos del producto variable. Usá por ejemplo:\natributos:\nColor: Negro, Blanco\nTalle: S, M, L",
   });
 }
 
@@ -1171,14 +1296,43 @@ if (variations.length === 0) {
     agentName: agent.name,
     usedTool: false,
     reply:
-      "Faltan las variaciones. Usá el formato:\nvariaciones:\nColor: Negro, Talle: M | precio: 10000 | stock: 5",
+      "No pude armar las variaciones del producto. Revisá que hayas cargado precio, atributos válidos y, si corresponde, stock por variación.",
   });
 }
+
+const globalAttributesEnsured = [];
+
+for (const attr of attributes) {
+  const ensured = await ensureGlobalAttributeWithTerms({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    attributeName: attr.name,
+    options: attr.options,
+  });
+
+  globalAttributesEnsured.push(ensured);
+}
+
+const normalizedVariations = variations.map((variation) => ({
+  ...variation,
+  attributes: variation.attributes.map((variationAttr) => {
+    const matchedGlobal = globalAttributesEnsured.find(
+      (item) =>
+        normalizeKeyName(item.attribute.name) === normalizeKeyName(variationAttr.name)
+    );
+
+    return {
+      name: matchedGlobal ? matchedGlobal.attribute.name : variationAttr.name,
+      option: variationAttr.option,
+    };
+  }),
+}));
 
 let uploadedImages = [];
 
 if (files.length > 0) {
-  const orderedImages = extractOrderedImages(files);
+  const orderedImages = extractOrderedImages(files, req.body);
 
   for (const image of orderedImages) {
     const uploaded = await uploadImageToWordpress({
@@ -1190,25 +1344,44 @@ if (files.length > 0) {
     });
 
     uploadedImages.push({
-      id: uploaded.id,
-      color: image.file.originalname.split(".")[0].trim(),
-      position: image.position,
-    });
+  id: uploaded.id,
+  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
+  position: image.position,
+});
   }
 }
 
-  const result = await createVariableProduct({
+  let categories = [];
+
+if (categoryName) {
+  const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,
     consumerSecret,
-    name,
-    description,
-    shortDescription,
-    categories: categories.filter((n) => Number.isFinite(n)),
-    attributes,
-    variations,
-    images: uploadedImages,
+    categoryName,
+    subcategoryName,
   });
+
+  categories = categoryResult.categories;
+}
+
+const result = await createVariableProduct({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  name,
+  description,
+  shortDescription,
+  categories,
+  attributes: globalAttributesEnsured.map((item) => ({
+    id: item.attribute.id,
+    name: item.attribute.name,
+    slug: item.attribute.slug,
+    options: item.terms.map((term) => term.name),
+  })),
+  variations: normalizedVariations,
+  images: uploadedImages,
+});
 
   return res.json({
     agentId: agent.id,
@@ -1273,6 +1446,15 @@ if (looksLikeSupplierVariableProductMessage(message)) {
     });
   }
 
+    if (message.toLowerCase().includes("stock:") && parsed.stockLinesParsed === 0) {
+    return res.json({
+      agentId: agent.id,
+      agentName: agent.name,
+      usedTool: false,
+      reply: "Marcaste stock por variación, pero no pude leer ninguna línea de stock. Revisá las cantidades de cada combinación.",
+    });
+  }
+
     const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,
@@ -1284,7 +1466,7 @@ if (looksLikeSupplierVariableProductMessage(message)) {
   let uploadedImages = [];
 
   if (files.length > 0) {
-    const orderedImages = extractOrderedImages(files);
+    const orderedImages = extractOrderedImages(files, req.body);
 
     for (const image of orderedImages) {
       const uploaded = await uploadImageToWordpress({
@@ -1296,10 +1478,10 @@ if (looksLikeSupplierVariableProductMessage(message)) {
       });
 
       uploadedImages.push({
-        id: uploaded.id,
-        color: image.file.originalname.split(".")[0].trim(),
-        position: image.position,
-      });
+  id: uploaded.id,
+  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
+  position: image.position,
+});
     }
   }
 
@@ -1369,10 +1551,10 @@ if (files.length > 0) {
     });
 
     uploadedImages.push({
-      id: uploaded.id,
-      color: image.file.originalname.split(".")[0].trim(),
-      position: image.position,
-    });
+  id: uploaded.id,
+  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
+  position: image.position,
+});
   }
 }
 
