@@ -273,8 +273,8 @@ function extractOrderedImages(files = [], body = {}) {
   return files
     .filter((file) => file && file.buffer)
     .map((file, index) => {
-      const fileKey = `${file.originalname}-${file.size}-${file.lastModified || 0}`;
-      const assignedColor = body[`imageColor_${fileKey}`] || "";
+      const assignedColor =
+        body[`imageColor_${file.originalname}-${file.size}`] || "";
 
       return {
         file,
@@ -622,10 +622,7 @@ function parseSupplierStockBlock(raw) {
 
     const normalizedColor = normalizeKeyName(color);
 
-    const normalizedSize = normalizeKeyName(
-      /^talle\s+/i.test(sizeToken) ? sizeToken : `Talle ${sizeToken}`
-    );
-
+    const normalizedSize = normalizeKeyName(sizeToken);
     const key = `${normalizedColor}__${normalizedSize}`;
 
     stockMap.set(key, qty);
@@ -1323,8 +1320,11 @@ const normalizedVariations = variations.map((variation) => ({
     );
 
     return {
+      ...(matchedGlobal?.attribute?.id
+        ? { id: Number(matchedGlobal.attribute.id) }
+        : {}),
       name: matchedGlobal ? matchedGlobal.attribute.name : variationAttr.name,
-      option: variationAttr.option,
+      option: String(variationAttr.option || "").trim(),
     };
   }),
 }));
@@ -1485,18 +1485,55 @@ if (looksLikeSupplierVariableProductMessage(message)) {
     }
   }
 
-    const result = await createVariableProduct({
+    const globalAttributesEnsured = [];
+
+for (const attr of parsed.attributes) {
+  const ensured = await ensureGlobalAttributeWithTerms({
     baseUrl,
     consumerKey,
     consumerSecret,
-    name: parsed.name,
-    description: "",
-    shortDescription: parsed.shortDescription || "",
-    categories: categoryResult.categories,
-    attributes: parsed.attributes,
-    variations: parsed.variations,
-    images: uploadedImages,
+    attributeName: attr.name,
+    options: attr.options,
   });
+
+  globalAttributesEnsured.push(ensured);
+}
+
+const normalizedVariations = parsed.variations.map((variation) => ({
+  ...variation,
+  attributes: variation.attributes.map((variationAttr) => {
+    const matchedGlobal = globalAttributesEnsured.find(
+      (item) =>
+        normalizeKeyName(item.attribute.name) === normalizeKeyName(variationAttr.name)
+    );
+
+    return {
+      ...(matchedGlobal?.attribute?.id
+        ? { id: Number(matchedGlobal.attribute.id) }
+        : {}),
+      name: matchedGlobal ? matchedGlobal.attribute.name : variationAttr.name,
+      option: String(variationAttr.option || "").trim(),
+    };
+  }),
+}));
+
+const result = await createVariableProduct({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  name: parsed.name,
+  description: "",
+  shortDescription: parsed.shortDescription || "",
+  categories: categoryResult.categories,
+  attributes: globalAttributesEnsured.map((item) => ({
+    id: item.attribute.id,
+    name: item.attribute.name,
+    slug: item.attribute.slug,
+    options: item.terms.map((term) => term.name),
+  })),
+  variations: normalizedVariations,
+  images: uploadedImages,
+});
 
   return res.json({
     agentId: agent.id,

@@ -1263,12 +1263,12 @@ export async function createVariableProduct({
 
   for (const variation of variations) {
     const payload = {
-      regular_price: String(variation.regular_price),
-      attributes: variation.attributes.map((a) => ({
-        name: a.name,
-        option: a.option,
-      })),
-    };
+  regular_price: String(variation.regular_price),
+  attributes: variation.attributes.map((a) => ({
+    ...(a.id ? { id: Number(a.id) } : { name: String(a.name).trim() }),
+    option: String(a.option || "").trim(),
+  })),
+};
 
     if (
       variation.sale_price !== undefined &&

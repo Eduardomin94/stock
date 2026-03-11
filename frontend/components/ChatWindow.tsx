@@ -18,7 +18,7 @@ type CreateProductForm = {
   talles: string;
   precio: string;
   precioRebajado: string;
-  usarStockPorVariacion: boolean;
+  stockMode: "none" | "same" | "perVariation";
   stockGeneral: string;
   descripcionCorta: string;
   categoria: string;
@@ -86,12 +86,12 @@ const CREATE_STEPS: {
     optional: true,
   },
     {
-    key: "stock",
-    title: "Stock",
-    helper: "Podés dejarlo sin stock numérico para que quede 'hay existencias', o cargar stock por variación.",
-    placeholder: "Ej: 10",
-    optional: true,
-  },
+  key: "stock",
+  title: "Stock",
+  helper: "Elegí si querés dejarlo sin stock numérico, usar el mismo stock para todas las variaciones o cargar uno por una.",
+  placeholder: "Ej: 10",
+  optional: true,
+},
   {
     key: "descripcionCorta",
     title: "Descripción corta",
@@ -120,7 +120,7 @@ const initialCreateForm: CreateProductForm = {
   talles: "",
   precio: "",
   precioRebajado: "",
-  usarStockPorVariacion: false,
+  stockMode: "none",
   stockGeneral: "",
   descripcionCorta: "",
   categoria: "",
@@ -140,8 +140,9 @@ function cleanMoney(value: string) {
 }
 
 function getFileKey(file: File) {
-  return `${file.name}-${file.size}-${file.lastModified}`;
+  return `${file.name}-${file.size}`;
 }
+
 function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
 }
@@ -159,9 +160,19 @@ function buildCreateProductMessage(
   const subcategory = form.subcategoria.trim();
   const name = form.nombre.trim();
 
+  const colorList = cleanColors
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const sizeList = cleanSizes
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
   const lines: string[] = [];
 
-    if (cleanColors || cleanSizes) {
+  if (cleanColors || cleanSizes) {
     lines.push("crear producto variable");
     lines.push(`nombre: ${name}`);
     lines.push(`precio: ${cleanPrice}`);
@@ -171,7 +182,30 @@ function buildCreateProductMessage(
     if (cleanColors) lines.push(`Color: ${cleanColors}`);
     if (cleanSizes) lines.push(`Talle: ${cleanSizes}`);
 
-    if (form.usarStockPorVariacion) {
+    if (form.stockMode === "same") {
+  const cleanQty = String(form.stockGeneral || "").trim();
+
+  if (cleanQty) {
+    let stockLines: string[] = [];
+
+    if (colorList.length > 0 && sizeList.length > 0) {
+      stockLines = colorList.flatMap((color) =>
+        sizeList.map((talle) => `${color} ${talle} ${cleanQty}`)
+      );
+    } else if (colorList.length > 0) {
+      stockLines = colorList.map((color) => `${color} ${cleanQty}`);
+    } else if (sizeList.length > 0) {
+      stockLines = sizeList.map((talle) => `${talle} ${cleanQty}`);
+    }
+
+    if (stockLines.length > 0) {
+      lines.push("stock:");
+      lines.push(...stockLines);
+    }
+  }
+}
+
+    if (form.stockMode === "perVariation") {
       const stockLines = Object.entries(stockByVariationMap)
         .map(([key, qty]) => {
           const [color, talle] = key.split("__");
@@ -193,7 +227,7 @@ function buildCreateProductMessage(
     return lines.join("\n");
   }
 
-    lines.push("crear producto simple");
+  lines.push("crear producto simple");
   lines.push(`nombre: ${name}`);
   lines.push(`precio: ${cleanPrice}`);
   if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
@@ -390,7 +424,7 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
         case "precioRebajado":
           return { ...prev, precioRebajado: rawValue };
         case "stock":
-          return { ...prev, stockGeneral: rawValue };
+          return prev;
         case "descripcionCorta":
           return { ...prev, descripcionCorta: rawValue };
         case "categoria":
@@ -425,7 +459,7 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
           : step.key === "precioRebajado"
             ? createForm.precioRebajado
             : step.key === "stock"
-              ? createForm.stockGeneral
+            ? ""
               : step.key === "descripcionCorta"
                 ? createForm.descripcionCorta
                 : step.key === "categoria"
@@ -969,31 +1003,112 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
 ) : (
   <>
     {currentCreateStep?.key === "stock" && (
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          color: "#e5e7eb",
-          fontSize: 14,
-          marginBottom: 8,
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={createForm.usarStockPorVariacion}
-          onChange={(e) =>
-            setCreateForm((prev) => ({
-              ...prev,
-              usarStockPorVariacion: e.target.checked,
-            }))
-          }
-        />
-        Cargar stock por variación
-      </label>
-    )}
+  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: "#e5e7eb",
+        fontSize: 14,
+      }}
+    >
+      <input
+        type="radio"
+        name="stockMode"
+        checked={createForm.stockMode === "none"}
+        onChange={() => {
+  setCreateForm((prev) => ({
+    ...prev,
+    stockMode: "none",
+    stockGeneral: "",
+  }));
+  setStockByVariationMap({});
+}}
+      />
+      Sin stock numérico
+    </label>
 
-        {currentCreateStep?.key === "stock" && createForm.usarStockPorVariacion ? (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: "#e5e7eb",
+        fontSize: 14,
+      }}
+    >
+      <input
+        type="radio"
+        name="stockMode"
+        checked={createForm.stockMode === "same"}
+        onChange={() => {
+  setCreateForm((prev) => ({
+    ...prev,
+    stockMode: "same",
+  }));
+  setStockByVariationMap({});
+}}
+      />
+      Mismo stock para todas las variaciones
+    </label>
+
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: "#e5e7eb",
+        fontSize: 14,
+      }}
+    >
+      <input
+        type="radio"
+        name="stockMode"
+        checked={createForm.stockMode === "perVariation"}
+        onChange={() => {
+  setCreateForm((prev) => ({
+    ...prev,
+    stockMode: "perVariation",
+    stockGeneral: "",
+  }));
+}}
+      />
+      Stock por variación
+    </label>
+  </div>
+)}
+
+{currentCreateStep?.key === "stock" && createForm.stockMode === "same" && (
+  <div style={{ marginBottom: 10 }}>
+    <input
+      type="number"
+      min="0"
+      value={createForm.stockGeneral}
+      onChange={(e) =>
+        setCreateForm((prev) => ({
+          ...prev,
+          stockGeneral: e.target.value,
+        }))
+      }
+      placeholder="Ej: 10"
+      style={{
+        width: "100%",
+        border: "1px solid #334155",
+        background: "#020617",
+        color: "white",
+        borderRadius: 10,
+        padding: "10px 12px",
+        outline: "none",
+        fontSize: 14,
+      }}
+    />
+  </div>
+)}
+
+       {currentCreateStep?.key === "stock" ? (
+  <>
+    {createForm.stockMode === "perVariation" && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
         {(createForm.colores || "")
           .split(",")
@@ -1060,41 +1175,43 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
           </div>
         )}
       </div>
-    ) : (
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-
-            if (activeAction === "create") {
-              if (createStepIndex < CREATE_STEPS.length - 1) {
-                nextCreateStep();
-              } else {
-                submitCreateProduct();
-              }
-              return;
-            }
-
-            handleSend();
-          }
-        }}
-        placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
-        rows={3}
-        style={{
-          width: "100%",
-          resize: "none",
-          border: "none",
-          background: "transparent",
-          color: "white",
-          outline: "none",
-          fontSize: 15,
-          lineHeight: 1.5,
-          marginBottom: 10,
-        }}
-      />
     )}
+  </>
+) : (
+  <textarea
+    value={text}
+    onChange={(e) => setText(e.target.value)}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+
+        if (activeAction === "create") {
+          if (createStepIndex < CREATE_STEPS.length - 1) {
+            nextCreateStep();
+          } else {
+            submitCreateProduct();
+          }
+          return;
+        }
+
+        handleSend();
+      }
+    }}
+    placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
+    rows={3}
+    style={{
+      width: "100%",
+      resize: "none",
+      border: "none",
+      background: "transparent",
+      color: "white",
+      outline: "none",
+      fontSize: 15,
+      lineHeight: 1.5,
+      marginBottom: 10,
+    }}
+  />
+)}
   </>
 )}
               <div
