@@ -904,6 +904,15 @@ if (token) {
   const userConsumerKey = String(decryptText(user.consumer_key) || "").trim();
   const userConsumerSecret = String(decryptText(user.consumer_secret) || "").trim();
 
+console.log("WOO CHECK", {
+  email: user.email,
+  store_url: userBaseUrl,
+  key_prefix: userConsumerKey.slice(0, 3),
+  secret_prefix: userConsumerSecret.slice(0, 3),
+  key_len: userConsumerKey.length,
+  secret_len: userConsumerSecret.length,
+});
+
   if (userBaseUrl && userConsumerKey && userConsumerSecret) {
     baseUrl = userBaseUrl;
     consumerKey = userConsumerKey;
