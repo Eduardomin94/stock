@@ -897,7 +897,7 @@ if (token) {
       process.env.AUTH_JWT_SECRET || "dev_secret_change_this"
     );
 
-   const user = findUserById(decoded.id);
+   const user = await findUserById(decoded.id);
 
    if (user) {
   const userBaseUrl = String(user.store_url || "").trim();

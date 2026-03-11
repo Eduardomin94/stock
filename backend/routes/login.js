@@ -1,16 +1,9 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { findUserByEmail } from "../services/users.js";
 
 const router = express.Router();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const USERS_FILE = path.join(__dirname, "../data/users.json");
 
 router.post("/", async (req, res) => {
   try {
@@ -22,28 +15,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    if (!fs.existsSync(USERS_FILE)) {
-      return res.status(404).json({
-        error: "No existe el archivo de usuarios",
-      });
-    }
-
-    const raw = fs.readFileSync(USERS_FILE, "utf-8");
-
-    let parsed;
-    try {
-      parsed = raw ? JSON.parse(raw) : [];
-    } catch {
-      return res.status(500).json({
-        error: "users.json no tiene JSON válido",
-      });
-    }
-
-    const users = Array.isArray(parsed) ? parsed : [];
-
-    const user = users.find(
-      (u) => String(u.email || "").trim().toLowerCase() === String(email).trim().toLowerCase()
-    );
+    const user = await findUserByEmail(email);
 
     if (!user) {
       return res.status(401).json({

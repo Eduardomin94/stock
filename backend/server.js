@@ -16,9 +16,23 @@ import testCreateSimpleProductRoute from "./routes/testCreateSimpleProduct.js";
 import testCreateVariableProductRoute from "./routes/testCreateVariableProduct.js";
 import registerRoute from "./routes/register.js";
 import loginRoute from "./routes/login.js";
+import { query } from "./services/db.js";
 
 
 dotenv.config();
+async function ensureDatabase() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      store_url TEXT DEFAULT '',
+      consumer_key TEXT DEFAULT '',
+      consumer_secret TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
 console.log("OPENAI_API_KEY cargada:", process.env.OPENAI_API_KEY ? "SI" : "NO");
 const app = express();
 
@@ -40,6 +54,7 @@ app.get("/", (_req, res) => {
   res.send("Servidor de agentes funcionando");
 });
 
+
 app.use("/register", registerRoute);
 app.use("/login", loginRoute);
 app.use("/create-agent", createAgentRoute);
@@ -55,30 +70,18 @@ app.use("/test-apply-stock-by-color-size", testApplyStockByColorSizeRoute);
 app.use("/test-plan-stock-by-color-only", testPlanStockByColorOnlyRoute);
 app.use("/test-create-simple-product", testCreateSimpleProductRoute);
 app.use("/test-create-variable-product", testCreateVariableProductRoute);
-app.get("/master-audit-agents", (_req, res) => {
 
-  try {
-
-    const report = auditAgents();
-
-    res.json({
-      ok: true,
-      report
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-      error: "Error auditando agentes",
-      detail: error.message
-    });
-
-  }
-
-});
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+ensureDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log("Servidor de agentes funcionando");
+    });
+  })
+  .catch((error) => {
+    console.error("Error inicializando base de datos:", error);
+    process.exit(1);
+  });
+
