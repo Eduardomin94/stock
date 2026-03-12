@@ -583,12 +583,10 @@ export async function createSimpleProduct({
   }
 
   if (Array.isArray(images) && images.length > 0) {
-    payload.images = images
-      .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
-      .map((img) => ({
-        id: img.id,
-      }));
-  }
+  payload.images = images.map((url) => ({
+    src: url,
+  }));
+}
 
   if (Array.isArray(categories) && categories.length > 0) {
     payload.categories = categories

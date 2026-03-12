@@ -17,6 +17,7 @@ import testCreateVariableProductRoute from "./routes/testCreateVariableProduct.j
 import registerRoute from "./routes/register.js";
 import loginRoute from "./routes/login.js";
 import { query } from "./services/db.js";
+import uploadImageRoute from "./routes/uploadImage.js";
 
 
 dotenv.config();
@@ -70,7 +71,8 @@ app.use("/test-apply-stock-by-color-size", testApplyStockByColorSizeRoute);
 app.use("/test-plan-stock-by-color-only", testPlanStockByColorOnlyRoute);
 app.use("/test-create-simple-product", testCreateSimpleProductRoute);
 app.use("/test-create-variable-product", testCreateVariableProductRoute);
-
+app.use("/uploads", express.static("uploads"));
+app.use("/upload-images", uploadImageRoute);
 
 const PORT = process.env.PORT || 3001;
 
