@@ -190,14 +190,18 @@ async function updateProduct(baseUrl, consumerKey, consumerSecret, productId, pa
 
 async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
   const response = await axios.post(
-    `${normalizeBaseUrl(baseUrl)}/products`,
-    payload,
-    buildWooConfig(consumerKey, consumerSecret, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-  );
+  `${normalizeBaseUrl(baseUrl)}/products`,
+  payload,
+  {
+    params: {
+      consumer_key: consumerKey,
+      consumer_secret: consumerSecret
+    },
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }
+);
 
   return response.data;
 }
