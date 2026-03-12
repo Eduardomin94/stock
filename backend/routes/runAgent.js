@@ -1155,7 +1155,7 @@ if (files.length > 0) {
   description,
   shortDescription,
   categories,
-  images: uploadedImages.map((img) => img.src),
+  images: uploadedImages,
   stockQuantity: stockQuantity == null ? null : stockQuantity,
   manageStock: true,
 });
@@ -1386,7 +1386,7 @@ const result = await createVariableProduct({
     options: item.terms.map((term) => term.name),
   })),
   variations: normalizedVariations,
-  images: uploadedImages.map((img) => img.src),
+  images: uploadedImages,
 });
 
   return res.json({
@@ -1522,7 +1522,7 @@ const result = await createVariableProduct({
     options: item.terms.map((term) => term.name),
   })),
   variations: normalizedVariations,
-  images: uploadedImages.map((img) => img.src),
+  images: uploadedImages,
 });
 
   return res.json({
@@ -1581,7 +1581,7 @@ if (files.length > 0) {
   categories: [],
   attributes: parsed.attributes,
   variations: parsed.variations,
-  images: uploadedImages.map((img) => img.src),
+  images: uploadedImages,
 });
 
   return res.json({

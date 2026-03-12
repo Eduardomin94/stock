@@ -1245,9 +1245,11 @@ export async function createVariableProduct({
   }
 
   if (Array.isArray(images) && images.length > 0) {
-  productPayload.images = images.map((url) => ({
-    src: url,
-  }));
+  productPayload.images = images
+    .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+    .map((img) => ({
+      src: img.src,
+    }));
 }
 
   const createdProduct = await createProduct(
@@ -1277,10 +1279,17 @@ export async function createVariableProduct({
       payload.sale_price = String(variation.sale_price);
     }
 
-    const variationColor = variation.attributes.find(
-      (a) => String(a.name || "").trim().toLowerCase() === "color"
-    );
+  if (variationColor) {
+  const matchedImage = images.find(
+    (img) =>
+      String(img.color || "").trim().toLowerCase() ===
+      String(variationColor.option || "").trim().toLowerCase()
+  );
 
+  if (matchedImage?.src) {
+    payload.image = { src: matchedImage.src };
+  }
+}
   
 
     if (
