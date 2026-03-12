@@ -1262,60 +1262,63 @@ export async function createVariableProduct({
   const productId = createdProduct.id;
   const createdVariations = [];
 
-  for (const variation of variations) {
-    const payload = {
-  regular_price: String(variation.regular_price),
-  attributes: variation.attributes.map((a) => ({
-    ...(a.id ? { id: Number(a.id) } : { name: String(a.name).trim() }),
-    option: String(a.option || "").trim(),
-  })),
-};
+for (const variation of variations) {
+  const payload = {
+    regular_price: String(variation.regular_price),
+    attributes: variation.attributes.map((a) => ({
+      ...(a.id ? { id: Number(a.id) } : { name: String(a.name).trim() }),
+      option: String(a.option || "").trim(),
+    })),
+  };
 
-    if (
-      variation.sale_price !== undefined &&
-      variation.sale_price !== null &&
-      variation.sale_price !== ""
-    ) {
-      payload.sale_price = String(variation.sale_price);
-    }
+  if (
+    variation.sale_price !== undefined &&
+    variation.sale_price !== null &&
+    variation.sale_price !== ""
+  ) {
+    payload.sale_price = String(variation.sale_price);
+  }
 
-  if (variationColor) {
-  const matchedImage = images.find(
-    (img) =>
-      String(img.color || "").trim().toLowerCase() ===
-      String(variationColor.option || "").trim().toLowerCase()
+  const variationColor = variation.attributes.find(
+    (a) => String(a.name || "").trim().toLowerCase() === "color"
   );
 
-  if (matchedImage?.src) {
-    payload.image = { src: matchedImage.src };
-  }
-}
-  
-
-    if (
-      variation.stock_quantity !== undefined &&
-      variation.stock_quantity !== null &&
-      variation.stock_quantity !== ""
-    ) {
-      payload.manage_stock = true;
-      payload.stock_quantity = Number(variation.stock_quantity);
-    } else {
-      payload.manage_stock = false;
-      payload.stock_status = "instock";
-    }
-
-    const response = await axios.post(
-      `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
-      payload,
-      buildWooConfig(consumerKey, consumerSecret, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+  if (variationColor) {
+    const matchedImage = images.find(
+      (img) =>
+        String(img.color || "").trim().toLowerCase() ===
+        String(variationColor.option || "").trim().toLowerCase()
     );
 
-    createdVariations.push(response.data);
+    if (matchedImage?.src) {
+      payload.image = { src: matchedImage.src };
+    }
   }
+
+  if (
+    variation.stock_quantity !== undefined &&
+    variation.stock_quantity !== null &&
+    variation.stock_quantity !== ""
+  ) {
+    payload.manage_stock = true;
+    payload.stock_quantity = Number(variation.stock_quantity);
+  } else {
+    payload.manage_stock = false;
+    payload.stock_status = "instock";
+  }
+
+  const response = await axios.post(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
+    payload,
+    buildWooConfig(consumerKey, consumerSecret, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  createdVariations.push(response.data);
+}
 
   return {
     ok: true,
