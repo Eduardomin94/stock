@@ -1566,23 +1566,7 @@ const result = await createVariableProduct({
 let uploadedImages = [];
 
 if (files.length > 0) {
-  const orderedImages = extractOrderedImages(files);
-
-  for (const image of orderedImages) {
-    const uploaded = await uploadImageToWordpress({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      buffer: image.file.buffer,
-      filename: image.file.originalname,
-    });
-
-    uploadedImages.push({
-  id: uploaded.id,
-  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
-  position: image.position,
-});
-  }
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
 
@@ -1597,7 +1581,7 @@ if (files.length > 0) {
   categories: [],
   attributes: parsed.attributes,
   variations: parsed.variations,
-  images: uploadedImages,
+  images: uploadedImages.map((img) => img.src),
 });
 
   return res.json({
