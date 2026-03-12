@@ -1155,7 +1155,7 @@ if (files.length > 0) {
   description,
   shortDescription,
   categories,
-  images: uploadedImages,
+  images: uploadedImages.map((img) => img.src),
   stockQuantity: stockQuantity == null ? null : stockQuantity,
   manageStock: true,
 });
