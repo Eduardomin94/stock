@@ -16,13 +16,16 @@ function buildAuthHeader(consumerKey, consumerSecret) {
 function buildWooConfig(consumerKey, consumerSecret, extra = {}) {
   return {
     ...extra,
+    params: {
+      ...(extra.params || {}),
+      consumer_key: consumerKey,
+      consumer_secret: consumerSecret,
+    },
     headers: {
       ...(extra.headers || {}),
-      ...buildAuthHeader(consumerKey, consumerSecret),
     },
   };
 }
-
 async function fetchAllVariableProducts(baseUrl, consumerKey, consumerSecret) {
   const products = [];
   let page = 1;
