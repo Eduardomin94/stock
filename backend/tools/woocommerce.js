@@ -1245,16 +1245,10 @@ export async function createVariableProduct({
   }
 
   if (Array.isArray(images) && images.length > 0) {
-    const sortedImages = [...images]
-      .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
-      .map((img) => ({
-        id: img.id,
-      }));
-
-    if (sortedImages.length > 0) {
-      productPayload.images = sortedImages;
-    }
-  }
+  productPayload.images = images.map((url) => ({
+    src: url,
+  }));
+}
 
   const createdProduct = await createProduct(
     baseUrl,
@@ -1287,17 +1281,7 @@ export async function createVariableProduct({
       (a) => String(a.name || "").trim().toLowerCase() === "color"
     );
 
-    if (variationColor) {
-      const matchedImage = images.find(
-        (img) =>
-          String(img.color || "").trim().toLowerCase() ===
-          String(variationColor.option || "").trim().toLowerCase()
-      );
-
-      if (matchedImage?.id) {
-        payload.image = { id: matchedImage.id };
-      }
-    }
+  
 
     if (
       variation.stock_quantity !== undefined &&
