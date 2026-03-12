@@ -285,6 +285,37 @@ function extractOrderedImages(files = [], body = {}) {
     });
 }
 
+
+async function saveImagesAndBuildUrls(files = [], body = {}, req) {
+  const orderedImages = extractOrderedImages(files, body);
+  const uploadsDir = path.join(__dirname, "../uploads");
+
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const savedImages = [];
+
+  for (const image of orderedImages) {
+    const originalName = String(image.file.originalname || "image");
+    const safeName = originalName.replace(/\s+/g, "-");
+    const finalName = `${Date.now()}-${image.position}-${safeName}`;
+    const finalPath = path.join(uploadsDir, finalName);
+
+    fs.writeFileSync(finalPath, image.file.buffer);
+
+    const url = `${req.protocol}://${req.get("host")}/uploads/${finalName}`;
+
+    savedImages.push({
+      src: url,
+      color: image.assignedColor || "",
+      position: image.position,
+    });
+  }
+
+  return savedImages;
+}
+
 function parseVariableAttributesText(raw) {
   const lines = String(raw || "")
     .split(/\n+/)
@@ -1111,28 +1142,10 @@ if (categoryName) {
 let uploadedImages = [];
 
 if (files.length > 0) {
-
- const orderedImages = extractOrderedImages(files, req.body);
-
-for (const image of orderedImages) {
-  const uploaded = await uploadImageToWordpress({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    buffer: image.file.buffer,
-    filename: image.file.originalname,
-  });
-
-  uploadedImages.push({
-    id: uploaded.id,
-    color: image.assignedColor || "",
-    position: image.position,
-  });
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
-}
-
-    const result = await createSimpleProduct({
+   const result = await createSimpleProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -1142,7 +1155,7 @@ for (const image of orderedImages) {
   description,
   shortDescription,
   categories,
-  images: uploadedImages,
+  images: uploadedImages.map((img) => img.src),
   stockQuantity: stockQuantity == null ? null : stockQuantity,
   manageStock: true,
 });
@@ -1341,23 +1354,7 @@ const normalizedVariations = variations.map((variation) => ({
 let uploadedImages = [];
 
 if (files.length > 0) {
-  const orderedImages = extractOrderedImages(files, req.body);
-
-  for (const image of orderedImages) {
-    const uploaded = await uploadImageToWordpress({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      buffer: image.file.buffer,
-      filename: image.file.originalname,
-    });
-
-    uploadedImages.push({
-  id: uploaded.id,
-  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
-  position: image.position,
-});
-  }
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
   let categories = [];
@@ -1389,7 +1386,7 @@ const result = await createVariableProduct({
     options: item.terms.map((term) => term.name),
   })),
   variations: normalizedVariations,
-  images: uploadedImages,
+  images: uploadedImages.map((img) => img.src),
 });
 
   return res.json({
@@ -1474,25 +1471,9 @@ if (looksLikeSupplierVariableProductMessage(message)) {
 
   let uploadedImages = [];
 
-  if (files.length > 0) {
-    const orderedImages = extractOrderedImages(files, req.body);
-
-    for (const image of orderedImages) {
-      const uploaded = await uploadImageToWordpress({
-        baseUrl,
-        consumerKey,
-        consumerSecret,
-        buffer: image.file.buffer,
-        filename: image.file.originalname,
-      });
-
-      uploadedImages.push({
-  id: uploaded.id,
-  color: image.assignedColor || image.file.originalname.split(".")[0].trim(),
-  position: image.position,
-});
-    }
-  }
+if (files.length > 0) {
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
+}
 
     const globalAttributesEnsured = [];
 
@@ -1541,7 +1522,7 @@ const result = await createVariableProduct({
     options: item.terms.map((term) => term.name),
   })),
   variations: normalizedVariations,
-  images: uploadedImages,
+  images: uploadedImages.map((img) => img.src),
 });
 
   return res.json({
