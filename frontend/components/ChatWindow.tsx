@@ -306,6 +306,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
 const [skuStatus, setSkuStatus] = useState<"idle" | "available" | "taken">("idle");
 const [skuStatusMessage, setSkuStatusMessage] = useState("");
 const skuValidationIdRef = useRef(0);
+const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
   const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
@@ -487,6 +488,11 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
 
 async function validateSkuLive(rawSku: string) {
   const cleanSku = String(rawSku || "").trim();
+
+  if (skuValidationTimeoutRef.current) {
+    clearTimeout(skuValidationTimeoutRef.current);
+  }
+
   const currentValidationId = ++skuValidationIdRef.current;
 
   if (!cleanSku) {
@@ -497,37 +503,41 @@ async function validateSkuLive(rawSku: string) {
   }
 
   setSkuChecking(true);
+  setSkuStatus("idle");
+  setSkuStatusMessage("Validando SKU...");
 
-  try {
-    const result = await checkSkuExists(cleanSku);
+  skuValidationTimeoutRef.current = setTimeout(async () => {
+    try {
+      const result = await checkSkuExists(cleanSku);
 
-    if (currentValidationId !== skuValidationIdRef.current) {
-      return;
-    }
+      if (currentValidationId !== skuValidationIdRef.current) {
+        return;
+      }
 
-    if (result.exists) {
-      setSkuStatus("taken");
-      setSkuStatusMessage(
-        result.product?.name
-          ? `Ese SKU ya está usado por "${result.product.name}".`
-          : "Ese SKU ya está en uso."
-      );
-    } else {
-      setSkuStatus("available");
-      setSkuStatusMessage("SKU disponible.");
-    }
-  } catch {
-    if (currentValidationId !== skuValidationIdRef.current) {
-      return;
-    }
+      if (result.exists) {
+        setSkuStatus("taken");
+        setSkuStatusMessage(
+          result.product?.name
+            ? `Ese SKU ya está usado por "${result.product.name}".`
+            : "Ese SKU ya está en uso."
+        );
+      } else {
+        setSkuStatus("available");
+        setSkuStatusMessage("SKU disponible.");
+      }
+    } catch {
+      if (currentValidationId !== skuValidationIdRef.current) {
+        return;
+      }
 
-    setSkuStatus("idle");
-    setSkuStatusMessage("No pude validar el SKU ahora.");
-  } finally {
-    if (currentValidationId === skuValidationIdRef.current) {
-      setSkuChecking(false);
+      setSkuStatus("idle");
+      setSkuStatusMessage("No pude validar el SKU ahora.");
+    } finally {
+      if (currentValidationId === skuValidationIdRef.current) {
+        setSkuChecking(false);
+      }
     }
-  }
+  }, 400);
 }
 
   function startCreateProduct() {
