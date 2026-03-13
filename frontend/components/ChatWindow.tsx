@@ -547,7 +547,7 @@ async function validateSkuLive(rawSku: string) {
     setText("");
     setStockByVariationMap({});
     pushAssistantInfo(
-  "Vamos a crear un producto paso por paso. Orden: fotos, nombre, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
+  "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
 );
   }
 
