@@ -639,19 +639,18 @@ async function validateSkuLive(rawSku: string) {
     }
 
     if (currentCreateStep.key === "sku") {
-  try {
-    const skuCheck = await checkSkuExists(text.trim());
+  const cleanSku = text.trim();
 
-    if (skuCheck.exists) {
-      pushAssistantInfo(
-        skuCheck.product?.name
-          ? `Ese SKU ya está usado por "${skuCheck.product.name}". Probá con otro SKU.`
-          : "Ese SKU ya está en uso. Probá con otro SKU."
-      );
-      return;
-    }
-  } catch {
-    pushAssistantInfo("No pude validar el SKU en este momento.");
+  if (!cleanSku) {
+    // SKU opcional: si está vacío, sigue normal
+  } else if (skuChecking) {
+    pushAssistantInfo("Esperá un momento, todavía se está validando el SKU.");
+    return;
+  } else if (skuStatus === "taken") {
+    pushAssistantInfo(skuStatusMessage || "Ese SKU ya está en uso. Probá con otro SKU.");
+    return;
+  } else if (skuStatus !== "available") {
+    pushAssistantInfo("Todavía no pude validar ese SKU. Esperá un momento.");
     return;
   }
 }
