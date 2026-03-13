@@ -540,24 +540,42 @@ async function validateSkuLive(rawSku: string) {
   }, 400);
 }
 
-  function startCreateProduct() {
-    setActiveAction("create");
-    setCreateForm(initialCreateForm);
-    setCreateStepIndex(0);
-    setText("");
-    setStockByVariationMap({});
-    pushAssistantInfo(
-  "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
-);
+function resetSkuValidationState() {
+  setSkuChecking(false);
+  setSkuStatus("idle");
+  setSkuStatusMessage("");
+
+  if (skuValidationTimeoutRef.current) {
+    clearTimeout(skuValidationTimeoutRef.current);
+    skuValidationTimeoutRef.current = null;
   }
+}
+
+
+  function startCreateProduct() {
+  setActiveAction("create");
+  setCreateForm(initialCreateForm);
+  setCreateStepIndex(0);
+  setText("");
+  setStockByVariationMap({});
+  resetSkuValidationState();
+
+  pushAssistantInfo(
+    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
+  );
+}
+
+
 
   function cancelCreateProduct() {
-    setActiveAction(null);
-    setCreateStepIndex(0);
-    setCreateForm(initialCreateForm);
-    setText("");
-    setStockByVariationMap({});
-  }
+  setActiveAction(null);
+  setCreateStepIndex(0);
+  setCreateForm(initialCreateForm);
+  setText("");
+  setStockByVariationMap({});
+  resetSkuValidationState();
+}
+
 
   function saveCurrentCreateStepValue() {
     if (!currentCreateStep || currentCreateStep.key === "fotos") return true;
@@ -893,9 +911,7 @@ setText("");
               {createStepIndex < CREATE_STEPS.length - 1 ? (
                 <button
   type="button"
-  onClick={async () => {
-    await nextCreateStep();
-  }}
+  onClick={nextCreateStep}
   style={wizardPrimaryButtonStyle}
 >
   Siguiente
