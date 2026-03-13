@@ -14,6 +14,7 @@ type ChatWindowProps = {
 
 type CreateProductForm = {
   nombre: string;
+  sku: string;
   colores: string;
   talles: string;
   precio: string;
@@ -25,17 +26,19 @@ type CreateProductForm = {
   subcategoria: string;
 };
 
-type CreateStepKey =
-  | "fotos"
-  | "nombre"
-  | "colores"
-  | "talles"
-  | "precio"
-  | "precioRebajado"
-  | "stock"
-  | "descripcionCorta"
-  | "categoria"
-  | "subcategoria";
+type CreateProductForm = {
+  nombre: string;
+  sku: string;
+  colores: string;
+  talles: string;
+  precio: string;
+  precioRebajado: string;
+  stockMode: "none" | "same" | "perVariation";
+  stockGeneral: string;
+  descripcionCorta: string;
+  categoria: string;
+  subcategoria: string;
+};
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
@@ -58,6 +61,13 @@ const CREATE_STEPS: {
     helper: "Escribí el nombre del producto.",
     placeholder: "Ej: Remera básica premium",
   },
+  {
+  key: "sku",
+  title: "SKU",
+  helper: "Si querés, escribí el SKU. Si no, dejalo vacío.",
+  placeholder: "Ej: REM-001",
+  optional: true,
+},
   {
     key: "colores",
     title: "Colores",
@@ -116,6 +126,7 @@ const CREATE_STEPS: {
 
 const initialCreateForm: CreateProductForm = {
   nombre: "",
+  sku: "",
   colores: "",
   talles: "",
   precio: "",
@@ -159,6 +170,7 @@ function buildCreateProductMessage(
   const category = form.categoria.trim();
   const subcategory = form.subcategoria.trim();
   const name = form.nombre.trim();
+  const sku = form.sku.trim();
 
   const colorList = cleanColors
     .split(",")
@@ -175,6 +187,7 @@ function buildCreateProductMessage(
   if (cleanColors || cleanSizes) {
     lines.push("crear producto variable");
     lines.push(`nombre: ${name}`);
+    if (sku) lines.push(`sku: ${sku}`);
     lines.push(`precio: ${cleanPrice}`);
     if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
 
@@ -229,6 +242,7 @@ function buildCreateProductMessage(
 
   lines.push("crear producto simple");
   lines.push(`nombre: ${name}`);
+  if (sku) lines.push(`sku: ${sku}`);
   lines.push(`precio: ${cleanPrice}`);
   if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
   if (form.stockGeneral.trim()) lines.push(`stock: ${form.stockGeneral.trim()}`);
@@ -415,6 +429,8 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
       switch (currentCreateStep.key) {
         case "nombre":
           return { ...prev, nombre: rawValue };
+          case "sku":
+          return { ...prev, sku: rawValue };
         case "colores":
           return { ...prev, colores: rawValue };
         case "talles":
@@ -447,24 +463,26 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
       return;
     }
 
-    setText(
+   setText(
   step.key === "nombre"
     ? createForm.nombre
-    : step.key === "colores"
-      ? createForm.colores
-      : step.key === "talles"
-        ? createForm.talles
-        : step.key === "precio"
-          ? createForm.precio
-          : step.key === "precioRebajado"
-            ? createForm.precioRebajado
-            : step.key === "stock"
-            ? ""
-              : step.key === "descripcionCorta"
-                ? createForm.descripcionCorta
-                : step.key === "categoria"
-                  ? createForm.categoria
-                  : createForm.subcategoria
+    : step.key === "sku"
+      ? createForm.sku
+      : step.key === "colores"
+        ? createForm.colores
+        : step.key === "talles"
+          ? createForm.talles
+          : step.key === "precio"
+            ? createForm.precio
+            : step.key === "precioRebajado"
+              ? createForm.precioRebajado
+              : step.key === "stock"
+                ? ""
+                : step.key === "descripcionCorta"
+                  ? createForm.descripcionCorta
+                  : step.key === "categoria"
+                    ? createForm.categoria
+                    : createForm.subcategoria
 );
   }
 
@@ -511,6 +529,7 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
     const finalForm = {
       ...createForm,
       ...(currentCreateStep?.key === "nombre" ? { nombre: text.trim() } : {}),
+      ...(currentCreateStep?.key === "sku" ? { sku: text.trim() } : {}),  
       ...(currentCreateStep?.key === "colores" ? { colores: text.trim() } : {}),
       ...(currentCreateStep?.key === "talles" ? { talles: text.trim() } : {}),
       ...(currentCreateStep?.key === "precio" ? { precio: text.trim() } : {}),

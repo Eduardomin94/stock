@@ -1198,6 +1198,7 @@ if (files.length > 0) {
   }
 
   const name = extractField(message, "nombre");
+const sku = extractField(message, "sku");
 const description = extractField(message, "descripcion");
 const shortDescription = extractField(message, "descripcion_corta");
 const categoryName = extractField(message, "categoria");
@@ -1373,12 +1374,18 @@ if (categoryName) {
 
   categories = categoryResult.categories;
 }
+console.log("VARIABLE SKU DEBUG", {
+  name,
+  sku,
+  message,
+});
 
 const result = await createVariableProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
   name,
+  sku,
   description,
   shortDescription,
   categories,

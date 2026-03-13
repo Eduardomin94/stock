@@ -1213,6 +1213,7 @@ export async function createVariableProduct({
   consumerKey,
   consumerSecret,
   name,
+  sku = "",
   description = "",
   shortDescription = "",
   attributes = [],
@@ -1226,11 +1227,12 @@ export async function createVariableProduct({
   if (!name) throw new Error("Falta name");
 
   const productPayload = {
-    name: String(name).trim(),
-    type: "variable",
-    description: String(description || ""),
-    short_description: String(shortDescription || ""),
-    attributes: attributes.map((attr) => ({
+  name: String(name).trim(),
+  sku: String(sku || "").trim(),
+  type: "variable",
+  description: String(description || ""),
+  short_description: String(shortDescription || ""),
+  attributes: attributes.map((attr) => ({
       ...(attr.id ? { id: Number(attr.id) } : { name: attr.name }),
       visible: true,
       variation: true,
@@ -1260,6 +1262,14 @@ export async function createVariableProduct({
     consumerSecret,
     productPayload
   );
+
+  console.log("VARIABLE PRODUCT PAYLOAD", productPayload);
+  console.log("VARIABLE PRODUCT CREATED", {
+  id: createdProduct?.id,
+  name: createdProduct?.name,
+  sku: createdProduct?.sku,
+  type: createdProduct?.type,
+});
 
   const productId = createdProduct.id;
   const createdVariations = [];
