@@ -287,22 +287,28 @@ function extractOrderedImages(files = [], body = {}) {
 }
 
 
-async function saveImagesAndBuildUrls(files = [], body = {}, req, wooCredentials) {
+async function saveImagesAndBuildUrls(files = [], body = {}, req) {
   const orderedImages = extractOrderedImages(files, body);
+  const uploadsDir = path.join(__dirname, "../uploads");
+
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
   const savedImages = [];
 
   for (const image of orderedImages) {
-    const uploaded = await uploadImageToWordpress({
-      baseUrl: wooCredentials.baseUrl,
-      consumerKey: wooCredentials.consumerKey,
-      consumerSecret: wooCredentials.consumerSecret,
-      buffer: image.file.buffer,
-      filename: image.file.originalname || "image.jpg",
-    });
+    const originalName = String(image.file.originalname || "image");
+    const safeName = originalName.replace(/\s+/g, "-");
+    const finalName = `${Date.now()}-${image.position}-${safeName}`;
+    const finalPath = path.join(uploadsDir, finalName);
+
+    fs.writeFileSync(finalPath, image.file.buffer);
+
+    const url = `${req.protocol}://${req.get("host")}/uploads/${finalName}`;
 
     savedImages.push({
-      id: uploaded.id,
-      src: uploaded.url,
+      src: url,
       color: image.assignedColor || "",
       position: image.position,
     });
@@ -1177,11 +1183,7 @@ if (categoryName) {
 let uploadedImages = [];
 
 if (files.length > 0) {
-  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req, {
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-});
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
    const result = await createSimpleProduct({
@@ -1409,11 +1411,7 @@ const normalizedVariations = variations.map((variation) => ({
 let uploadedImages = [];
 
 if (files.length > 0) {
-  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req, {
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-});
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
   let categories = [];
@@ -1537,11 +1535,7 @@ if (looksLikeSupplierVariableProductMessage(message)) {
   let uploadedImages = [];
 
 if (files.length > 0) {
-  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req, {
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-});
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
     const globalAttributesEnsured = [];
@@ -1635,11 +1629,7 @@ const result = await createVariableProduct({
 let uploadedImages = [];
 
 if (files.length > 0) {
-  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req, {
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-});
+  uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
 
