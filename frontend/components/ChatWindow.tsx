@@ -158,29 +158,27 @@ function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
 }
 
-function translateAgentError(message: string) {
-  const text = String(message || "").toLowerCase();
+function translateAgentError(message: any) {
+  const text =
+    typeof message === "string"
+      ? message
+      : JSON.stringify(message || "");
 
-  if (
-    text.includes("already present") &&
-    text.includes("sku")
-  ) {
-    return "Ya existe un producto con ese SKU. Usá otro SKU o editá el producto existente.";
+  const lower = text.toLowerCase();
+
+  if (lower.includes("sku") && lower.includes("duplicado")) {
+    return "Ya existe un producto con ese SKU. Probá con otro SKU.";
   }
 
-  if (text.includes("falta") && text.includes("wc_url")) {
-    return "Faltan las credenciales de WooCommerce en el servidor.";
+  if (lower.includes("product_invalid_sku")) {
+    return "El SKU ya existe. Usá otro SKU.";
   }
 
-  if (text.includes("token inválido") || text.includes("token invalido")) {
-    return "Tu sesión venció. Cerrá sesión y volvé a entrar.";
+  if (lower.includes("already present")) {
+    return "Ya existe un producto con ese SKU.";
   }
 
-  if (text.includes("base de datos")) {
-    return "Hubo un problema con la base de datos.";
-  }
-
-  return message || "Hubo un error ejecutando el agente.";
+  return "Ocurrió un error al crear el producto.";
 }
 
 function buildCreateProductMessage(
@@ -304,6 +302,10 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
   const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+  const [skuChecking, setSkuChecking] = useState(false);
+const [skuStatus, setSkuStatus] = useState<"idle" | "available" | "taken">("idle");
+const [skuStatusMessage, setSkuStatusMessage] = useState("");
+const skuValidationIdRef = useRef(0);
 
 
   const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
@@ -373,12 +375,7 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
 const response = await res.json();
 
 if (!res.ok) {
-  throw new Error(
-    response?.detail ||
-    response?.error ||
-    response?.message ||
-    "Error al ejecutar el agente."
-  );
+  throw response?.detail || response?.error || response?.message || "Error al ejecutar el agente.";
 }
 
 const assistantMessage: Message = {
@@ -393,11 +390,12 @@ const assistantMessage: Message = {
         fileInputRef.current.value = "";
       }
     } catch (error: any) {
-
   const rawMessage =
-    typeof error?.message === "string"
-      ? error.message
-      : JSON.stringify(error?.message || error);
+    typeof error === "string"
+      ? error
+      : typeof error?.message === "string"
+        ? error.message
+        : JSON.stringify(error || "");
 
   const assistantMessage: Message = {
     role: "assistant",
@@ -451,6 +449,86 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
   function pushAssistantInfo(textMessage: string) {
     setMessages((prev) => [...prev, { role: "assistant", text: textMessage }]);
   }
+
+  async function checkSkuExists(sku: string) {
+  const cleanSku = String(sku || "").trim();
+
+  if (!cleanSku) {
+    return { exists: false, product: null };
+  }
+
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__check_sku__:${cleanSku}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const res = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+    body: form,
+  });
+
+  const response = await res.json();
+
+  if (!res.ok) {
+    throw response?.detail || response?.error || response?.message || "No se pudo validar el SKU.";
+  }
+
+  return {
+    exists: Boolean(response?.exists),
+    product: response?.product || null,
+  };
+}
+
+async function validateSkuLive(rawSku: string) {
+  const cleanSku = String(rawSku || "").trim();
+  const currentValidationId = ++skuValidationIdRef.current;
+
+  if (!cleanSku) {
+    setSkuChecking(false);
+    setSkuStatus("idle");
+    setSkuStatusMessage("");
+    return;
+  }
+
+  setSkuChecking(true);
+
+  try {
+    const result = await checkSkuExists(cleanSku);
+
+    if (currentValidationId !== skuValidationIdRef.current) {
+      return;
+    }
+
+    if (result.exists) {
+      setSkuStatus("taken");
+      setSkuStatusMessage(
+        result.product?.name
+          ? `Ese SKU ya está usado por "${result.product.name}".`
+          : "Ese SKU ya está en uso."
+      );
+    } else {
+      setSkuStatus("available");
+      setSkuStatusMessage("SKU disponible.");
+    }
+  } catch {
+    if (currentValidationId !== skuValidationIdRef.current) {
+      return;
+    }
+
+    setSkuStatus("idle");
+    setSkuStatusMessage("No pude validar el SKU ahora.");
+  } finally {
+    if (currentValidationId === skuValidationIdRef.current) {
+      setSkuChecking(false);
+    }
+  }
+}
 
   function startCreateProduct() {
     setActiveAction("create");
@@ -542,7 +620,7 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
 );
   }
 
-  function nextCreateStep() {
+  async function nextCreateStep() {
     if (!currentCreateStep) return;
 
     if (!saveCurrentCreateStepValue()) {
@@ -550,14 +628,32 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
       return;
     }
 
-    const nextIndex = createStepIndex + 1;
+    if (currentCreateStep.key === "sku") {
+  try {
+    const skuCheck = await checkSkuExists(text.trim());
 
-    if (nextIndex >= CREATE_STEPS.length) {
+    if (skuCheck.exists) {
+      pushAssistantInfo(
+        skuCheck.product?.name
+          ? `Ese SKU ya está usado por "${skuCheck.product.name}". Probá con otro SKU.`
+          : "Ese SKU ya está en uso. Probá con otro SKU."
+      );
       return;
     }
+  } catch {
+    pushAssistantInfo("No pude validar el SKU en este momento.");
+    return;
+  }
+}
 
-    setCreateStepIndex(nextIndex);
-    setText("");
+const nextIndex = createStepIndex + 1;
+
+if (nextIndex >= CREATE_STEPS.length) {
+  return;
+}
+
+setCreateStepIndex(nextIndex);
+setText("");
   }
 
   function previousCreateStep() {
@@ -786,9 +882,15 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
               </button>
 
               {createStepIndex < CREATE_STEPS.length - 1 ? (
-                <button type="button" onClick={nextCreateStep} style={wizardPrimaryButtonStyle}>
-                  Siguiente
-                </button>
+                <button
+  type="button"
+  onClick={async () => {
+    await nextCreateStep();
+  }}
+  style={wizardPrimaryButtonStyle}
+>
+  Siguiente
+</button>
               ) : (
                 <button type="button" onClick={submitCreateProduct} style={wizardPrimaryButtonStyle}>
                   Crear producto
@@ -1343,8 +1445,15 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   </>
 ) : (
   <textarea
-    value={text}
-    onChange={(e) => setText(e.target.value)}
+  value={text}
+  onChange={(e) => {
+    const value = e.target.value;
+    setText(value);
+
+    if (currentCreateStep?.key === "sku") {
+      validateSkuLive(value);
+    }
+  }}
     onKeyDown={(e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -1375,6 +1484,22 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
       marginBottom: 10,
     }}
   />
+)}
+{currentCreateStep?.key === "sku" && skuStatusMessage && (
+  <div
+    style={{
+      marginTop: 6,
+      fontSize: 13,
+      color:
+        skuStatus === "taken"
+          ? "#f87171"
+          : skuStatus === "available"
+          ? "#4ade80"
+          : "#94a3b8",
+    }}
+  >
+    {skuChecking ? "Validando SKU..." : skuStatusMessage}
+  </div>
 )}
   </>
 )}

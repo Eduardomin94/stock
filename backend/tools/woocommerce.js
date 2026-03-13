@@ -209,6 +209,83 @@ async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
   return response.data;
 }
 
+export async function findProductBySku({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  sku,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!sku) throw new Error("Falta sku");
+
+  const cleanSku = String(sku).trim().toLowerCase();
+
+  const directResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        sku: String(sku).trim(),
+        per_page: 100,
+      },
+    })
+  );
+
+  const directProducts = Array.isArray(directResponse.data) ? directResponse.data : [];
+
+  let exact = directProducts.find(
+    (product) => String(product?.sku || "").trim().toLowerCase() === cleanSku
+  );
+
+  if (!exact) {
+    const searchResponse = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          search: String(sku).trim(),
+          per_page: 100,
+        },
+      })
+    );
+
+    const searchProducts = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+
+    exact = searchProducts.find(
+      (product) => String(product?.sku || "").trim().toLowerCase() === cleanSku
+    );
+  }
+
+console.log("SKU CHECK DEBUG", {
+  skuBuscado: sku,
+  directProducts: directProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+  })),
+  exactDirect: exact
+    ? {
+        id: exact.id,
+        name: exact.name,
+        sku: exact.sku,
+      }
+    : null,
+});
+
+  return {
+    ok: true,
+    exists: Boolean(exact),
+    product: exact
+      ? {
+          id: exact.id,
+          name: exact.name || "",
+          sku: exact.sku || "",
+          type: exact.type || "",
+        }
+      : null,
+  };
+}
+
 async function fetchAllGlobalAttributes(baseUrl, consumerKey, consumerSecret) {
   const response = await axios.get(
     `${normalizeBaseUrl(baseUrl)}/products/attributes`,

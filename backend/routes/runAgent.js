@@ -16,7 +16,8 @@ import {
   ensureCategoryPath,
   ensureGlobalAttributeWithTerms,
   suggestCategoriesByName,
-  uploadImageToWordpress
+  uploadImageToWordpress,
+  findProductBySku
 } from "../tools/woocommerce.js";
 import {
   updateAgent,
@@ -966,6 +967,33 @@ console.log("WOO CHECK", {
       error: "Token inválido o vencido",
     });
   }
+}
+
+if (String(message || "").startsWith("__check_sku__:")) {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  const skuToCheck = String(message || "").replace("__check_sku__:", "").trim();
+
+  if (!skuToCheck) {
+    return res.json({
+      ok: true,
+      exists: false,
+      product: null,
+    });
+  }
+
+  const skuCheck = await findProductBySku({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    sku: skuToCheck,
+  });
+
+  return res.json(skuCheck);
 }
 
 const detectedIntent = detectCommerceIntent(message);
