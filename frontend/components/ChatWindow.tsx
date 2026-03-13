@@ -26,20 +26,6 @@ type CreateProductForm = {
   subcategoria: string;
 };
 
-type CreateProductForm = {
-  nombre: string;
-  sku: string;
-  colores: string;
-  talles: string;
-  precio: string;
-  precioRebajado: string;
-  stockMode: "none" | "same" | "perVariation";
-  stockGeneral: string;
-  descripcionCorta: string;
-  categoria: string;
-  subcategoria: string;
-};
-
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
 const CREATE_STEPS: {
