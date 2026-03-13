@@ -1285,6 +1285,14 @@ export async function planStockUpdateByColorOnly({
   };
 }
 
+function normalizeColorName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 export async function createVariableProduct({
   baseUrl,
   consumerKey,
@@ -1303,13 +1311,17 @@ export async function createVariableProduct({
   if (!consumerSecret) throw new Error("Falta consumerSecret");
   if (!name) throw new Error("Falta name");
 
+  const orderedImages = Array.isArray(images)
+    ? [...images].sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+    : [];
+
   const productPayload = {
-  name: String(name).trim(),
-  sku: String(sku || "").trim(),
-  type: "variable",
-  description: String(description || ""),
-  short_description: String(shortDescription || ""),
-  attributes: attributes.map((attr) => ({
+    name: String(name).trim(),
+    sku: String(sku || "").trim(),
+    type: "variable",
+    description: String(description || ""),
+    short_description: String(shortDescription || ""),
+    attributes: attributes.map((attr) => ({
       ...(attr.id ? { id: Number(attr.id) } : { name: attr.name }),
       visible: true,
       variation: true,
@@ -1325,13 +1337,12 @@ export async function createVariableProduct({
       }));
   }
 
-  if (Array.isArray(images) && images.length > 0) {
-  productPayload.images = images
-    .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
-    .map((img) => ({
+  // ACÁ sí dejamos src, pero solo en el producto padre
+  if (orderedImages.length > 0) {
+    productPayload.images = orderedImages.map((img) => ({
       src: img.src,
     }));
-}
+  }
 
   const createdProduct = await createProduct(
     baseUrl,
@@ -1342,79 +1353,99 @@ export async function createVariableProduct({
 
   console.log("VARIABLE PRODUCT PAYLOAD", productPayload);
   console.log("VARIABLE PRODUCT CREATED", {
-  id: createdProduct?.id,
-  name: createdProduct?.name,
-  sku: createdProduct?.sku,
-  type: createdProduct?.type,
-});
+    id: createdProduct?.id,
+    name: createdProduct?.name,
+    sku: createdProduct?.sku,
+    type: createdProduct?.type,
+  });
 
   const productId = createdProduct.id;
   const createdVariations = [];
 
-for (const variation of variations) {
-  const payload = {
-    regular_price: String(variation.regular_price),
-    attributes: variation.attributes.map((a) => ({
-      ...(a.id ? { id: Number(a.id) } : { name: String(a.name).trim() }),
-      option: String(a.option || "").trim(),
-    })),
-  };
+  // Armamos un mapa color -> image id usando las imágenes ya importadas por Woo
+  const createdProductImages = Array.isArray(createdProduct?.images)
+    ? createdProduct.images
+    : [];
 
-  if (
-    variation.sale_price !== undefined &&
-    variation.sale_price !== null &&
-    variation.sale_price !== ""
-  ) {
-    payload.sale_price = String(variation.sale_price);
-  }
-  
-  const variationColor = variation.attributes.find(
-  (a) => String(a.name || "").trim().toLowerCase() === "color"
-);
+  const imageIdByColor = new Map();
 
-if (variationColor) {
-  const matchedImage = images.find(
-    (img) =>
-      String(img.color || "").trim().toLowerCase() ===
-      String(variationColor.option || "").trim().toLowerCase()
-  );
+  for (let i = 0; i < orderedImages.length; i += 1) {
+    const originalImage = orderedImages[i];
+    const createdImage = createdProductImages[i];
 
-  if (matchedImage?.src) {
-    payload.image = { src: matchedImage.src };
-  }
-}
+    if (!originalImage?.color) continue;
+    if (!createdImage?.id) continue;
 
-  if (
-    variation.stock_quantity !== undefined &&
-    variation.stock_quantity !== null &&
-    variation.stock_quantity !== ""
-  ) {
-    payload.manage_stock = true;
-    payload.stock_quantity = Number(variation.stock_quantity);
-  } else {
-    payload.manage_stock = false;
-    payload.stock_status = "instock";
+    imageIdByColor.set(
+      normalizeColorName(originalImage.color),
+      Number(createdImage.id)
+    );
   }
 
-  const response = await axios.post(
-    `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
-    payload,
-    buildWooConfig(consumerKey, consumerSecret, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-  );
+  for (const variation of variations) {
+    const payload = {
+      regular_price: String(variation.regular_price),
+      attributes: variation.attributes.map((a) => ({
+        ...(a.id ? { id: Number(a.id) } : { name: String(a.name).trim() }),
+        option: String(a.option || "").trim(),
+      })),
+    };
 
-  createdVariations.push(response.data);
-}
+    if (
+      variation.sale_price !== undefined &&
+      variation.sale_price !== null &&
+      variation.sale_price !== ""
+    ) {
+      payload.sale_price = String(variation.sale_price);
+    }
+
+    const variationColor = variation.attributes.find(
+      (a) => normalizeColorName(a.name) === "color"
+    );
+
+    if (variationColor) {
+      const imageId = imageIdByColor.get(
+        normalizeColorName(variationColor.option)
+      );
+
+      if (imageId) {
+        payload.image = { id: imageId };
+      }
+    }
+
+    if (
+      variation.stock_quantity !== undefined &&
+      variation.stock_quantity !== null &&
+      variation.stock_quantity !== ""
+    ) {
+      payload.manage_stock = true;
+      payload.stock_quantity = Number(variation.stock_quantity);
+    } else {
+      payload.manage_stock = false;
+      payload.stock_status = "instock";
+    }
+
+    const response = await axios.post(
+      `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
+      payload,
+      buildWooConfig(consumerKey, consumerSecret, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+    );
+
+    createdVariations.push(response.data);
+  }
 
   return {
     ok: true,
     action: "create_variable_product",
     product_id: productId,
-    name: createdProduct.name,
+    product_name: createdProduct.name,
+    product_sku: createdProduct.sku ?? "",
     variations_created: createdVariations.length,
+    variation_ids: createdVariations.map((item) => item.id),
   };
 }
 
