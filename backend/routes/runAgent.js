@@ -981,6 +981,7 @@ if (pendingDraft && looksLikeOnlyCategoryReply(message)) {
     consumerKey,
     consumerSecret,
     name: pendingDraft.name,
+    sku: pendingDraft.sku || "",
     regularPrice: pendingDraft.regularPrice,
     description: pendingDraft.description || "",
     shortDescription: pendingDraft.shortDescription || "",
@@ -1007,7 +1008,7 @@ if (looksLikeOnlyCategoryReply(message)) {
     agentName: agent.name,
     usedTool: false,
     reply:
-      `Perfecto. Ahora mandame el producto completo de nuevo y dejá esa categoría al final o en una línea sola. Ejemplo:\ncrear producto simple\nnombre: Remera básica\nprecio: 15000\nstock: 5\n${message.trim()}`,
+      `Perfecto. Ahora mandame el producto completo de nuevo y dejá esa categoría al final o en una línea sola. Ejemplo:\ncrear producto simple\nnombre: Remera básica\nsku: REM-001\nprecio: 15000\nstock: 5\n${message.trim()}`,
   });
 }
 
@@ -1048,7 +1049,7 @@ if (
       }
 
       const name = extractField(message, "nombre");
-
+      const sku = extractField(message, "sku");
       const regularPriceRaw = extractField(message, "precio");
       const subcategoryName = extractField(message, "subcategoria");
       const salePriceRaw = extractField(message, "precio_rebajado");
@@ -1069,19 +1070,20 @@ if (
     agentName: agent.name,
     usedTool: false,
     reply:
-      "Para crear un producto simple pasame al menos: nombre y precio.",
+  "Para crear un producto simple pasame al menos: nombre y precio. Si querés, también podés agregar SKU entre medio. Ejemplo:\nnombre: Remera básica\nsku: REM-001\nprecio: 15000",
   });
 }
 
 if (!categoryName) {
   savePendingDraft(agentId, {
-    type: "simple_product",
-    name,
-    regularPrice,
-    stockQuantity: stockQuantity == null ? null : stockQuantity,
-    description,
-    shortDescription,
-  });
+  type: "simple_product",
+  name,
+  sku,
+  regularPrice,
+  stockQuantity: stockQuantity == null ? null : stockQuantity,
+  description,
+  shortDescription,
+});
 
   return res.json({
     agentId: agent.id,
@@ -1150,6 +1152,7 @@ if (files.length > 0) {
   consumerKey,
   consumerSecret,
   name,
+  sku,
   regularPrice,
   salePrice: Number.isFinite(salePrice) ? salePrice : "",
   description,

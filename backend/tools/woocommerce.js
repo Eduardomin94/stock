@@ -560,6 +560,7 @@ export async function createSimpleProduct({
   consumerKey,
   consumerSecret,
   name,
+  sku = "",
   regularPrice,
   salePrice = "",
   description = "",
@@ -577,6 +578,7 @@ export async function createSimpleProduct({
 
   const payload = {
     name: String(name).trim(),
+    sku: String(sku || "").trim(),
     type: "simple",
     regular_price: String(regularPrice),
     description: String(description || ""),
