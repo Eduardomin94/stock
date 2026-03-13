@@ -76,14 +76,19 @@ app.use("/upload-images", uploadImageRoute);
 
 const PORT = process.env.PORT || 3001;
 
-ensureDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log("Servidor de agentes funcionando");
-    });
-  })
-  .catch((error) => {
+async function startServer() {
+  try {
+    await ensureDatabase();
+    console.log("Base de datos lista o salteada");
+  } catch (error) {
     console.error("Error inicializando base de datos:", error);
-    process.exit(1);
+    console.log("Sigo levantando el servidor igual");
+  }
+
+  app.listen(PORT, () => {
+    console.log("Servidor de agentes funcionando");
   });
+}
+
+startServer();
 
