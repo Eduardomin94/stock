@@ -1367,6 +1367,22 @@ for (const variation of variations) {
   ) {
     payload.sale_price = String(variation.sale_price);
   }
+  
+  const variationColor = variation.attributes.find(
+  (a) => String(a.name || "").trim().toLowerCase() === "color"
+);
+
+if (variationColor) {
+  const matchedImage = images.find(
+    (img) =>
+      String(img.color || "").trim().toLowerCase() ===
+      String(variationColor.option || "").trim().toLowerCase()
+  );
+
+  if (matchedImage?.src) {
+    payload.image = { src: matchedImage.src };
+  }
+}
 
   if (
     variation.stock_quantity !== undefined &&
