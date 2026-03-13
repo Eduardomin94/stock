@@ -63,7 +63,7 @@ const CREATE_STEPS: {
   {
   key: "sku",
   title: "SKU",
-  helper: "Si querés, escribí el SKU. Si no, dejalo vacío.",
+  helper: "Si querés, escribí el SKU (es el artículo). Si no, dejalo vacío.",
   placeholder: "Ej: REM-001",
   optional: true,
 },
