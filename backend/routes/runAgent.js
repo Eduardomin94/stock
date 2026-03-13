@@ -643,20 +643,31 @@ function parseSupplierStockBlock(raw) {
   const stockMap = new Map();
 
   for (const line of lines) {
-    const match = line.match(/^(.+?)\s+([A-Za-z0-9]+)\s+(\d+)$/);
+    const threePartsMatch = line.match(/^(.+?)\s+([A-Za-z0-9]+)\s+(\d+)$/);
 
-    if (!match) continue;
+    if (threePartsMatch) {
+      const color = normalizeSpaces(threePartsMatch[1]);
+      const sizeToken = normalizeSpaces(threePartsMatch[2]);
+      const qty = Number(threePartsMatch[3]);
 
-    const color = normalizeSpaces(match[1]);
-    const sizeToken = normalizeSpaces(match[2]);
-    const qty = Number(match[3]);
+      const normalizedColor = normalizeKeyName(color);
+      const normalizedSize = normalizeKeyName(sizeToken);
+      const key = `${normalizedColor}__${normalizedSize}`;
 
-    const normalizedColor = normalizeKeyName(color);
+      stockMap.set(key, qty);
+      continue;
+    }
 
-    const normalizedSize = normalizeKeyName(sizeToken);
-    const key = `${normalizedColor}__${normalizedSize}`;
+    const twoPartsMatch = line.match(/^(.+?)\s+(\d+)$/);
 
-    stockMap.set(key, qty);
+    if (twoPartsMatch) {
+      const firstPart = normalizeSpaces(twoPartsMatch[1]);
+      const qty = Number(twoPartsMatch[2]);
+      const normalizedFirstPart = normalizeKeyName(firstPart);
+
+      stockMap.set(`${normalizedFirstPart}__`, qty);
+      stockMap.set(`__${normalizedFirstPart}`, qty);
+    }
   }
 
   return stockMap;
@@ -1265,32 +1276,46 @@ if (
       stockMap: stockRaw ? stockMap : null,
     });
   } else if (colors.length > 0) {
-    variations = colors.map((color) => {
-      const variation = {
-        attributes: [{ name: "Color", option: color }],
-        regular_price: String(regularPrice),
-      };
+  variations = colors.map((color) => {
+    const variation = {
+      attributes: [{ name: "Color", option: color }],
+      regular_price: String(regularPrice),
+    };
 
-      if (Number.isFinite(salePrice)) {
-        variation.sale_price = String(salePrice);
-      }
+    if (Number.isFinite(salePrice)) {
+      variation.sale_price = String(salePrice);
+    }
 
-      return variation;
-    });
-  } else if (sizes.length > 0) {
-    variations = sizes.map((size) => {
-      const variation = {
-        attributes: [{ name: "Talle", option: size }],
-        regular_price: String(regularPrice),
-      };
+    const colorKey = `${normalizeKeyName(color)}__`;
+    const hasStock = stockRaw && stockMap.has(colorKey);
 
-      if (Number.isFinite(salePrice)) {
-        variation.sale_price = String(salePrice);
-      }
+    if (hasStock) {
+      variation.stock_quantity = Number(stockMap.get(colorKey));
+    }
 
-      return variation;
-    });
-  }
+    return variation;
+  });
+} else if (sizes.length > 0) {
+  variations = sizes.map((size) => {
+    const variation = {
+      attributes: [{ name: "Talle", option: size }],
+      regular_price: String(regularPrice),
+    };
+
+    if (Number.isFinite(salePrice)) {
+      variation.sale_price = String(salePrice);
+    }
+
+    const sizeKey = `__${normalizeKeyName(size)}`;
+    const hasStock = stockRaw && stockMap.has(sizeKey);
+
+    if (hasStock) {
+      variation.stock_quantity = Number(stockMap.get(sizeKey));
+    }
+
+    return variation;
+  });
+}
 }
 
   if (!name) {

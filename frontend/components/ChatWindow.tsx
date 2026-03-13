@@ -153,8 +153,34 @@ function getFileKey(file: File) {
   return `${file.name}-${file.size}`;
 }
 
+
 function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
+}
+
+function translateAgentError(message: string) {
+  const text = String(message || "").toLowerCase();
+
+  if (
+    text.includes("already present") &&
+    text.includes("sku")
+  ) {
+    return "Ya existe un producto con ese SKU. Usá otro SKU o editá el producto existente.";
+  }
+
+  if (text.includes("falta") && text.includes("wc_url")) {
+    return "Faltan las credenciales de WooCommerce en el servidor.";
+  }
+
+  if (text.includes("token inválido") || text.includes("token invalido")) {
+    return "Tu sesión venció. Cerrá sesión y volvé a entrar.";
+  }
+
+  if (text.includes("base de datos")) {
+    return "Hubo un problema con la base de datos.";
+  }
+
+  return message || "Hubo un error ejecutando el agente.";
 }
 
 function buildCreateProductMessage(
@@ -218,20 +244,36 @@ function buildCreateProductMessage(
 }
 
     if (form.stockMode === "perVariation") {
-      const stockLines = Object.entries(stockByVariationMap)
-        .map(([key, qty]) => {
-          const [color, talle] = key.split("__");
-          const cleanQty = String(qty || "").trim();
-          if (!color || !talle || !cleanQty) return "";
-          return `${color} ${talle} ${cleanQty}`;
-        })
-        .filter(Boolean);
+  const stockLines = Object.entries(stockByVariationMap)
+    .map(([key, qty]) => {
+      const [color, talle] = key.split("__");
+      const cleanColor = String(color || "").trim();
+      const cleanTalle = String(talle || "").trim();
+      const cleanQty = String(qty || "").trim();
 
-      if (stockLines.length > 0) {
-        lines.push("stock:");
-        lines.push(...stockLines);
+      if (!cleanQty) return "";
+
+      if (cleanColor && cleanTalle) {
+        return `${cleanColor} ${cleanTalle} ${cleanQty}`;
       }
-    }
+
+      if (cleanColor) {
+        return `${cleanColor} ${cleanQty}`;
+      }
+
+      if (cleanTalle) {
+        return `${cleanTalle} ${cleanQty}`;
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+
+  if (stockLines.length > 0) {
+    lines.push("stock:");
+    lines.push(...stockLines);
+  }
+}
 
     if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
     lines.push(`categoria: ${category}`);
@@ -319,21 +361,30 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
       const token = localStorage.getItem("token") || "";
 
       const res = await fetch(`${API}/run-agent`, {
-        method: "POST",
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : undefined,
-        body: form,
-      });
+  method: "POST",
+  headers: token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : undefined,
+  body: form,
+});
 
-      const response = await res.json();
+const response = await res.json();
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        text: response.reply || response.error || response.detail || "Sin respuesta del agente.",
-      };
+if (!res.ok) {
+  throw new Error(
+    response?.detail ||
+    response?.error ||
+    response?.message ||
+    "Error al ejecutar el agente."
+  );
+}
+
+const assistantMessage: Message = {
+  role: "assistant",
+  text: response.reply || response.error || response.detail || "Sin respuesta del agente.",
+};
 
       setMessages((prev) => [...prev, assistantMessage]);
       setSelectedFiles([]);
@@ -341,14 +392,20 @@ export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-    } catch {
-      const assistantMessage: Message = {
-        role: "assistant",
-        text: "Hubo un error ejecutando el agente.",
-      };
+    } catch (error: any) {
 
-      setMessages((prev) => [...prev, assistantMessage]);
-    } finally {
+  const rawMessage =
+    typeof error?.message === "string"
+      ? error.message
+      : JSON.stringify(error?.message || error);
+
+  const assistantMessage: Message = {
+    role: "assistant",
+    text: translateAgentError(rawMessage),
+  };
+
+  setMessages((prev) => [...prev, assistantMessage]);
+} finally {
       setLoading(false);
     }
   }
@@ -1128,70 +1185,159 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   <>
     {createForm.stockMode === "perVariation" && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-        {(createForm.colores || "")
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean)
-          .flatMap((color) =>
-            ((createForm.talles || "")
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)).map((talle) => {
-              const variationKey = getVariationKey(color, talle);
+        {(() => {
+  const colors = (createForm.colores || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
 
-              return (
-                <div
-                  key={variationKey}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 120px",
-                    gap: 10,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ color: "#e5e7eb", fontSize: 14 }}>
-                    {color} / {talle}
-                  </div>
+  const sizes = (createForm.talles || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
 
-                  <input
-                    type="number"
-                    min="0"
-                    value={stockByVariationMap[variationKey] || ""}
-                    onChange={(e) =>
-                      setStockByVariationMap((prev) => ({
-                        ...prev,
-                        [variationKey]: e.target.value,
-                      }))
-                    }
-                    placeholder="Stock"
-                    style={{
-                      width: "100%",
-                      border: "1px solid #334155",
-                      background: "#020617",
-                      color: "white",
-                      borderRadius: 10,
-                      padding: "8px 10px",
-                      outline: "none",
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-              );
-            })
-          )}
+  if (colors.length > 0 && sizes.length > 0) {
+    return colors.flatMap((color) =>
+      sizes.map((talle) => {
+        const variationKey = getVariationKey(color, talle);
 
-        {((createForm.colores || "")
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean).length === 0 ||
-          (createForm.talles || "")
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean).length === 0) && (
-          <div style={{ color: "#94a3b8", fontSize: 13 }}>
-            Para cargar stock por variación primero completá colores y talles.
+        return (
+          <div
+            key={variationKey}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 120px",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ color: "#e5e7eb", fontSize: 14 }}>
+              {color} / {talle}
+            </div>
+
+            <input
+              type="number"
+              min="0"
+              value={stockByVariationMap[variationKey] || ""}
+              onChange={(e) =>
+                setStockByVariationMap((prev) => ({
+                  ...prev,
+                  [variationKey]: e.target.value,
+                }))
+              }
+              placeholder="Stock"
+              style={{
+                width: "100%",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "white",
+                borderRadius: 10,
+                padding: "8px 10px",
+                outline: "none",
+                fontSize: 14,
+              }}
+            />
           </div>
-        )}
+        );
+      })
+    );
+  }
+
+  if (colors.length > 0) {
+    return colors.map((color) => {
+      const variationKey = getVariationKey(color, "");
+
+      return (
+        <div
+          key={variationKey}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 120px",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <div style={{ color: "#e5e7eb", fontSize: 14 }}>{color}</div>
+
+          <input
+            type="number"
+            min="0"
+            value={stockByVariationMap[variationKey] || ""}
+            onChange={(e) =>
+              setStockByVariationMap((prev) => ({
+                ...prev,
+                [variationKey]: e.target.value,
+              }))
+            }
+            placeholder="Stock"
+            style={{
+              width: "100%",
+              border: "1px solid #334155",
+              background: "#020617",
+              color: "white",
+              borderRadius: 10,
+              padding: "8px 10px",
+              outline: "none",
+              fontSize: 14,
+            }}
+          />
+        </div>
+      );
+    });
+  }
+
+  if (sizes.length > 0) {
+    return sizes.map((talle) => {
+      const variationKey = getVariationKey("", talle);
+
+      return (
+        <div
+          key={variationKey}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 120px",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <div style={{ color: "#e5e7eb", fontSize: 14 }}>{talle}</div>
+
+          <input
+            type="number"
+            min="0"
+            value={stockByVariationMap[variationKey] || ""}
+            onChange={(e) =>
+              setStockByVariationMap((prev) => ({
+                ...prev,
+                [variationKey]: e.target.value,
+              }))
+            }
+            placeholder="Stock"
+            style={{
+              width: "100%",
+              border: "1px solid #334155",
+              background: "#020617",
+              color: "white",
+              borderRadius: 10,
+              padding: "8px 10px",
+              outline: "none",
+              fontSize: 14,
+            }}
+          />
+        </div>
+      );
+    });
+  }
+
+  return null;
+})()}
+
+        {(createForm.colores || "").split(",").map((c) => c.trim()).filter(Boolean).length === 0 &&
+ (createForm.talles || "").split(",").map((t) => t.trim()).filter(Boolean).length === 0 && (
+  <div style={{ color: "#94a3b8", fontSize: 13 }}>
+    Para cargar stock por variación primero completá colores o talles.
+  </div>
+)}
       </div>
     )}
   </>
