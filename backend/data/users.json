@@ -2,7 +2,7 @@
  {
   "id": "admin001",
   "email": "admin@tonicastock.com",
-  "password": "123456",
+  "password": "$2b$10$MMZ.UuC4f0ChZAC.fkLi1ud0vFJVrfeBTab77eHn0eY4OAkSc/0VW",
   "store_url": "",
   "consumer_key": "",
   "consumer_secret": ""
