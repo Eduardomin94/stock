@@ -645,7 +645,7 @@ export async function createSimpleProduct({
   categories = [],
   images = [],
   stockQuantity = null,
-  manageStock = true,
+  manageStock = false,
 }) {
   if (!baseUrl) throw new Error("Falta baseUrl");
   if (!consumerKey) throw new Error("Falta consumerKey");
@@ -653,16 +653,29 @@ export async function createSimpleProduct({
   if (!name) throw new Error("Falta name");
   if (regularPrice == null || regularPrice === "") throw new Error("Falta regularPrice");
 
-  const payload = {
-    name: String(name).trim(),
-    sku: String(sku || "").trim(),
-    type: "simple",
-    regular_price: String(regularPrice),
-    description: String(description || ""),
-    short_description: String(shortDescription || ""),
-    manage_stock: Boolean(manageStock),
-    stock_quantity: stockQuantity == null ? null : Number(stockQuantity),
-  };
+  const hasStockQuantity =
+  stockQuantity !== null &&
+  stockQuantity !== undefined &&
+  String(stockQuantity).trim() !== "";
+
+const payload = {
+  name: String(name).trim(),
+  sku: String(sku || "").trim(),
+  type: "simple",
+  regular_price: String(regularPrice),
+  description: String(description || ""),
+  short_description: String(shortDescription || ""),
+};
+
+if (hasStockQuantity && Boolean(manageStock)) {
+  payload.manage_stock = true;
+  payload.stock_quantity = Number(stockQuantity);
+  payload.stock_status = "instock";
+} else {
+  payload.manage_stock = false;
+  payload.stock_status = "instock";
+}
+
 
   if (salePrice !== undefined && salePrice !== null && String(salePrice).trim() !== "") {
     payload.sale_price = String(salePrice).trim();
