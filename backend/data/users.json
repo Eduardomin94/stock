@@ -1,19 +1,11 @@
 [
-  {
-    "id": "admin001",
-    "email": "admin@tonicastock.com",
-    "password": "$2b$10$gUVnPy4XJWyn2abBVb71OOkadCJRPctL6jwBkZuNlcb7zT9cFrdKC",
-    "store_url": "",
-    "consumer_key": "",
-    "consumer_secret": ""
-  },
-  {
-    "id": "1773245686696",
-    "email": "cielropa@gmail.com",
-    "password": "$2b$10$IjSviS41iB1ObFLtGXHoyeC8Icl2D2wSUweYlsEbAPDEztRBj9MzW",
-    "store_url": "https://estilociel.com.ar/wp-json/wc/v3",
-    "consumer_key": "4b9b39a9dd6cf5bf0a3d9107becdfc93:2216018aae0b92d84e5d2221f4f30ea72d4a2207c4f850283159719bfa7a47f7f668264ecb397edce17c115c28394748",
-    "consumer_secret": "dbff4a6a10002dc2647e2d5a37c399d9:c43ff1fa9aab296ec9d43edbf3f0ff90ea499315570e4264d8b1c5b10488251f744d06455221b2365fd39774e0d98a7e",
-    "created_at": "2026-03-11T16:14:46.742Z"
-  }
+ {
+  "id": "admin001",
+  "email": "admin@tonicastock.com",
+  "password": "$2b$10$KIXQ4qXyO8F3Y8q4j2C1Yu1P4tq1jF7XlYyqK6M3Wl2n4O9S8Qh3a",
+  "store_url": "",
+  "consumer_key": "",
+  "consumer_secret": ""
+}
+
 ]
