@@ -97,7 +97,7 @@ const CREATE_STEPS: {
     {
   key: "stock",
   title: "Stock",
-  helper: "Elegí si querés dejarlo sin stock numérico, usar el mismo stock para todas las variaciones o cargar uno por una.",
+  helper: "Podés dejarlo disponible sin stock numérico, usar un stock general o cargar stock por variación.",
   placeholder: "Ej: 10",
   optional: true,
 },
@@ -280,14 +280,26 @@ function buildCreateProductMessage(
   }
 
   lines.push("crear producto simple");
-  lines.push(`nombre: ${name}`);
-  if (sku) lines.push(`sku: ${sku}`);
-  lines.push(`precio: ${cleanPrice}`);
-  if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
-  if (form.stockGeneral.trim()) lines.push(`stock: ${form.stockGeneral.trim()}`);
-  if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
-  lines.push(`categoria: ${category}`);
-  if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+lines.push(`nombre: ${name}`);
+if (sku) lines.push(`sku: ${sku}`);
+lines.push(`precio: ${cleanPrice}`);
+if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+
+if (form.stockMode === "none") {
+  lines.push("stock_estado: disponible");
+} else if (form.stockMode === "same") {
+  const cleanQty = String(form.stockGeneral || "").trim();
+  if (cleanQty) {
+    lines.push(`stock: ${cleanQty}`);
+  } else {
+    lines.push("stock_estado: disponible");
+  }
+}
+
+if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
+lines.push(`categoria: ${category}`);
+if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+
 
   return lines.join("\n");
 }
@@ -332,6 +344,19 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
 
   const currentCreateStep = activeAction === "create" ? CREATE_STEPS[createStepIndex] : null;
   const isCreateStepPhotos = currentCreateStep?.key === "fotos";
+
+const hasColors = (createForm.colores || "")
+  .split(",")
+  .map((c) => c.trim())
+  .filter(Boolean).length > 0;
+
+const hasSizes = (createForm.talles || "")
+  .split(",")
+  .map((t) => t.trim())
+  .filter(Boolean).length > 0;
+
+const isVariableProductDraft = hasColors || hasSizes;
+
 
   async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
     const filesToSend = filesOverride ?? selectedFiles;
@@ -648,40 +673,41 @@ function resetSkuValidationState() {
 );
   }
 
-  async function nextCreateStep() {
-    if (!currentCreateStep) return;
+async function nextCreateStep() {
+  if (!currentCreateStep) return;
 
-    if (!saveCurrentCreateStepValue()) {
-      pushAssistantInfo(`Falta completar: ${currentCreateStep.title}.`);
+  if (currentCreateStep.key === "sku") {
+    const cleanSku = text.trim();
+
+    if (!cleanSku) {
+      // SKU opcional, puede seguir vacío
+    } else if (skuChecking) {
+      pushAssistantInfo("Esperá un momento, todavía se está validando el SKU.");
+      return;
+    } else if (skuStatus === "taken") {
+      pushAssistantInfo(skuStatusMessage || "Ese SKU ya está en uso. Probá con otro SKU.");
+      return;
+    } else if (skuStatus !== "available") {
+      pushAssistantInfo("Todavía no pude validar ese SKU. Esperá un momento.");
       return;
     }
+  }
 
-    if (currentCreateStep.key === "sku") {
-  const cleanSku = text.trim();
-
-  if (!cleanSku) {
-    // SKU opcional: si está vacío, sigue normal
-  } else if (skuChecking) {
-    pushAssistantInfo("Esperá un momento, todavía se está validando el SKU.");
-    return;
-  } else if (skuStatus === "taken") {
-    pushAssistantInfo(skuStatusMessage || "Ese SKU ya está en uso. Probá con otro SKU.");
-    return;
-  } else if (skuStatus !== "available") {
-    pushAssistantInfo("Todavía no pude validar ese SKU. Esperá un momento.");
+  if (!saveCurrentCreateStepValue()) {
+    pushAssistantInfo(`Falta completar: ${currentCreateStep.title}.`);
     return;
   }
-}
 
-const nextIndex = createStepIndex + 1;
+  const nextIndex = createStepIndex + 1;
 
-if (nextIndex >= CREATE_STEPS.length) {
-  return;
-}
-
-setCreateStepIndex(nextIndex);
-setText("");
+  if (nextIndex >= CREATE_STEPS.length) {
+    return;
   }
+
+  setCreateStepIndex(nextIndex);
+  setText("");
+}
+
 
   function previousCreateStep() {
     if (createStepIndex === 0) return;
@@ -780,6 +806,19 @@ setText("");
     loadCurrentStepValue(createStepIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAction, createStepIndex]);
+
+  useEffect(() => {
+  if (!isVariableProductDraft && createForm.stockMode === "perVariation") {
+    setCreateForm((prev) => ({
+      ...prev,
+      stockMode: "none",
+      stockGeneral: "",
+    }));
+
+    setStockByVariationMap({});
+  }
+}, [isVariableProductDraft, createForm.stockMode]);
+
 
   return (
     <div
@@ -1173,7 +1212,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   setStockByVariationMap({});
 }}
       />
-      Sin stock numérico
+        Disponible
     </label>
 
     <label
@@ -1197,32 +1236,35 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   setStockByVariationMap({});
 }}
       />
-      Mismo stock para todas las variaciones
+Stock general
     </label>
 
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        color: "#e5e7eb",
-        fontSize: 14,
+    {isVariableProductDraft && (
+  <label
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      color: "#e5e7eb",
+      fontSize: 14,
+    }}
+  >
+    <input
+      type="radio"
+      name="stockMode"
+      checked={createForm.stockMode === "perVariation"}
+      onChange={() => {
+        setCreateForm((prev) => ({
+          ...prev,
+          stockMode: "perVariation",
+          stockGeneral: "",
+        }));
       }}
-    >
-      <input
-        type="radio"
-        name="stockMode"
-        checked={createForm.stockMode === "perVariation"}
-        onChange={() => {
-  setCreateForm((prev) => ({
-    ...prev,
-    stockMode: "perVariation",
-    stockGeneral: "",
-  }));
-}}
-      />
-      Stock por variación
-    </label>
+    />
+    Stock por variación
+  </label>
+)}
+
   </div>
 )}
 
@@ -1504,6 +1546,38 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
       </div>
     </div>
 
+    <div
+  style={{
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    marginTop: 10,
+  }}
+>
+  {CREATE_STEPS.map((step, index) => {
+    const isCurrent = index === createStepIndex;
+    const isDone = index < createStepIndex;
+
+    return (
+      <div
+        key={step.key}
+        style={{
+          ...wizardStepBadgeStyle,
+          background: isCurrent ? "#2563eb" : isDone ? "rgba(34,197,94,0.15)" : "#0f172a",
+          color: isCurrent ? "#ffffff" : isDone ? "#86efac" : "#94a3b8",
+          border: isCurrent
+            ? "1px solid #2563eb"
+            : isDone
+            ? "1px solid rgba(34,197,94,0.45)"
+            : "1px solid #334155",
+        }}
+      >
+        {step.title}
+      </div>
+    );
+  })}
+</div>
+
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <button
         type="button"
@@ -1663,4 +1737,14 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
+};
+
+const wizardStepBadgeStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 700,
+  border: "1px solid #334155",
+  background: "#0f172a",
+  color: "#94a3b8",
 };
