@@ -871,61 +871,6 @@ setText("");
         </button>
       </div>
 
-      {activeAction === "create" && currentCreateStep && (
-        <div
-          style={{
-            margin: "14px 16px 0 16px",
-            padding: 14,
-            borderRadius: 16,
-            border: "1px solid #1d4ed8",
-            background: "rgba(37,99,235,0.12)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ color: "#93c5fd", fontSize: 12, marginBottom: 4 }}>
-                Paso {createStepIndex + 1} de {CREATE_STEPS.length}
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{currentCreateStep.title}</div>
-              <div style={{ color: "#cbd5e1", fontSize: 14, marginTop: 6 }}>{currentCreateStep.helper}</div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <button type="button" onClick={cancelCreateProduct} style={wizardSecondaryButtonStyle}>
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={previousCreateStep}
-                disabled={createStepIndex === 0}
-                style={{
-                  ...wizardSecondaryButtonStyle,
-                  opacity: createStepIndex === 0 ? 0.55 : 1,
-                  cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
-                }}
-              >
-                Anterior
-              </button>
-
-              {createStepIndex < CREATE_STEPS.length - 1 ? (
-                <button
-  type="button"
-  onClick={nextCreateStep}
-  style={wizardPrimaryButtonStyle}
->
-  Siguiente
-</button>
-              ) : (
-                <button type="button" onClick={submitCreateProduct} style={wizardPrimaryButtonStyle}>
-                  Crear producto
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div
         style={{
           flex: 1,
@@ -1528,6 +1473,80 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
 )}
   </>
 )}
+
+{activeAction === "create" && currentCreateStep && (
+  <div
+    style={{
+      marginTop: 12,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 14,
+      border: "1px solid #1d4ed8",
+      background: "rgba(37,99,235,0.10)",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 12,
+      flexWrap: "wrap",
+    }}
+  >
+    <div>
+      <div style={{ color: "#93c5fd", fontSize: 12, marginBottom: 4 }}>
+        Paso {createStepIndex + 1} de {CREATE_STEPS.length}
+      </div>
+
+      <div style={{ fontWeight: 700, fontSize: 15 }}>
+        {currentCreateStep.title}
+      </div>
+
+      <div style={{ color: "#cbd5e1", fontSize: 13, marginTop: 4 }}>
+        {currentCreateStep.helper}
+      </div>
+    </div>
+
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={cancelCreateProduct}
+        style={wizardSecondaryButtonStyle}
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        onClick={previousCreateStep}
+        disabled={createStepIndex === 0}
+        style={{
+          ...wizardSecondaryButtonStyle,
+          opacity: createStepIndex === 0 ? 0.55 : 1,
+          cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
+        }}
+      >
+        Anterior
+      </button>
+
+      {createStepIndex < CREATE_STEPS.length - 1 ? (
+        <button
+          type="button"
+          onClick={nextCreateStep}
+          style={wizardPrimaryButtonStyle}
+        >
+          Siguiente
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={submitCreateProduct}
+          style={wizardPrimaryButtonStyle}
+        >
+          Crear producto
+        </button>
+      )}
+    </div>
+  </div>
+)}
+
               <div
               style={{
                 display: "flex",
@@ -1556,8 +1575,9 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
 
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>
                   {activeAction === "create"
-                    ? "Modo crear producto activo"
+                    ? `Creando producto · Paso ${createStepIndex + 1} de ${CREATE_STEPS.length}`
                     : "Arrastrá fotos acá · Enter envía · Shift + Enter baja de línea"}
+
                 </span>
               </div>
 
