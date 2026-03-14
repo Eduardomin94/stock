@@ -983,6 +983,7 @@ async function nextCreateStep() {
         )}
       </div>
 
+      {activeAction && (
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -1717,6 +1718,7 @@ Stock general
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
