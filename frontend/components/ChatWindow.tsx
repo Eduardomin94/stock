@@ -911,26 +911,41 @@ async function nextCreateStep() {
       </div>
 
       <div
-        style={{
-          flex: 1,
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          overflowY: "auto",
-        }}
-      >
-        {messages.length === 0 && (
-          <div
-            style={{
-              color: "#94a3b8",
-              fontSize: 15,
-              padding: "8px 4px",
-            }}
-          >
-            Escribí un mensaje para empezar a usar el agente.
-          </div>
-        )}
+  style={{
+    flex: 1,
+    minHeight: 260,
+    padding: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    overflowY: "auto",
+  }}
+>
+
+        {messages.length === 0 && activeAction === null && (
+  <div
+    style={{
+      color: "#94a3b8",
+      fontSize: 15,
+      padding: "8px 4px",
+    }}
+  >
+    Elegí una acción para empezar.
+  </div>
+)}
+
+{messages.length === 0 && activeAction !== null && (
+  <div
+    style={{
+      color: "#94a3b8",
+      fontSize: 15,
+      padding: "8px 4px",
+    }}
+  >
+    Ya podés empezar.
+  </div>
+)}
+
 
         {messages.map((message, index) => (
           <div
@@ -1544,39 +1559,47 @@ Stock general
       <div style={{ color: "#cbd5e1", fontSize: 13, marginTop: 4 }}>
         {currentCreateStep.helper}
       </div>
-    </div>
 
-    <div
-  style={{
-    display: "flex",
-    gap: 8,
-    flexWrap: "wrap",
-    marginTop: 10,
-  }}
->
-  {CREATE_STEPS.map((step, index) => {
-    const isCurrent = index === createStepIndex;
-    const isDone = index < createStepIndex;
-
-    return (
-      <div
-        key={step.key}
+            <div
         style={{
-          ...wizardStepBadgeStyle,
-          background: isCurrent ? "#2563eb" : isDone ? "rgba(34,197,94,0.15)" : "#0f172a",
-          color: isCurrent ? "#ffffff" : isDone ? "#86efac" : "#94a3b8",
-          border: isCurrent
-            ? "1px solid #2563eb"
-            : isDone
-            ? "1px solid rgba(34,197,94,0.45)"
-            : "1px solid #334155",
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          marginTop: 10,
         }}
       >
-        {step.title}
+        {CREATE_STEPS.map((step, index) => {
+          const isCurrent = index === createStepIndex;
+          const isDone = index < createStepIndex;
+
+          return (
+            <div
+              key={step.key}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+                background: isCurrent
+                  ? "#2563eb"
+                  : isDone
+                  ? "rgba(34,197,94,0.15)"
+                  : "#0f172a",
+                color: isCurrent ? "#ffffff" : isDone ? "#86efac" : "#94a3b8",
+                border: isCurrent
+                  ? "1px solid #2563eb"
+                  : isDone
+                  ? "1px solid rgba(34,197,94,0.45)"
+                  : "1px solid #334155",
+              }}
+            >
+              {step.title}
+            </div>
+          );
+        })}
       </div>
-    );
-  })}
-</div>
+
+    </div>
 
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <button
@@ -1620,6 +1643,7 @@ Stock general
     </div>
   </div>
 )}
+
 
               <div
               style={{
@@ -1739,12 +1763,3 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
-const wizardStepBadgeStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#94a3b8",
-};
