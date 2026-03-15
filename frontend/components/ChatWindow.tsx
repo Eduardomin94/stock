@@ -438,6 +438,66 @@ const assistantMessage: Message = {
   }
 
  async function handleSend(filesOverride?: File[]) {
+  if (activeAction === "edit") {
+  const raw = text.trim();
+
+  if (!raw) {
+    pushAssistantInfo("Escribí el nombre o el SKU del producto.");
+    return;
+  }
+
+  const mode = raw.includes(" ") ? "nombre" : "sku";
+  const command = `__search_edit_product__:${mode}|${raw}`;
+  const token = localStorage.getItem("token") || "";
+
+  setLoading(true);
+
+  try {
+    const form = new FormData();
+    form.append("agentId", agentId);
+    form.append("message", command);
+
+    const res = await fetch(`${API}/run-agent`, {
+      method: "POST",
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+      body: form,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.error || data?.message || "Error buscando el producto."
+      );
+    }
+
+    if (data?.product) {
+      pushAssistantInfo(
+        `Encontré el producto: ${data.product.name}. Ahora elegí qué querés editar.`
+      );
+      console.log("Producto encontrado:", data.product);
+    } else if (Array.isArray(data?.products) && data.products.length > 0) {
+      pushAssistantInfo(
+        `Encontré ${data.products.length} productos. Decime el SKU exacto del que querés editar.`
+      );
+      console.log("Coincidencias:", data.products);
+    } else {
+      pushAssistantInfo("No encontré ese producto.");
+    }
+  } catch (err: any) {
+    pushAssistantInfo(
+      err?.message || "Hubo un error buscando el producto."
+    );
+  } finally {
+    setLoading(false);
+  }
+
+  return;
+}
   if (activeAction === "delete") {
     const raw = text.trim();
 
@@ -920,15 +980,18 @@ async function nextCreateStep() {
         </button>
 
         <button
-          type="button"
-          onClick={() => {
-            setActiveAction("edit");
-            pushAssistantInfo("Editar producto lo dejamos para el siguiente paso.");
-          }}
-          style={quickActionSecondaryStyle}
-        >
-          Editar producto
-        </button>
+  type="button"
+  onClick={() => {
+    setActiveAction("edit");
+    setText("");
+    pushAssistantInfo(
+      "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
+    );
+  }}
+  style={quickActionSecondaryStyle}
+>
+  Editar producto
+</button>
 
         <button
   type="button"

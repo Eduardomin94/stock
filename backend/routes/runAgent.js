@@ -41,6 +41,23 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+async function updateWooProduct(baseUrl, consumerKey, consumerSecret, productId, payload) {
+  const axios = (await import("axios")).default;
+
+  const response = await axios.put(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
+    payload,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  return response.data;
+}
+
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
 
@@ -91,6 +108,14 @@ function looksLikeDeleteProductCommand(message) {
       text.includes("nombre:")
     )
   );
+}
+function looksLikeEditProductSearchCommand(message) {
+  const text = String(message || "");
+  return text.startsWith("__search_edit_product__:");
+}
+function looksLikeEditProductActionCommand(message) {
+  const text = String(message || "");
+  return text.startsWith("__edit_product_action__:");
 }
 function detectCommerceIntent(message) {
   const text = String(message || "").toLowerCase();
@@ -951,6 +976,122 @@ if (String(message || "").startsWith("__check_sku__:")) {
   });
 
   return res.json(skuCheck);
+}
+
+if (looksLikeEditProductSearchCommand(message)) {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  const raw = String(message || "").replace("__search_edit_product__:", "").trim();
+  const [modeRaw, ...rest] = raw.split("|");
+  const value = rest.join("|").trim();
+  const mode = String(modeRaw || "").trim().toLowerCase();
+
+  if (!value || !["sku", "nombre"].includes(mode)) {
+    return res.status(400).json({
+      error: "Formato inválido. Usá sku o nombre.",
+    });
+  }
+
+  if (mode === "sku") {
+    const found = await findProductBySku({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      sku: value,
+    });
+
+    return res.json({
+      usedTool: true,
+      mode: "sku",
+      found: found.exists,
+      product: found.product || null,
+    });
+  }
+
+  if (mode === "nombre") {
+    const found = await findProductsByName({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      name: value,
+    });
+
+    return res.json({
+      usedTool: true,
+      mode: "nombre",
+      found: (found.products || []).length > 0,
+      products: found.products || [],
+      candidates: found.candidates || [],
+    });
+  }
+}
+
+if (looksLikeEditProductActionCommand(message)) {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  const raw = String(message || "").replace("__edit_product_action__:", "").trim();
+
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return res.status(400).json({
+      error: "El JSON de edición es inválido.",
+    });
+  }
+
+  const action = String(payload?.action || "");
+  const productId = Number(payload?.productId);
+
+  if (!action || !productId) {
+    return res.status(400).json({
+      error: "Faltan action o productId.",
+    });
+  }
+
+  if (action === "cambiar_precio") {
+    const regularPrice = payload?.regularPrice;
+
+    if (regularPrice == null || regularPrice === "") {
+      return res.status(400).json({
+        error: "Falta regularPrice.",
+      });
+    }
+
+    const updated = await updateWooProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      {
+        regular_price: String(regularPrice),
+      }
+    );
+
+    return res.json({
+      usedTool: true,
+      reply: `Precio actualizado correctamente para ${updated.name}.`,
+      product: {
+        id: updated.id,
+        name: updated.name,
+        sku: updated.sku || "",
+        regular_price: updated.regular_price || "",
+        sale_price: updated.sale_price || "",
+      },
+    });
+  }
+
+  return res.status(400).json({
+    error: `Acción no implementada todavía: ${action}`,
+  });
 }
 
 if (looksLikeDeleteProductCommand(message)) {
