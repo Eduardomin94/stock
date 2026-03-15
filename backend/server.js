@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import createAgentRoute from "./routes/createAgents.js";
-import listAgentsRoute from "./routes/listAgents.js";
 import runAgentRoute from "./routes/runAgent.js";
 import testWooAuditRoute from "./routes/testWooAudit.js";
 import testEnableManageStockDryRunRoute from "./routes/testEnableManageStockDryRun.js";
@@ -58,8 +56,6 @@ app.get("/", (_req, res) => {
 
 app.use("/register", registerRoute);
 app.use("/login", loginRoute);
-app.use("/create-agent", createAgentRoute);
-app.use("/agents", listAgentsRoute);
 app.use("/run-agent", runAgentRoute);
 app.use("/test-woo-audit", testWooAuditRoute);
 app.use("/test-enable-manage-stock-dry-run", testEnableManageStockDryRunRoute);

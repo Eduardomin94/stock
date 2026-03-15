@@ -16,22 +16,17 @@ import {
   ensureCategoryPath,
   ensureGlobalAttributeWithTerms,
   suggestCategoriesByName,
-  uploadImageToWordpress,
-  findProductBySku
+  findProductBySku,
+  deleteProductById
 } from "../tools/woocommerce.js";
-import {
-  updateAgent,
-  findAgent,
-  savePendingDraft,
-  getPendingDraft,
-  clearPendingDraft,
-  improveAgent,
-  repairAgent,
-  createAgentFromPrompt
-} from "../services/masterAgent.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
 import { decryptText } from "../services/crypto.js";
+import {
+  savePendingDraft,
+  getPendingDraft,
+  clearPendingDraft,
+} from "../services/masterAgent.js";
 import multer from "multer";
 
 const upload = multer({
@@ -44,7 +39,6 @@ const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_FILE = path.join(__dirname, "../data/agents.json");
 
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
@@ -86,6 +80,10 @@ function looksLikeDirectStockCommand(message) {
 function looksLikePriceUpdateCommand(message) {
   const text = String(message || "").toLowerCase();
   return text.includes("precio") && text.includes("productid=") && text.includes("regular=");
+}
+function looksLikeDeleteProductCommand(message) {
+  const text = String(message || "").toLowerCase();
+  return text.includes("eliminar producto") && text.includes("sku:");
 }
 function detectCommerceIntent(message) {
   const text = String(message || "").toLowerCase();
@@ -807,98 +805,12 @@ router.post("/", upload.array("images", 10), async (req, res) => {
   try {
     const { agentId, message } = req.body;
     const files = req.files || [];
-    // ===== MASTER AGENT COMMANDS =====
 
-const lowerMessage = String(message || "").toLowerCase();
-if (lowerMessage.startsWith("crear agente:") || lowerMessage.startsWith("crea agente:")) {
-  const requestText = message.split(":").slice(1).join(":").trim();
 
-  if (!requestText) {
-    return res.json({
-      reply: "Pasame qué agente querés crear. Ejemplo: crear agente: un agente que administre cupones de WooCommerce"
-    });
-  }
-
-  const newAgent = await createAgentFromPrompt(requestText);
-
-  return res.json({
-    reply: `Agente creado correctamente: ${newAgent.name}`,
-    agent: newAgent
-  });
-}
-
-if (lowerMessage.includes("arregla agente")) {
-  const targetIdMatch = message.match(/agentid\s*=\s*(\d+)/i);
-
-  if (!targetIdMatch) {
-    return res.json({
-      reply: "Necesito el agentId. Ejemplo: arregla agente agentId=123"
-    });
-  }
-
-  const targetId = targetIdMatch[1];
-  const targetAgent = findAgent(targetId);
-
-  if (!targetAgent) {
-    return res.json({
-      reply: "No encontré ese agente."
-    });
-  }
-
-  const repaired = repairAgent(targetAgent);
-  const updated = updateAgent(targetId, {
-    ...repaired.agent,
-    repaired_by_master: true
-  });
-
-  if (!repaired.repaired) {
-    return res.json({
-      reply: "El agente ya estaba sano. No hizo falta repararlo.",
-      agent: updated
-    });
-  }
-
-  return res.json({
-    reply: `El agente fue reparado automáticamente. Campos corregidos: ${repaired.missing.join(", ")}`,
-    agent: updated
-  });
-}
-
-if (lowerMessage.includes("mejora agente")) {
-
-  const targetIdMatch = message.match(/agentid\s*=\s*(\d+)/i);
-
-  if (!targetIdMatch) {
-    return res.json({
-      reply: "Necesito el agentId. Ejemplo: mejora agente agentId=123"
-    });
-  }
-
-  const targetId = targetIdMatch[1];
-
-  const targetAgent = findAgent(targetId);
-
-  if (!targetAgent) {
-    return res.json({
-      reply: "No encontré ese agente."
-    });
-  }
-
-  const improved = await improveAgent(targetAgent);
-
-  const updated = updateAgent(targetId, improved);
-
-  return res.json({
-    reply: "El agente fue mejorado automáticamente por el agente maestro.",
-    agent: updated
-  });
-}
-
-    if (!agentId || typeof agentId !== "string") {
-      return res.status(400).json({
-        error: "Falta 'agentId' en el body",
-      });
-    }
+   const resolvedAgentId =
+  typeof agentId === "string" && agentId.trim()
+    ? agentId.trim()
+    : "woocommerce-assistant";
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({
@@ -906,22 +818,12 @@ if (lowerMessage.includes("mejora agente")) {
       });
     }
 
-    if (!fs.existsSync(DATA_FILE)) {
-      return res.status(404).json({
-        error: "No existe el archivo de agentes",
-      });
-    }
-
-    const rawFile = fs.readFileSync(DATA_FILE, "utf-8");
-    const agents = rawFile ? JSON.parse(rawFile) : [];
-    const agent = agents.find((a) => a.id === agentId);
-
-    if (!agent) {
-      return res.status(404).json({
-        error: "Agente no encontrado",
-      });
-    }
-
+    const agent = {
+  id: "woocommerce-assistant",
+  name: "Asistente WooCommerce",
+  system_prompt:
+    "Sos un asistente especializado en WooCommerce. Respondé en español, claro, directo y sin inventar datos. Si hay resultados de tools, basate en esos datos reales.",
+};
       let toolContext = "";
 
 const authHeader = req.headers.authorization || "";
@@ -996,9 +898,56 @@ if (String(message || "").startsWith("__check_sku__:")) {
   return res.json(skuCheck);
 }
 
+if (looksLikeDeleteProductCommand(message)) {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  const sku = String(message)
+    .split("\n")
+    .find((line) => line.toLowerCase().startsWith("sku:"))
+    ?.replace(/^sku:/i, "")
+    .trim();
+
+  if (!sku) {
+    return res.status(400).json({
+      error: "Falta el SKU.",
+      example: "eliminar producto\nsku: REM-001",
+    });
+  }
+
+  const found = await findProductBySku({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    sku,
+  });
+
+  if (!found?.found || !found?.product?.id) {
+    return res.status(404).json({
+      error: `No encontré un producto con el SKU ${sku}.`,
+    });
+  }
+
+  const result = await deleteProductById({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId: found.product.id,
+  });
+
+  return res.json({
+    usedTool: true,
+    reply: `Producto eliminado correctamente: ${result.product.name || sku}.`,
+    toolResult: result,
+  });
+}
+
 const detectedIntent = detectCommerceIntent(message);
 
-const pendingDraft = getPendingDraft(agentId);
+const pendingDraft = getPendingDraft(resolvedAgentId);
 
 if (pendingDraft && looksLikeOnlyCategoryReply(message)) {
 
@@ -1029,7 +978,7 @@ if (pendingDraft && looksLikeOnlyCategoryReply(message)) {
     manageStock: true,
   });
 
-  clearPendingDraft(agentId);
+  clearPendingDraft(resolvedAgentId);
 
   return res.json({
     agentId: agent.id,
@@ -1114,7 +1063,7 @@ if (
 }
 
 if (!categoryName) {
-  savePendingDraft(agentId, {
+  savePendingDraft(resolvedAgentId, {
   type: "simple_product",
   name,
   sku,

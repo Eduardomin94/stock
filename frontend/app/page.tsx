@@ -1,25 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AgentList from "@/components/AgentList";
 import ChatWindow from "@/components/ChatWindow";
-import { listAgents } from "@/lib/api";
-
-type Agent = {
-  id: string;
-  name: string;
-};
 
 export default function Page() {
   const router = useRouter();
 
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [selectedAgentId, setSelectedAgentId] = useState("");
-  const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
-  const [error, setError] = useState("");
-
   const [userEmail, setUserEmail] = useState("");
 
   const isAdmin =
@@ -54,34 +42,6 @@ export default function Page() {
     setAuthChecking(false);
   }, [router]);
 
-  useEffect(() => {
-    if (authChecking) return;
-
-    async function loadAgents() {
-      try {
-        setLoading(true);
-        setError("");
-
-        const data = await listAgents();
-        setAgents(data);
-
-        if (Array.isArray(data) && data.length > 0) {
-          setSelectedAgentId(data[0].id);
-        }
-      } catch {
-        setError("No se pudieron cargar los agentes");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadAgents();
-  }, [authChecking]);
-
-  const selectedAgent = useMemo(() => {
-    return agents.find((agent) => agent.id === selectedAgentId) || null;
-  }, [agents, selectedAgentId]);
-
   if (authChecking) {
     return (
       <main
@@ -109,7 +69,6 @@ export default function Page() {
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        {/* Barra superior */}
         <div
           style={{
             display: "flex",
@@ -136,57 +95,13 @@ export default function Page() {
               </button>
             )}
 
-            {isAdmin && (
-              <button
-                onClick={() => router.push("/master")}
-                style={buttonStyle}
-              >
-                Agente maestro
-              </button>
-            )}
-
             <button onClick={handleLogout} style={logoutButtonStyle}>
               Cerrar sesión
             </button>
           </div>
         </div>
 
-        {loading && <p>Cargando agentes...</p>}
-        {error && <p>{error}</p>}
-
-        {!loading && !error && (
-          <div className="page-layout">
-            <div style={{ minWidth: 0 }}>
-              <AgentList
-                agents={agents}
-                selectedAgentId={selectedAgentId}
-                onSelect={setSelectedAgentId}
-              />
-            </div>
-
-            <div style={{ minWidth: 0 }}>
-              {selectedAgent ? (
-                <ChatWindow
-                  agentId={selectedAgent.id}
-                  agentName={selectedAgent.name}
-                />
-              ) : (
-                <div
-                  style={{
-                    border: "1px solid #1f2937",
-                    borderRadius: 16,
-                    background: "#0b1220",
-                    minHeight: 520,
-                    padding: 24,
-                    color: "#9ca3af",
-                  }}
-                >
-                  Seleccioná un agente para empezar.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <ChatWindow />
       </div>
     </main>
   );

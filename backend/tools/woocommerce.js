@@ -286,6 +286,39 @@ console.log("SKU CHECK DEBUG", {
   };
 }
 
+export async function deleteProductById({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const response = await axios.delete(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        force: true,
+      },
+    })
+  );
+
+  return {
+    ok: true,
+    deleted: true,
+    product: {
+      id: response.data?.id ?? productId,
+      name: response.data?.name ?? "",
+      sku: response.data?.sku ?? "",
+      type: response.data?.type ?? "",
+    },
+  };
+}
+
+
 async function fetchAllGlobalAttributes(baseUrl, consumerKey, consumerSecret) {
   const response = await axios.get(
     `${normalizeBaseUrl(baseUrl)}/products/attributes`,

@@ -7,10 +7,6 @@ type Message = {
   text: string;
 };
 
-type ChatWindowProps = {
-  agentId: string;
-  agentName: string;
-};
 
 type CreateProductForm = {
   nombre: string;
@@ -304,7 +300,9 @@ if (subcategory) lines.push(`subcategoria: ${subcategory}`);
   return lines.join("\n");
 }
 
-export default function ChatWindow({ agentId, agentName }: ChatWindowProps) {
+export default function ChatWindow() {
+  const agentId = "woocommerce-assistant";
+  const agentName = "Asistente WooCommerce";
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);

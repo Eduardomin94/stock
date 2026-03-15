@@ -1,21 +1,9 @@
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
-export async function listAgents() {
-  const res = await fetch(`${API_BASE_URL}/agents`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los agentes");
-  }
-
-  return res.json();
-}
-
-export async function runAgent(agentId: string, message: string, files: File[] = []) {
+export async function runAgent(message: string, files: File[] = []) {
   const form = new FormData();
 
-  form.append("agentId", agentId);
+  form.append("agentId", "woocommerce-assistant");
   form.append("message", message);
 
   for (const file of files) {
