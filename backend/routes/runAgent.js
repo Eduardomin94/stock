@@ -925,12 +925,12 @@ if (looksLikeDeleteProductCommand(message)) {
     sku,
   });
 
-  if (!found?.found || !found?.product?.id) {
+  if (!found?.exists || !found?.product?.id) {
     return res.status(404).json({
       error: `No encontré un producto con el SKU ${sku}.`,
     });
   }
-
+  
   const result = await deleteProductById({
     baseUrl,
     consumerKey,
