@@ -17,6 +17,7 @@ import {
   ensureGlobalAttributeWithTerms,
   suggestCategoriesByName,
   findProductBySku,
+  findProductsByName,
   deleteProductById
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
@@ -83,7 +84,13 @@ function looksLikePriceUpdateCommand(message) {
 }
 function looksLikeDeleteProductCommand(message) {
   const text = String(message || "").toLowerCase();
-  return text.includes("eliminar producto") && text.includes("sku:");
+  return (
+    text.includes("eliminar producto") &&
+    (
+      text.includes("sku:") ||
+      text.includes("nombre:")
+    )
+  );
 }
 function detectCommerceIntent(message) {
   const text = String(message || "").toLowerCase();
@@ -175,6 +182,54 @@ function extractMultiValueField(message, fieldName) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+function extractDeleteSkus(message) {
+  const value = extractField(message, "sku");
+
+  if (!value) return [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function extractDeleteNames(message) {
+  const lines = String(message || "").split("\n");
+  const startIndex = lines.findIndex((line) =>
+    line.trim().toLowerCase().startsWith("nombre:")
+  );
+
+  if (startIndex === -1) return [];
+
+  const firstLine = lines[startIndex]
+    .split(":")
+    .slice(1)
+    .join(":")
+    .trim();
+
+  const collected = [];
+
+  if (firstLine) {
+    collected.push(firstLine);
+    return firstLine
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+
+    if (!line) continue;
+    if (line.includes(":")) break;
+
+    collected.push(line);
+  }
+
+  return collected.filter(Boolean);
+}
+
 function extractBlock(message, blockName, stopFields = []) {
   const normalized = String(message || "")
     .replace(/\r\n/g, "\n")
@@ -905,43 +960,125 @@ if (looksLikeDeleteProductCommand(message)) {
     });
   }
 
-  const sku = String(message)
-    .split("\n")
-    .find((line) => line.toLowerCase().startsWith("sku:"))
-    ?.replace(/^sku:/i, "")
-    .trim();
+  const skus = extractDeleteSkus(message);
+  const names = extractDeleteNames(message);
 
-  if (!sku) {
+  if (skus.length === 0 && names.length === 0) {
     return res.status(400).json({
-      error: "Falta el SKU.",
-      example: "eliminar producto\nsku: REM-001",
+      error: "Mandame al menos un sku o un nombre.",
+      example: "eliminar producto\nsku: REM-001, REM-002",
     });
   }
 
-  const found = await findProductBySku({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    sku,
-  });
+  const productsToDelete = [];
+  const notFound = [];
+  const ambiguous = [];
 
-  if (!found?.exists || !found?.product?.id) {
+  for (const sku of skus) {
+    const found = await findProductBySku({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      sku,
+    });
+
+    if (found?.exists && found?.product?.id) {
+      productsToDelete.push(found.product);
+    } else {
+      notFound.push(`SKU: ${sku}`);
+    }
+  }
+
+  for (const name of names) {
+    const foundByName = await findProductsByName({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      name,
+    });
+
+    if ((foundByName?.products || []).length === 1) {
+      productsToDelete.push(foundByName.products[0]);
+      continue;
+    }
+
+    if ((foundByName?.products || []).length > 1) {
+      ambiguous.push({
+        name,
+        matches: foundByName.products,
+      });
+      continue;
+    }
+
+    if ((foundByName?.candidates || []).length > 1) {
+      ambiguous.push({
+        name,
+        matches: foundByName.candidates.slice(0, 5),
+      });
+      continue;
+    }
+
+    notFound.push(`Nombre: ${name}`);
+  }
+
+  const uniqueProducts = Array.from(
+    new Map(productsToDelete.map((product) => [product.id, product])).values()
+  );
+
+  if (ambiguous.length > 0) {
+    return res.status(400).json({
+      error: `Hay nombres ambiguos. Decime el SKU o el nombre exacto.\n\n${ambiguous
+        .map(
+          (item) =>
+            `Nombre: ${item.name}\nCoincidencias: ${item.matches
+              .map((p) => `${p.name}${p.sku ? ` (SKU: ${p.sku})` : ""}`)
+              .join(", ")}`
+        )
+        .join("\n\n")}`,
+    });
+  }
+
+  if (uniqueProducts.length === 0) {
     return res.status(404).json({
-      error: `No encontré un producto con el SKU ${sku}.`,
+      error: `No encontré productos para eliminar.\n${notFound.join("\n")}`,
     });
   }
-  
-  const result = await deleteProductById({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId: found.product.id,
-  });
+
+  const deletedResults = [];
+
+  for (const product of uniqueProducts) {
+    const result = await deleteProductById({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId: product.id,
+    });
+
+    deletedResults.push(result.product);
+  }
+
+  const replyLines = [
+    deletedResults.length === 1
+      ? `Producto eliminado correctamente: ${deletedResults[0].name || `#${deletedResults[0].id}`}.`
+      : `Se eliminaron ${deletedResults.length} productos correctamente.`,
+    ...deletedResults.map(
+      (product) => `- ${product.name || `#${product.id}`}${product.sku ? ` (SKU: ${product.sku})` : ""}`
+    ),
+  ];
+
+  if (notFound.length > 0) {
+    replyLines.push("");
+    replyLines.push("No encontrados:");
+    replyLines.push(...notFound.map((item) => `- ${item}`));
+  }
 
   return res.json({
     usedTool: true,
-    reply: `Producto eliminado correctamente: ${result.product.name || sku}.`,
-    toolResult: result,
+    reply: replyLines.join("\n"),
+    toolResult: {
+      deleted: deletedResults,
+      notFound,
+    },
   });
 }
 

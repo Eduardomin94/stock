@@ -174,7 +174,11 @@ function translateAgentError(message: any) {
     return "Ya existe un producto con ese SKU.";
   }
 
-  return "Ocurrió un error al crear el producto.";
+  if (text && text !== "{}") {
+    return text;
+  }
+
+  return "Ocurrió un error al ejecutar la acción.";
 }
 
 function buildCreateProductMessage(
@@ -897,15 +901,18 @@ async function nextCreateStep() {
         </button>
 
         <button
-          type="button"
-          onClick={() => {
-            setActiveAction("delete");
-            pushAssistantInfo("Eliminar producto lo dejamos para el siguiente paso.");
-          }}
-          style={quickActionSecondaryStyle}
-        >
-          Eliminar producto
-        </button>
+  type="button"
+  onClick={() => {
+  setActiveAction("delete");
+  setText("eliminar producto\nsku: ");
+  pushAssistantInfo(
+    "Podés eliminar por SKU o por nombre. También podés pasar varios a la vez.\n\nEjemplos:\n\neliminar producto\nsku: REM-001\n\neliminar producto\nsku: REM-001, REM-002\n\neliminar producto\nnombre: Remera básica negra\n\neliminar producto\nnombre:\nRemera básica negra\nRemera básica blanca"
+  );
+}}
+  style={quickActionSecondaryStyle}
+>
+  Eliminar producto
+</button>
       </div>
 
       <div

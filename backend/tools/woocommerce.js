@@ -286,6 +286,53 @@ console.log("SKU CHECK DEBUG", {
   };
 }
 
+export async function findProductsByName({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  name,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!name) throw new Error("Falta name");
+
+  const cleanName = String(name).trim().toLowerCase();
+
+  const response = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        search: String(name).trim(),
+        per_page: 100,
+      },
+    })
+  );
+
+  const products = Array.isArray(response.data) ? response.data : [];
+
+  const exactMatches = products.filter(
+    (product) => String(product?.name || "").trim().toLowerCase() === cleanName
+  );
+
+  return {
+    ok: true,
+    search: name,
+    products: exactMatches.map((product) => ({
+      id: product.id,
+      name: product.name || "",
+      sku: product.sku || "",
+      type: product.type || "",
+    })),
+    candidates: products.map((product) => ({
+      id: product.id,
+      name: product.name || "",
+      sku: product.sku || "",
+      type: product.type || "",
+    })),
+  };
+}
+
 export async function deleteProductById({
   baseUrl,
   consumerKey,
