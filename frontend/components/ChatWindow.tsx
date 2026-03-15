@@ -324,6 +324,7 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
 
 
   const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [createStepIndex, setCreateStepIndex] = useState(0);
   const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 
@@ -436,9 +437,38 @@ const assistantMessage: Message = {
     }
   }
 
-  async function handleSend(filesOverride?: File[]) {
-    await sendToAgent(text, filesOverride);
+ async function handleSend(filesOverride?: File[]) {
+  if (activeAction === "delete") {
+    const raw = text.trim();
+
+    if (!raw) {
+      pushAssistantInfo(
+        deleteMode === "sku"
+          ? "Escribí al menos un SKU."
+          : "Escribí al menos un nombre."
+      );
+      return;
+    }
+
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const message =
+      deleteMode === "sku"
+        ? `eliminar producto\nsku: ${lines.join(", ")}`
+        : lines.length === 1
+          ? `eliminar producto\nnombre: ${lines[0]}`
+          : `eliminar producto\nnombre:\n${lines.join("\n")}`;
+
+    await sendToAgent(message, filesOverride);
+    setText("");
+    return;
   }
+
+  await sendToAgent(text, filesOverride);
+}
 
   function mergeFiles(newFiles: File[]) {
   setSelectedFiles((prev) => {
@@ -903,12 +933,13 @@ async function nextCreateStep() {
         <button
   type="button"
   onClick={() => {
-  setActiveAction("delete");
-  setText("eliminar producto\nsku: ");
-  pushAssistantInfo(
-    "Podés eliminar por SKU o por nombre. También podés pasar varios a la vez.\n\nEjemplos:\n\neliminar producto\nsku: REM-001\n\neliminar producto\nsku: REM-001, REM-002\n\neliminar producto\nnombre: Remera básica negra\n\neliminar producto\nnombre:\nRemera básica negra\nRemera básica blanca"
-  );
-}}
+    setActiveAction("delete");
+    setDeleteMode("sku");
+    setText("");
+    pushAssistantInfo(
+      "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
+    );
+  }}
   style={quickActionSecondaryStyle}
 >
   Eliminar producto
@@ -1503,7 +1534,13 @@ Stock general
         handleSend();
       }
     }}
-    placeholder={currentCreateStep?.placeholder || "Escribí tu mensaje..."}
+    placeholder={
+  activeAction === "delete"
+    ? deleteMode === "sku"
+      ? "Ej: REM-001\nREM-002"
+      : "Ej: Remera básica negra\nRemera básica blanca"
+    : currentCreateStep?.placeholder || "Escribí tu mensaje..."
+}
     rows={3}
     style={{
       width: "100%",
@@ -1535,6 +1572,75 @@ Stock general
   </div>
 )}
   </>
+)}
+{activeAction === "delete" && (
+  <div
+    style={{
+      marginTop: 12,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 14,
+      border: "1px solid #334155",
+      background: "#0f172a",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
+      Eliminar producto
+    </div>
+
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "#e5e7eb",
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="radio"
+          name="deleteMode"
+          checked={deleteMode === "sku"}
+          onChange={() => {
+            setDeleteMode("sku");
+            setText("");
+          }}
+        />
+        Por SKU
+      </label>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "#e5e7eb",
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="radio"
+          name="deleteMode"
+          checked={deleteMode === "nombre"}
+          onChange={() => {
+            setDeleteMode("nombre");
+            setText("");
+          }}
+        />
+        Por nombre
+      </label>
+    </div>
+
+    <div style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.5 }}>
+      {deleteMode === "sku"
+        ? "Escribí uno o varios SKU, uno por línea."
+        : "Escribí uno o varios nombres, uno por línea."}
+    </div>
+  </div>
 )}
 
 {activeAction === "create" && currentCreateStep && (
