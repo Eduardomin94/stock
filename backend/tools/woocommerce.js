@@ -839,12 +839,66 @@ export async function updateProductPrice({
   if (!consumerSecret) throw new Error("Falta consumerSecret");
   if (!productId) throw new Error("Falta productId");
 
-  const payload = {
-    regular_price: String(regularPrice),
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const productType = String(product.type || "").toLowerCase();
+
+  const buildPricePayload = () => {
+    const payload = {
+      regular_price: String(regularPrice),
+    };
+
+    if (salePrice !== undefined && salePrice !== null && salePrice !== "") {
+      payload.sale_price = String(salePrice);
+    } else {
+      payload.sale_price = "";
+    }
+
+    return payload;
   };
 
-  if (salePrice !== undefined && salePrice !== null && salePrice !== "") {
-    payload.sale_price = String(salePrice);
+  if (productType === "variable") {
+    const variations = await fetchAllVariations(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId
+    );
+
+    const results = [];
+
+    for (const variation of variations) {
+      const updatedVariation = await updateVariation(
+        baseUrl,
+        consumerKey,
+        consumerSecret,
+        productId,
+        variation.id,
+        buildPricePayload()
+      );
+
+      results.push({
+        variation_id: updatedVariation.id,
+        regular_price: updatedVariation.regular_price ?? "",
+        sale_price: updatedVariation.sale_price ?? "",
+        price: updatedVariation.price ?? "",
+        sku: updatedVariation.sku ?? "",
+      });
+    }
+
+    return {
+      ok: true,
+      action: "update_variable_product_price",
+      product_id: product.id ?? productId,
+      name: product.name ?? "",
+      type: product.type ?? "",
+      updated_variations: results.length,
+      variations: results,
+    };
   }
 
   const updated = await updateProduct(
@@ -852,7 +906,7 @@ export async function updateProductPrice({
     consumerKey,
     consumerSecret,
     productId,
-    payload
+    buildPricePayload()
   );
 
   return {
@@ -860,6 +914,7 @@ export async function updateProductPrice({
     action: "update_product_price",
     product_id: updated.id ?? productId,
     name: updated.name ?? "",
+    type: updated.type ?? "",
     regular_price: updated.regular_price ?? "",
     sale_price: updated.sale_price ?? "",
     price: updated.price ?? "",
