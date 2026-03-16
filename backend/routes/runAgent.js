@@ -1065,36 +1065,38 @@ if (looksLikeEditProductActionCommand(message)) {
   }
 
   if (action === "cambiar_precio") {
-    const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
+  const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
 
-    if (!regularPrice) {
-  return res.status(400).json({
-    error: "Falta regularPrice.",
-  });
-}
-
-    const updated = await updateWooProduct(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      {
-        regular_price: String(regularPrice),
-      }
-    );
-
-    return res.json({
-      usedTool: true,
-      reply: `Precio actualizado correctamente para ${updated.name}.`,
-      product: {
-        id: updated.id,
-        name: updated.name,
-        sku: updated.sku || "",
-        regular_price: updated.regular_price || "",
-        sale_price: updated.sale_price || "",
-      },
+  if (!regularPrice) {
+    return res.status(400).json({
+      error: "Falta regularPrice.",
     });
   }
+
+  const result = await updateProductPrice({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    regularPrice,
+  });
+
+  return res.json({
+    usedTool: true,
+    reply:
+      result.type === "variable"
+        ? `Precio actualizado correctamente para ${result.updated_variations} variaciones de ${result.name}.`
+        : `Precio actualizado correctamente para ${result.name}.`,
+    product: {
+      id: result.product_id,
+      name: result.name,
+      type: result.type || "",
+      regular_price: result.regular_price || "",
+      sale_price: result.sale_price || "",
+    },
+    toolResult: result,
+  });
+}
 
     if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
     const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
