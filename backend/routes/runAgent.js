@@ -52,6 +52,9 @@ async function updateWooProduct(baseUrl, consumerKey, consumerSecret, productId,
         consumer_key: consumerKey,
         consumer_secret: consumerSecret,
       },
+      headers: {
+        "Content-Type": "application/json",
+      },
     }
   );
 
@@ -990,9 +993,9 @@ if (looksLikeEditProductSearchCommand(message)) {
   const value = rest.join("|").trim();
   const mode = String(modeRaw || "").trim().toLowerCase();
 
-  if (!value || !["sku", "nombre"].includes(mode)) {
+  if (!value) {
     return res.status(400).json({
-      error: "Formato inválido. Usá sku o nombre.",
+      error: "Falta el valor a buscar.",
     });
   }
 
@@ -1028,6 +1031,10 @@ if (looksLikeEditProductSearchCommand(message)) {
       candidates: found.candidates || [],
     });
   }
+
+  return res.status(400).json({
+    error: "Modo de búsqueda inválido. Usá sku o nombre.",
+  });
 }
 
 if (looksLikeEditProductActionCommand(message)) {
@@ -1058,13 +1065,13 @@ if (looksLikeEditProductActionCommand(message)) {
   }
 
   if (action === "cambiar_precio") {
-    const regularPrice = payload?.regularPrice;
+    const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
 
-    if (regularPrice == null || regularPrice === "") {
-      return res.status(400).json({
-        error: "Falta regularPrice.",
-      });
-    }
+    if (!regularPrice) {
+  return res.status(400).json({
+    error: "Falta regularPrice.",
+  });
+}
 
     const updated = await updateWooProduct(
       baseUrl,
@@ -1085,6 +1092,69 @@ if (looksLikeEditProductActionCommand(message)) {
         sku: updated.sku || "",
         regular_price: updated.regular_price || "",
         sale_price: updated.sale_price || "",
+      },
+    });
+  }
+
+    if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
+    const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
+
+    if (!salePrice) {
+  return res.status(400).json({
+    error: "Falta salePrice.",
+  });
+}
+
+    const updated = await updateWooProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      {
+        sale_price: String(salePrice),
+      }
+    );
+
+    return res.json({
+      usedTool: true,
+      reply: `Precio rebajado actualizado correctamente para ${updated.name}.`,
+      product: {
+        id: updated.id,
+        name: updated.name,
+        sku: updated.sku || "",
+        regular_price: updated.regular_price || "",
+        sale_price: updated.sale_price || "",
+      },
+    });
+  }
+
+  if (action === "cambiar_descripcion") {
+    const description = payload?.description;
+
+    if (description == null) {
+      return res.status(400).json({
+        error: "Falta description.",
+      });
+    }
+
+    const updated = await updateWooProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      {
+        description: String(description),
+      }
+    );
+
+    return res.json({
+      usedTool: true,
+      reply: `Descripción actualizada correctamente para ${updated.name}.`,
+      product: {
+        id: updated.id,
+        name: updated.name,
+        sku: updated.sku || "",
+        description: updated.description || "",
       },
     });
   }

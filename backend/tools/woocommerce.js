@@ -297,23 +297,55 @@ export async function findProductsByName({
   if (!consumerSecret) throw new Error("Falta consumerSecret");
   if (!name) throw new Error("Falta name");
 
-  const cleanName = String(name).trim().toLowerCase();
+  const cleanName = String(name).trim();
+  const normalizedFullName = normalizeText(cleanName);
 
-  const response = await axios.get(
-    `${normalizeBaseUrl(baseUrl)}/products`,
-    buildWooConfig(consumerKey, consumerSecret, {
-      params: {
-        search: String(name).trim(),
-        per_page: 100,
-      },
-    })
+  const terms = cleanName
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => item.length >= 3);
+
+  const searchTerms = [cleanName, ...terms];
+
+  const foundMap = new Map();
+
+  for (const term of searchTerms) {
+    const response = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          search: term,
+          per_page: 100,
+        },
+      })
+    );
+
+    const products = Array.isArray(response.data) ? response.data : [];
+
+    for (const product of products) {
+      if (!product?.id) continue;
+      foundMap.set(product.id, product);
+    }
+
+    if (foundMap.size >= 50) {
+      break;
+    }
+  }
+
+  const allProducts = Array.from(foundMap.values());
+
+  const exactMatches = allProducts.filter(
+    (product) => normalizeText(product?.name || "") === normalizedFullName
   );
 
-  const products = Array.isArray(response.data) ? response.data : [];
+  const strongCandidates = allProducts.filter((product) => {
+    const productName = normalizeText(product?.name || "");
+    return terms.every((term) => productName.includes(normalizeText(term)));
+  });
 
-  const exactMatches = products.filter(
-    (product) => String(product?.name || "").trim().toLowerCase() === cleanName
-  );
+  const finalCandidates =
+    strongCandidates.length > 0 ? strongCandidates : allProducts;
 
   return {
     ok: true,
@@ -324,7 +356,7 @@ export async function findProductsByName({
       sku: product.sku || "",
       type: product.type || "",
     })),
-    candidates: products.map((product) => ({
+    candidates: finalCandidates.slice(0, 20).map((product) => ({
       id: product.id,
       name: product.name || "",
       sku: product.sku || "",
