@@ -2200,29 +2200,6 @@ for (const combo of combinations) {
 
   await sendEditPayload(payload);
 }
-              const form = new FormData();
-              form.append("agentId", agentId);
-              form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
-
-              const res = await fetch(`${API}/run-agent`, {
-                method: "POST",
-                headers: token
-                  ? {
-                      Authorization: `Bearer ${token}`,
-                    }
-                  : undefined,
-                body: form,
-              });
-
-              const data = await res.json();
-
-              if (!res.ok) {
-                throw new Error(
-                  data?.detail || data?.error || data?.message || "Error editando el producto."
-                );
-              }
-
-              pushAssistantInfo(data?.reply || "Producto actualizado correctamente.");
 
 // 🔥 volver a buscar el producto actualizado
 try {
