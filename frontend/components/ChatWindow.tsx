@@ -2155,9 +2155,11 @@ if (
   return;
 }
 
-await sendEditPayload(payload);
+const response = await sendEditPayload(payload);
 
-pushAssistantInfo("Producto actualizado correctamente.");
+pushAssistantInfo(
+  response?.reply || "Producto actualizado correctamente."
+);
 
 // 🔥 volver a buscar el producto actualizado
 try {

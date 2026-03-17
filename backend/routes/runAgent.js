@@ -1241,24 +1241,67 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
-  // ✅ RESPUESTA FINAL ÚNICA
-  if (result) {
-    return res.json({
-      usedTool: true,
-      reply:
-        result.type === "variable"
-          ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
-          : `Precio actualizado correctamente.`,
-      product: {
-        id: result.product_id,
-        name: result.name,
-        type: result.type || "",
-        regular_price: result.regular_price || "",
-        sale_price: result.sale_price || "",
-      },
-      toolResult: result,
-    });
+// ✅ RESPUESTA FINAL ÚNICA
+if (result) {
+  let reply = "Producto actualizado correctamente.";
+
+  if (action === "cambiar_precio") {
+    if (result.type === "variable") {
+      reply =
+        result.updated_variations === 1
+          ? `Precio normal actualizado a ${regularPrice} en 1 variación de ${result.name}.`
+          : `Precio normal actualizado a ${regularPrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+    } else {
+      reply = `Precio normal actualizado a ${result.regular_price || regularPrice} en ${result.name}.`;
+    }
   }
+
+  if (action === "agregar_precio_rebajado") {
+    if (result.type === "variable") {
+      reply =
+        result.updated_variations === 1
+          ? `Precio rebajado agregado: ${salePrice} en 1 variación de ${result.name}.`
+          : `Precio rebajado agregado: ${salePrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+    } else {
+      reply = `Precio rebajado agregado: ${result.sale_price || salePrice} en ${result.name}.`;
+    }
+  }
+
+  if (action === "cambiar_precio_rebajado") {
+    if (result.type === "variable") {
+      reply =
+        result.updated_variations === 1
+          ? `Precio rebajado cambiado a ${salePrice} en 1 variación de ${result.name}.`
+          : `Precio rebajado cambiado a ${salePrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+    } else {
+      reply = `Precio rebajado cambiado a ${result.sale_price || salePrice} en ${result.name}.`;
+    }
+  }
+
+  if (action === "quitar_precio_rebajado") {
+    if (result.type === "variable") {
+      reply =
+        result.updated_variations === 1
+          ? `Precio rebajado quitado en 1 variación de ${result.name}.`
+          : `Precio rebajado quitado en ${result.updated_variations} variaciones de ${result.name}.`;
+    } else {
+      reply = `Precio rebajado quitado en ${result.name}.`;
+    }
+  }
+
+  return res.json({
+    usedTool: true,
+    reply,
+    product: {
+      id: result.product_id,
+      name: result.name,
+      type: result.type || "",
+      regular_price: result.regular_price || "",
+      sale_price: result.sale_price || "",
+    },
+    toolResult: result,
+  });
+}
 
   return res.status(400).json({
     error: "Acción no reconocida.",
