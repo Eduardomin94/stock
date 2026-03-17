@@ -1381,11 +1381,6 @@ if (isVariable) {
     });
   }
 
-  return res.status(400).json({
-    error: `Acción no implementada todavía: ${action}`,
-  });
-}
-
 if (looksLikeDeleteProductCommand(message)) {
   if (!baseUrl || !consumerKey || !consumerSecret) {
     return res.status(500).json({
