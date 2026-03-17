@@ -1076,6 +1076,7 @@ useEffect(() => {
       });
 
       const data = await res.json();
+      console.log("ME RESPONSE", data);
 
       const rawUrl = String(data?.store_url || "").trim();
       setStoreUrl(rawUrl);

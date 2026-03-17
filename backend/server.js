@@ -16,6 +16,7 @@ import registerRoute from "./routes/register.js";
 import loginRoute from "./routes/login.js";
 import { query } from "./services/db.js";
 import uploadImageRoute from "./routes/uploadImage.js";
+import meRoute from "./routes/me.js";
 
 
 dotenv.config();
@@ -56,6 +57,7 @@ app.get("/", (_req, res) => {
 
 app.use("/register", registerRoute);
 app.use("/login", loginRoute);
+app.use("/me", meRoute);
 app.use("/run-agent", runAgentRoute);
 app.use("/test-woo-audit", testWooAuditRoute);
 app.use("/test-enable-manage-stock-dry-run", testEnableManageStockDryRunRoute);
@@ -69,6 +71,7 @@ app.use("/test-create-simple-product", testCreateSimpleProductRoute);
 app.use("/test-create-variable-product", testCreateVariableProductRoute);
 app.use("/uploads", express.static("uploads"));
 app.use("/upload-images", uploadImageRoute);
+
 
 const PORT = process.env.PORT || 3001;
 
