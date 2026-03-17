@@ -280,32 +280,32 @@ console.log("SKU CHECK DEBUG", {
     : null,
 });
 
+const hasSale =
+  exact?.sale_price &&
+  exact.sale_price !== "" &&
+  exact.sale_price !== exact.regular_price;
 
-    return {
-    ok: true,
-    exists: Boolean(exact),
-    product: exact
-  ? {
-      id: exact.id,
-      name: exact.name || "",
-      sku: exact.sku || "",
-      type: exact.type || "",
-      regular_price:
-  exact.regular_price && exact.regular_price !== ""
+const regular_price =
+  exact?.regular_price && exact.regular_price !== ""
     ? exact.regular_price
-    : exact.price || "",
+    : exact?.price || "";
 
-sale_price:
-  exact.sale_price && exact.sale_price !== ""
-    ? exact.sale_price
-    : exact.price && exact.regular_price !== exact.price
-    ? exact.price
-    : "",
-
-price: exact.price || "",
-    }
-  : null,
-  };
+const sale_price = hasSale ? exact.sale_price : "";
+    return {
+  ok: true,
+  exists: Boolean(exact),
+  product: exact
+    ? {
+        id: exact.id,
+        name: exact.name || "",
+        sku: exact.sku || "",
+        type: exact.type || "",
+        regular_price,
+        sale_price,
+        price: exact.price || "",
+      }
+    : null,
+};
 }
 
 export async function findProductsByName({
