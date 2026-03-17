@@ -281,22 +281,25 @@ console.log("SKU CHECK DEBUG", {
 });
 
 
-    return {
-    ok: true,
-    exists: Boolean(exact),
-    product: exact
-  ? {
-      id: exact.id,
-      name: exact.name || "",
-      sku: exact.sku || "",
-      type: exact.type || "",
-      regular_price: exact.regular_price || "",
-      sale_price: exact.sale_price || "",
-      price: exact.price || "",
-    }
-  : null,
-  };
-}
+    const displayPrices = exact
+  ? await getDisplayPricesForProduct(baseUrl, consumerKey, consumerSecret, exact)
+  : null;
+
+return {
+  ok: true,
+  exists: Boolean(exact),
+  product: exact
+    ? {
+        id: exact.id,
+        name: exact.name || "",
+        sku: exact.sku || "",
+        type: exact.type || "",
+        regular_price: displayPrices?.regular_price || "",
+        sale_price: displayPrices?.sale_price || "",
+        price: displayPrices?.price || "",
+      }
+    : null,
+};
 
 export async function findProductsByName({
   baseUrl,
@@ -359,28 +362,54 @@ export async function findProductsByName({
   const finalCandidates =
     strongCandidates.length > 0 ? strongCandidates : allProducts;
 
+    const exactProducts = await Promise.all(
+  exactMatches.map(async (product) => {
+    const displayPrices = await getDisplayPricesForProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      product
+    );
+
     return {
-    ok: true,
-    search: name,
-    products: exactMatches.map((product) => ({
-  id: product.id,
-  name: product.name || "",
-  sku: product.sku || "",
-  type: product.type || "",
-  regular_price: product.regular_price || "",
-  sale_price: product.sale_price || "",
-  price: product.price || "",
-})),
-    candidates: finalCandidates.slice(0, 20).map((product) => ({
-  id: product.id,
-  name: product.name || "",
-  sku: product.sku || "",
-  type: product.type || "",
-  regular_price: product.regular_price || "",
-  sale_price: product.sale_price || "",
-  price: product.price || "",
-})),
-  };
+      id: product.id,
+      name: product.name || "",
+      sku: product.sku || "",
+      type: product.type || "",
+      regular_price: displayPrices?.regular_price || "",
+      sale_price: displayPrices?.sale_price || "",
+      price: displayPrices?.price || "",
+    };
+  })
+);
+
+const candidateProducts = await Promise.all(
+  finalCandidates.slice(0, 20).map(async (product) => {
+    const displayPrices = await getDisplayPricesForProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      product
+    );
+
+    return {
+      id: product.id,
+      name: product.name || "",
+      sku: product.sku || "",
+      type: product.type || "",
+      regular_price: displayPrices?.regular_price || "",
+      sale_price: displayPrices?.sale_price || "",
+      price: displayPrices?.price || "",
+    };
+  })
+);
+
+return {
+  ok: true,
+  search: name,
+  products: exactProducts,
+  candidates: candidateProducts,
+};
 }
 
 export async function deleteProductById({

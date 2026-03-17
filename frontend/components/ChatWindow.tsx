@@ -171,27 +171,23 @@ function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
 }
 
-function normalizeEditFoundProduct(product: any): EditFoundProduct {
-  const regularPrice = String(
-    product?.regular_price ||
-    product?.regularPrice ||
-    ""
-  );
+function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProduct {
+  let regular = product?.regular_price;
+  let sale = product?.sale_price;
 
-  const salePrice = String(
-    product?.sale_price ||
-    product?.salePrice ||
-    (product?.price && product?.price !== regularPrice ? product?.price : "") ||
-    ""
-  );
+  // 👉 si hay variación, usarla (clave)
+  if (variation) {
+    regular = variation?.regular_price || regular;
+    sale = variation?.sale_price || sale;
+  }
 
   return {
     id: Number(product?.id || 0),
     name: String(product?.name || ""),
     sku: String(product?.sku || ""),
     type: String(product?.type || ""),
-    regularPrice,
-    salePrice,
+    regularPrice: String(regular || ""),
+    salePrice: String(sale || ""),
   };
 }
 
@@ -534,7 +530,9 @@ const assistantMessage: Message = {
     }
 
     if (data?.product) {
-  setEditFoundProduct(normalizeEditFoundProduct(data.product));
+  setEditFoundProduct(
+  normalizeEditFoundProduct(data.product, data.variationSample)
+);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
@@ -1782,8 +1780,13 @@ Stock general
     flexWrap: "wrap",
   }}
 >
-  <div>Precio normal: {editFoundProduct.regularPrice || "(vacío)"}</div>
-  <div>Precio de oferta: {editFoundProduct.salePrice || "(vacío)"}</div>
+  <div>
+    Precio normal: {editFoundProduct.regularPrice || "(vacío)"}
+  </div>
+
+  <div>
+  Precio de oferta: {editFoundProduct.salePrice || "(vacío)"}
+</div>
 </div>
 
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

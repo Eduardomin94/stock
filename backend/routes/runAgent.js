@@ -1007,12 +1007,32 @@ if (looksLikeEditProductSearchCommand(message)) {
       sku: value,
     });
 
-    return res.json({
-      usedTool: true,
-      mode: "sku",
-      found: found.exists,
-      product: found.product || null,
-    });
+    let variations = [];
+
+if (found.exists && found.product?.id) {
+  const axios = (await import("axios")).default;
+
+  const response = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${found.product.id}/variations`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        per_page: 1,
+      },
+    }
+  );
+
+  variations = response.data || [];
+}
+
+return res.json({
+  usedTool: true,
+  mode: "sku",
+  found: found.exists,
+  product: found.product || null,
+  variationSample: variations[0] || null,
+});
   }
 
   if (mode === "nombre") {
