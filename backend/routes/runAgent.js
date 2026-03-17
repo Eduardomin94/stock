@@ -1133,7 +1133,7 @@ if (looksLikeEditProductActionCommand(message)) {
 
     return res.json({
       usedTool: true,
-      reply: `Precio rebajado actualizado correctamente para ${result.name}.`,
+      reply: `Precio rebajado actualizado correctamente.`,
       product: {
         id: result.product_id,
         name: result.name,
