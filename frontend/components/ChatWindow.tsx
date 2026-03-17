@@ -2135,21 +2135,21 @@ if (attributeEntries.length === 0) {
         action: "cambiar_precio",
         productId: editFoundProduct.id,
         regularPrice: editValue.trim(),
-        selectedCombinations: editSelectedCombinations,
+        selectedCombinations: selectedEditCombinations,
       }
       : editActionType === "agregar_precio_rebajado"
   ? {
       action: "agregar_precio_rebajado",
       productId: editFoundProduct.id,
       salePrice: editValue.trim(),
-      selectedCombinations: editSelectedCombinations,
+      selectedCombinations: selectedEditCombinations,
     }
     : editActionType === "cambiar_precio_rebajado"
   ? {
       action: "cambiar_precio_rebajado",
       productId: editFoundProduct.id,
       salePrice: editValue.trim(),
-      selectedCombinations: editSelectedCombinations,
+      selectedCombinations: selectedEditCombinations,
     }
       : editActionType === "quitar_precio_rebajado"
       ? {
