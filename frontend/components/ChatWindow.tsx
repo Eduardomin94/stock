@@ -2201,6 +2201,8 @@ for (const combo of combinations) {
   await sendEditPayload(payload);
 }
 
+pushAssistantInfo("Producto actualizado correctamente.");
+
 // 🔥 volver a buscar el producto actualizado
 try {
   const form = new FormData();
