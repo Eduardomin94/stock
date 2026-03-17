@@ -189,13 +189,13 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
   regularPrice: String(regular || ""),
   salePrice: String(sale || ""),
   attributes: Array.isArray(product?.attributeOptions)
-    ? product.attributeOptions.map((attr: any) => ({
-        name: String(attr?.name || ""),
-        options: Array.isArray(attr?.options)
-          ? attr.options.map((opt: any) => String(opt))
-          : [],
-      }))
-    : [],
+  ? product.attributeOptions.map((attr: any) => ({
+      name: String(attr?.name || "").trim(),
+      options: Array.isArray(attr?.options)
+        ? attr.options.map((opt: any) => String(opt || "").trim()).filter(Boolean)
+        : [],
+    }))
+  : [],
 };
 }
 
@@ -1959,7 +1959,11 @@ Stock general
   
 )}
 
-{editActionType === "cambiar_precio" && hasEditAttributes && (
+{(
+  editActionType === "cambiar_precio" ||
+  editActionType === "agregar_precio_rebajado" ||
+  editActionType === "cambiar_precio_rebajado"
+) && hasEditAttributes && (
   <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
     {editAttributes.map((attr) => (
       <select

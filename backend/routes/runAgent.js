@@ -1208,15 +1208,16 @@ if (looksLikeEditProductActionCommand(message)) {
   const isVariable = String(product.type || "").toLowerCase() === "variable";
   const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
 
-  if (isVariable) {
-    const result = await updateProductPrice({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      regularPrice,
-      salePrice,
-    });
+if (isVariable) {
+  const result = await updateProductPrice({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    regularPrice,
+    salePrice,
+    attributes: payload?.attributes || {},
+  });
 
     return res.json({
       usedTool: true,
