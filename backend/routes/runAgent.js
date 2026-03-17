@@ -1079,12 +1079,14 @@ return res.json({
   usedTool: true,
   mode: "sku",
   found: found.exists,
+  exact: found.exists,
   product: found.product
     ? {
         ...found.product,
         attributeOptions,
       }
     : null,
+  candidates: found.candidates || [],
   variationSample: variations[0] || null,
 });
   }
@@ -1130,6 +1132,8 @@ return res.json({
   usedTool: true,
   mode: "nombre",
   found: enrichedProducts.length > 0,
+  exact: enrichedProducts.length > 0,
+  product: enrichedProducts.length === 1 ? enrichedProducts[0] : null,
   products: enrichedProducts,
   candidates: enrichedCandidates,
 });

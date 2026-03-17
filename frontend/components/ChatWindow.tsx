@@ -373,6 +373,7 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
+  const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
 const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
@@ -598,67 +599,88 @@ const assistantMessage: Message = {
 
     if (data?.product) {
   setEditFoundProduct(
-  normalizeEditFoundProduct(data.product, data.variationSample)
-);
+    normalizeEditFoundProduct(data.product, data.variationSample)
+  );
+  setEditCandidates([]);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
   setEditAttributeValues({});
+  setSelectedEditCombinations([]);
 
   pushAssistantInfo(
     `Encontré el producto: ${data.product.name}. Ahora elegí qué querés editar.`
   );
-  console.log("Producto encontrado:", data.product);
-} 
+}
 
 else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditFoundProduct(normalizeEditFoundProduct(data.products[0]));
+  setEditCandidates([]);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
   setEditAttributeValues({});
+  setSelectedEditCombinations([]);
+
   pushAssistantInfo(
     `Encontré el producto: ${data.products[0].name}. Ahora elegí qué querés editar.`
   );
-  console.log("Producto encontrado único:", data.products[0]);
-} else if (Array.isArray(data?.products) && data.products.length > 1) {
-  setEditFoundProduct(null);
-  setEditActionType("");
-  setEditValue("");
-  setEditSection("");
-  setEditAttributeValues({});
+}
 
-  pushAssistantInfo(
-    `Encontré ${data.products.length} productos. Decime el SKU exacto del que querés editar.`
+else if (Array.isArray(data?.products) && data.products.length > 1) {
+  const normalized = data.products.map((item: any) =>
+    normalizeEditFoundProduct(item)
   );
-  console.log("Coincidencias exactas:", data.products);
-} else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
-  setEditFoundProduct(normalizeEditFoundProduct(data.candidates[0]));
+
+  setEditFoundProduct(null);
+  setEditCandidates(normalized);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
   setEditAttributeValues({});
+  setSelectedEditCombinations([]);
+
+  pushAssistantInfo("Encontré varios productos exactos. Elegí uno de la lista.");
+}
+
+else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
+  setEditFoundProduct(normalizeEditFoundProduct(data.candidates[0]));
+  setEditCandidates([]);
+  setEditActionType("");
+  setEditValue("");
+  setEditSection("");
+  setEditAttributeValues({});
+  setSelectedEditCombinations([]);
+
   pushAssistantInfo(
     `Encontré el producto: ${data.candidates[0].name}. Ahora elegí qué querés editar.`
   );
-  console.log("Candidato único:", data.candidates[0]);
-} else if (Array.isArray(data?.candidates) && data.candidates.length > 1) {
-  setEditFoundProduct(null);
-  setEditActionType("");
-  setEditValue("");
-  setEditSection("");
-  setEditAttributeValues({});
+}
 
-  pushAssistantInfo(
-    `Encontré varios productos parecidos. Decime el SKU exacto del que querés editar.`
+else if (Array.isArray(data?.candidates) && data.candidates.length > 1) {
+  const normalized = data.candidates.map((item: any) =>
+    normalizeEditFoundProduct(item)
   );
-  console.log("Coincidencias aproximadas:", data.candidates);
-} else {
+
   setEditFoundProduct(null);
+  setEditCandidates(normalized);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
   setEditAttributeValues({});
+  setSelectedEditCombinations([]);
+
+  pushAssistantInfo("Encontré varios productos parecidos. Elegí uno de la lista.");
+}
+
+else {
+  setEditFoundProduct(null);
+  setEditCandidates([]);
+  setEditActionType("");
+  setEditValue("");
+  setEditSection("");
+  setEditAttributeValues({});
+  setSelectedEditCombinations([]);
 
   pushAssistantInfo("No encontré ese producto.");
 }
@@ -868,9 +890,57 @@ async function sendEditPayload(payload: any) {
   return data;
 }
 
+async function loadEditProductDetails(candidate: EditFoundProduct) {
+  const mode = candidate.sku?.trim() ? "sku" : "nombre";
+  const value = candidate.sku?.trim() || candidate.name?.trim();
+
+  if (!value) {
+    throw new Error("No pude identificar el producto.");
+  }
+
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__search_edit_product__:${mode}|${value}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const res = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      data?.detail || data?.error || data?.message || "No pude cargar el producto."
+    );
+  }
+
+  if (data?.product) {
+    return normalizeEditFoundProduct(data.product, data.variationSample);
+  }
+
+  if (Array.isArray(data?.products) && data.products.length === 1) {
+    return normalizeEditFoundProduct(data.products[0], data.variationSample);
+  }
+
+  if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
+    return normalizeEditFoundProduct(data.candidates[0], data.variationSample);
+  }
+
+  throw new Error("No pude cargar el detalle completo del producto.");
+}
+
   function startCreateProduct() {
   setActiveAction("create");
   setEditFoundProduct(null);
+  setEditCandidates([]);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
@@ -1248,17 +1318,18 @@ setStoreName(`${prettyName} (${domain})`);
         <button
   type="button"
   onClick={() => {
-    setActiveAction("edit");
-    setEditFoundProduct(null);
-    setEditActionType("");
-    setEditValue("");
-    setEditSection("");
-    setEditAttributeValues({});
-    setText("");
-    pushAssistantInfo(
-      "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
-    );
-  }}
+  setActiveAction("edit");
+  setEditFoundProduct(null);
+  setEditCandidates([]);
+  setEditActionType("");
+  setEditValue("");
+  setEditSection("");
+  setEditAttributeValues({});
+  setText("");
+  pushAssistantInfo(
+    "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
+  );
+}}
   style={quickActionSecondaryStyle}
 >
   Editar producto
@@ -1270,6 +1341,7 @@ setStoreName(`${prettyName} (${domain})`);
   setActiveAction("delete");
   setDeleteMode("sku");
   setEditFoundProduct(null);
+  setEditCandidates([]);
   setEditActionType("");
   setEditValue("");
   setEditSection("");
@@ -1912,6 +1984,77 @@ Stock general
 )}
   </>
 )}
+{activeAction === "edit" && !editFoundProduct && editCandidates.length > 0 && (
+  <div
+    style={{
+      marginTop: 12,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 14,
+      border: "1px solid #334155",
+      background: "#0f172a",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
+      Elegí el producto correcto
+    </div>
+
+    <div style={{ color: "#94a3b8", fontSize: 13 }}>
+      Encontré estos productos parecidos:
+    </div>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {editCandidates.map((candidate) => (
+        <button
+          key={candidate.id}
+          type="button"
+          onClick={async () => {
+  try {
+    setLoading(true);
+
+    const fullProduct = await loadEditProductDetails(candidate);
+
+    setEditFoundProduct(fullProduct);
+    setEditCandidates([]);
+    setEditActionType("");
+    setEditValue("");
+    setEditSection("");
+    setEditAttributeValues({});
+    setSelectedEditCombinations([]);
+
+    pushAssistantInfo(`Elegiste: ${fullProduct.name}. Ahora elegí qué querés editar.`);
+  } catch (error: any) {
+    pushAssistantInfo(
+      error?.message || "No pude cargar el detalle completo del producto."
+    );
+  } finally {
+    setLoading(false);
+  }
+}}
+          style={{
+            textAlign: "left",
+            border: "1px solid #334155",
+            background: "#020617",
+            color: "#e5e7eb",
+            borderRadius: 12,
+            padding: "10px 12px",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>{candidate.name}</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+            SKU: {candidate.sku || "(sin SKU)"} · Tipo: {candidate.type || "-"}
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
 {activeAction === "edit" && editFoundProduct && (
   <div
     style={{
@@ -2251,6 +2394,7 @@ try {
   setEditFoundProduct(
     normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
   );
+  setEditCandidates([]);
 }
 } catch {}
 

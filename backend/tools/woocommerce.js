@@ -5,6 +5,106 @@ function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || "").replace(/\/+$/, "");
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function tokenizeText(value) {
+  return normalizeText(value)
+    .split(/\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function scoreNameCandidate(search, product) {
+  const q = normalizeText(search);
+  const name = normalizeText(product?.name || "");
+  const sku = normalizeText(product?.sku || "");
+
+  if (!q || !name) return 0;
+  if (name === q) return 1000;
+
+  let score = 0;
+
+  if (name.startsWith(q)) score += 400;
+  if (name.includes(q)) score += 250;
+  if (sku && sku.includes(q)) score += 80;
+
+  const qTokens = tokenizeText(search).filter((t) => t.length >= 2);
+  const nameTokens = tokenizeText(product?.name || "");
+
+  let matchedTokens = 0;
+  for (const token of qTokens) {
+    if (name.includes(token) || nameTokens.includes(token)) {
+      matchedTokens += 1;
+      score += 70;
+    }
+  }
+
+  if (qTokens.length > 0 && matchedTokens === qTokens.length) {
+    score += 150;
+  }
+
+  const lengthDiff = Math.abs(name.length - q.length);
+  score -= Math.min(lengthDiff, 40);
+
+  return score;
+}
+
+function scoreSkuCandidate(search, product) {
+  const q = normalizeText(search);
+  const sku = normalizeText(product?.sku || "");
+  const name = normalizeText(product?.name || "");
+
+  if (!q) return 0;
+  if (sku === q) return 1000;
+
+  let score = 0;
+
+  if (sku.startsWith(q)) score += 500;
+  if (sku.includes(q)) score += 300;
+  if (name.includes(q)) score += 80;
+
+  const qTokens = tokenizeText(search).filter((t) => t.length >= 2);
+  for (const token of qTokens) {
+    if (sku.includes(token)) score += 60;
+    else if (name.includes(token)) score += 20;
+  }
+
+  const lengthDiff = Math.abs(sku.length - q.length);
+  score -= Math.min(lengthDiff, 40);
+
+  return score;
+}
+
+function mapProductForEdit(product) {
+  const hasSale =
+    product?.sale_price &&
+    product.sale_price !== "" &&
+    product.sale_price !== product.regular_price;
+
+  const regular_price =
+    product?.regular_price && product.regular_price !== ""
+      ? product.regular_price
+      : product?.price || "";
+
+  const sale_price = hasSale ? product.sale_price : "";
+
+  return {
+    id: product?.id,
+    name: product?.name || "",
+    sku: product?.sku || "",
+    type: product?.type || "",
+    regular_price,
+    sale_price,
+    price: product?.price || "",
+  };
+}
+
 function buildAuthHeader(consumerKey, consumerSecret) {
   const token = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
 
@@ -220,92 +320,72 @@ export async function findProductBySku({
   if (!consumerSecret) throw new Error("Falta consumerSecret");
   if (!sku) throw new Error("Falta sku");
 
-  const cleanSku = String(sku).trim().toLowerCase();
+  const cleanSku = String(sku).trim();
+  const normalizedSku = normalizeText(cleanSku);
+
+  const foundMap = new Map();
 
   const directResponse = await axios.get(
     `${normalizeBaseUrl(baseUrl)}/products`,
     buildWooConfig(consumerKey, consumerSecret, {
       params: {
-        sku: String(sku).trim(),
+        sku: cleanSku,
         per_page: 100,
       },
     })
   );
 
   const directProducts = Array.isArray(directResponse.data) ? directResponse.data : [];
+  for (const product of directProducts) {
+    if (product?.id) foundMap.set(product.id, product);
+  }
 
-  let exact = directProducts.find(
-    (product) => String(product?.sku || "").trim().toLowerCase() === cleanSku
-  );
+  const searchTerms = [
+    cleanSku,
+    ...cleanSku.split(/\s+/).map((x) => x.trim()).filter(Boolean),
+  ];
 
-  if (!exact) {
+  for (const term of searchTerms) {
     const searchResponse = await axios.get(
       `${normalizeBaseUrl(baseUrl)}/products`,
       buildWooConfig(consumerKey, consumerSecret, {
         params: {
-          search: String(sku).trim(),
+          search: term,
           per_page: 100,
         },
       })
     );
 
     const searchProducts = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+    for (const product of searchProducts) {
+      if (product?.id) foundMap.set(product.id, product);
+    }
 
-    exact = searchProducts.find(
-      (product) => String(product?.sku || "").trim().toLowerCase() === cleanSku
-    );
+    if (foundMap.size >= 50) break;
   }
 
-console.log("SKU CHECK DEBUG", {
-  skuBuscado: sku,
-  directProducts: directProducts.map((p) => ({
-    id: p.id,
-    name: p.name,
-    sku: p.sku,
-    type: p.type,
-    regular_price: p.regular_price,
-    sale_price: p.sale_price,
-    price: p.price,
-  })),
-  exactDirect: exact
-    ? {
-        id: exact.id,
-        name: exact.name,
-        sku: exact.sku,
-        type: exact.type,
-        regular_price: exact.regular_price,
-        sale_price: exact.sale_price,
-        price: exact.price,
-      }
-    : null,
-});
+  const allProducts = Array.from(foundMap.values());
 
-const hasSale =
-  exact?.sale_price &&
-  exact.sale_price !== "" &&
-  exact.sale_price !== exact.regular_price;
+  const exact = allProducts.find(
+    (product) => normalizeText(product?.sku || "") === normalizedSku
+  );
 
-const regular_price =
-  exact?.regular_price && exact.regular_price !== ""
-    ? exact.regular_price
-    : exact?.price || "";
+  const candidates = allProducts
+    .map((product) => ({
+      ...product,
+      __score: scoreSkuCandidate(cleanSku, product),
+    }))
+    .filter((product) => product.__score > 0)
+    .sort((a, b) => b.__score - a.__score)
+    .slice(0, 10)
+    .map((product) => mapProductForEdit(product));
 
-const sale_price = hasSale ? exact.sale_price : "";
-    return {
-  ok: true,
-  exists: Boolean(exact),
-  product: exact
-    ? {
-        id: exact.id,
-        name: exact.name || "",
-        sku: exact.sku || "",
-        type: exact.type || "",
-        regular_price,
-        sale_price,
-        price: exact.price || "",
-      }
-    : null,
-};
+  return {
+    ok: true,
+    exists: Boolean(exact),
+    product: exact ? mapProductForEdit(exact) : null,
+    candidates: exact ? [] : candidates,
+  };
 }
 
 export async function findProductsByName({
@@ -326,10 +406,9 @@ export async function findProductsByName({
     .split(/\s+/)
     .map((item) => item.trim())
     .filter(Boolean)
-    .filter((item) => item.length >= 3);
+    .filter((item) => item.length >= 2);
 
   const searchTerms = [cleanName, ...terms];
-
   const foundMap = new Map();
 
   for (const term of searchTerms) {
@@ -350,9 +429,7 @@ export async function findProductsByName({
       foundMap.set(product.id, product);
     }
 
-    if (foundMap.size >= 50) {
-      break;
-    }
+    if (foundMap.size >= 50) break;
   }
 
   const allProducts = Array.from(foundMap.values());
@@ -361,35 +438,20 @@ export async function findProductsByName({
     (product) => normalizeText(product?.name || "") === normalizedFullName
   );
 
-  const strongCandidates = allProducts.filter((product) => {
-    const productName = normalizeText(product?.name || "");
-    return terms.every((term) => productName.includes(normalizeText(term)));
-  });
+  const rankedCandidates = allProducts
+    .map((product) => ({
+      ...product,
+      __score: scoreNameCandidate(cleanName, product),
+    }))
+    .filter((product) => product.__score > 0)
+    .sort((a, b) => b.__score - a.__score)
+    .slice(0, 10);
 
-  const finalCandidates =
-    strongCandidates.length > 0 ? strongCandidates : allProducts;
-
-    return {
+  return {
     ok: true,
     search: name,
-    products: exactMatches.map((product) => ({
-  id: product.id,
-  name: product.name || "",
-  sku: product.sku || "",
-  type: product.type || "",
-  regular_price: product.regular_price || "",
-  sale_price: product.sale_price || "",
-  price: product.price || "",
-})),
-    candidates: finalCandidates.slice(0, 20).map((product) => ({
-  id: product.id,
-  name: product.name || "",
-  sku: product.sku || "",
-  type: product.type || "",
-  regular_price: product.regular_price || "",
-  sale_price: product.sale_price || "",
-  price: product.price || "",
-})),
+    products: exactMatches.map(mapProductForEdit),
+    candidates: exactMatches.length > 0 ? [] : rankedCandidates.map(mapProductForEdit),
   };
 }
 
