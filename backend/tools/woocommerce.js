@@ -1336,14 +1336,6 @@ export async function prepareEnableManageStockForVariations({
   };
 }
 
-function normalizeText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
 function getAttributeOption(variation, attributeNameCandidates = []) {
   const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
 
