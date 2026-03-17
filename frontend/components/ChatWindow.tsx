@@ -356,6 +356,7 @@ export default function ChatWindow() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [storeName, setStoreName] = useState("");
+  const [storeUrl, setStoreUrl] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
@@ -1061,39 +1062,51 @@ async function nextCreateStep() {
     setStockByVariationMap({});
   }
 
+useEffect(() => {
+  async function loadStoreInfo() {
+    try {
+      const token = localStorage.getItem("token") || "";
+
+      const res = await fetch(`${API}/me`, {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
+      });
+
+      const data = await res.json();
+
+      const rawUrl = String(data?.store_url || "").trim();
+      setStoreUrl(rawUrl);
+
+      if (!rawUrl) {
+        setStoreName("");
+        return;
+      }
+
+      const clean = rawUrl
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/\/$/, "");
+
+      setStoreName(clean);
+    } catch {
+      setStoreName("");
+      setStoreUrl("");
+    }
+  }
+
+  loadStoreInfo();
+}, []);
+  
   useEffect(() => {
     if (!storageKey) return;
 
     try {
       const saved = localStorage.getItem(storageKey);
 
-      useEffect(() => {
-  async function fetchStoreInfo() {
-    try {
-      const form = new FormData();
-      form.append("agentId", agentId);
-      form.append("message", "__get_store_info__");
 
-      const token = localStorage.getItem("token") || "";
-
-      const res = await fetch(`${API}/run-agent`, {
-        method: "POST",
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined,
-        body: form,
-      });
-
-      const data = await res.json();
-
-      if (data?.storeName) {
-        setStoreName(data.storeName);
-      }
-    } catch {}
-  }
-
-  fetchStoreInfo();
-}, []);
 
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -1170,39 +1183,21 @@ async function nextCreateStep() {
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
   <div
     style={{
-      fontWeight: 700,
       fontSize: 12,
       color: "#94a3b8",
     }}
   >
-    Sitio: {typeof window !== "undefined" ? window.location.origin : ""}
+    {storeName ? `Tienda en edición: ${storeName}` : "Tienda en edición"}
   </div>
 
-  <div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  }}
->
   <div
     style={{
       fontWeight: 700,
       fontSize: 18,
     }}
   >
-    {storeName ? `Tienda: ${storeName}` : "Tienda"}
-  </div>
-
-  <div
-    style={{
-      color: "#94a3b8",
-      fontSize: 13,
-    }}
-  >
     Chat con {agentName}
   </div>
-</div>
 </div>
 
         <button
