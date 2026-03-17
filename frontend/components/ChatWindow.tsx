@@ -182,24 +182,21 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
   }
 
     return {
-    id: Number(product?.id || 0),
-    name: String(product?.name || ""),
-    sku: String(product?.sku || ""),
-    type: String(product?.type || ""),
-    regularPrice: String(regular || ""),
-    salePrice: String(sale || ""),
-    attributes: Array.isArray(product?.attributes)
-      ? product.attributes
-          .filter((attr: any) => attr?.variation)
-          .map((attr: any) => ({
-            id: attr?.id ? Number(attr.id) : undefined,
-            name: String(attr?.name || ""),
-            options: Array.isArray(attr?.options)
-              ? attr.options.map((opt: any) => String(opt))
-              : [],
-          }))
-      : [],
-  };
+  id: Number(product?.id || 0),
+  name: String(product?.name || ""),
+  sku: String(product?.sku || ""),
+  type: String(product?.type || ""),
+  regularPrice: String(regular || ""),
+  salePrice: String(sale || ""),
+  attributes: Array.isArray(product?.attributeOptions)
+    ? product.attributeOptions.map((attr: any) => ({
+        name: String(attr?.name || ""),
+        options: Array.isArray(attr?.options)
+          ? attr.options.map((opt: any) => String(opt))
+          : [],
+      }))
+    : [],
+};
 }
 
 function translateAgentError(message: any) {

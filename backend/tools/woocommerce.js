@@ -926,6 +926,21 @@ export async function updateProductPrice({
           );
         });
 
+          if (variationsToUpdate.length === 0) {
+    return {
+      ok: false,
+      action: "update_product_price",
+      product_id: productId,
+      name: product.name ?? "",
+      type: product.type ?? "",
+      updated_variations: 0,
+      regular_price: "",
+      sale_price: "",
+      price: "",
+      message: "No encontré variaciones que coincidan con esos atributos.",
+    };
+  }
+
   await Promise.all(
     variationsToUpdate.map((variation) =>
       axios.put(
