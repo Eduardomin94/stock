@@ -290,9 +290,19 @@ console.log("SKU CHECK DEBUG", {
       name: exact.name || "",
       sku: exact.sku || "",
       type: exact.type || "",
-      regular_price: exact.regular_price || "",
-      sale_price: exact.sale_price || "",
-      price: exact.price || "",
+      regular_price:
+  exact.regular_price && exact.regular_price !== ""
+    ? exact.regular_price
+    : exact.price || "",
+
+sale_price:
+  exact.sale_price && exact.sale_price !== ""
+    ? exact.sale_price
+    : exact.price && exact.regular_price !== exact.price
+    ? exact.price
+    : "",
+
+price: exact.price || "",
     }
   : null,
   };
