@@ -897,57 +897,27 @@ export async function updateProductPrice({
 
   if (productType === "variable") {
   const variations = await fetchAllVariations(
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-  productId
-);
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
 
-const filtered = variations.filter((v) => {
-  const attrs = v.attributes || [];
-
-  const colorMatch = payload?.color
-    ? attrs.some(
-        (a) =>
-          a.name.toLowerCase().includes("color") &&
-          a.option.toLowerCase() === payload.color.toLowerCase()
+  await Promise.all(
+    variations.map((variation) =>
+      axios.put(
+        `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
+        buildPricePayload(variation.regular_price),
+        buildWooConfig(consumerKey, consumerSecret)
       )
-    : true;
-
-  const sizeMatch = payload?.size
-    ? attrs.some(
-        (a) =>
-          a.name.toLowerCase().includes("talle") &&
-          a.option.toLowerCase() === payload.size.toLowerCase()
-      )
-    : true;
-
-  return colorMatch && sizeMatch;
-});
-
-await Promise.all(
-  filtered.map((variation) =>
-    axios.put(
-      `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
-      {
-        sale_price: String(salePrice),
-      },
-      buildWooConfig(consumerKey, consumerSecret)
     )
-  )
-);
-
-return {
-  success: true,
-  updated: filtered.length,
-};
+  );
 
   return {
-    success: true,
+    ok: true,
     updated: variations.length,
   };
 }
-
   const updated = await updateProduct(
     baseUrl,
     consumerKey,
