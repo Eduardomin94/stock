@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import OpenAI from "openai";
+import axios from "axios";
 import {
   auditVariableProductsStock,
   updateVariationStock,
@@ -59,6 +60,20 @@ async function updateWooProduct(baseUrl, consumerKey, consumerSecret, productId,
   );
 
   return response.data;
+}
+
+async function getStoreInfo(baseUrl, consumerKey, consumerSecret) {
+  const response = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  return response.data || {};
 }
 
 function extractGlobalAttributeOptions(product = {}) {
@@ -1123,6 +1138,27 @@ return res.json({
   return res.status(400).json({
     error: "Modo de búsqueda inválido. Usá sku o nombre.",
   });
+}
+
+if (message === "__get_store_info__") {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  try {
+    const store = await getStoreInfo(baseUrl, consumerKey, consumerSecret);
+
+    return res.json({
+      storeName: store?.name || "Tienda WooCommerce",
+      storeUrl: store?.url || baseUrl,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "No se pudo obtener la tienda.",
+    });
+  }
 }
 
 if (looksLikeEditProductActionCommand(message)) {
