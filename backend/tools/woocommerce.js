@@ -209,7 +209,7 @@ async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
   return response.data;
 }
 
-async function findProductBySku({
+export async function findProductBySku({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -281,28 +281,24 @@ console.log("SKU CHECK DEBUG", {
 });
 
 
-    const displayPrices = exact
-  ? await getDisplayPricesForProduct(baseUrl, consumerKey, consumerSecret, exact)
-  : null;
-
-return {
-  ok: true,
-  exists: Boolean(exact),
-  product: exact
-    ? {
-        id: exact.id,
-        name: exact.name || "",
-        sku: exact.sku || "",
-        type: exact.type || "",
-        regular_price: displayPrices?.regular_price || "",
-        sale_price: displayPrices?.sale_price || "",
-        price: displayPrices?.price || "",
-      }
-    : null,
-};
+    return {
+    ok: true,
+    exists: Boolean(exact),
+    product: exact
+  ? {
+      id: exact.id,
+      name: exact.name || "",
+      sku: exact.sku || "",
+      type: exact.type || "",
+      regular_price: exact.regular_price || "",
+      sale_price: exact.sale_price || "",
+      price: exact.price || "",
+    }
+  : null,
+  };
 }
 
-async function findProductsByName({
+export async function findProductsByName({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -363,54 +359,28 @@ async function findProductsByName({
   const finalCandidates =
     strongCandidates.length > 0 ? strongCandidates : allProducts;
 
-    const exactProducts = await Promise.all(
-  exactMatches.map(async (product) => {
-    const displayPrices = await getDisplayPricesForProduct(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      product
-    );
-
     return {
-      id: product.id,
-      name: product.name || "",
-      sku: product.sku || "",
-      type: product.type || "",
-      regular_price: displayPrices?.regular_price || "",
-      sale_price: displayPrices?.sale_price || "",
-      price: displayPrices?.price || "",
-    };
-  })
-);
-
-const candidateProducts = await Promise.all(
-  finalCandidates.slice(0, 20).map(async (product) => {
-    const displayPrices = await getDisplayPricesForProduct(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      product
-    );
-
-    return {
-      id: product.id,
-      name: product.name || "",
-      sku: product.sku || "",
-      type: product.type || "",
-      regular_price: displayPrices?.regular_price || "",
-      sale_price: displayPrices?.sale_price || "",
-      price: displayPrices?.price || "",
-    };
-  })
-);
-
-return {
-  ok: true,
-  search: name,
-  products: exactProducts,
-  candidates: candidateProducts,
-};
+    ok: true,
+    search: name,
+    products: exactMatches.map((product) => ({
+  id: product.id,
+  name: product.name || "",
+  sku: product.sku || "",
+  type: product.type || "",
+  regular_price: product.regular_price || "",
+  sale_price: product.sale_price || "",
+  price: product.price || "",
+})),
+    candidates: finalCandidates.slice(0, 20).map((product) => ({
+  id: product.id,
+  name: product.name || "",
+  sku: product.sku || "",
+  type: product.type || "",
+  regular_price: product.regular_price || "",
+  sale_price: product.sale_price || "",
+  price: product.price || "",
+})),
+  };
 }
 
 export async function deleteProductById({
@@ -1726,23 +1696,3 @@ export async function uploadImageToWordpress({
     url: response.data.source_url,
   };
 }
-export {
-  findProductsByName,
-  findProductBySku,
-  deleteProductById,
-  ensureGlobalAttributeWithTerms,
-  ensureCategoryByName,
-  ensureCategoryPath,
-  suggestCategoriesByName,
-  createSimpleProduct,
-  updateProductPrice,
-  enableManageStockForVariation,
-  updateVariationStock,
-  auditVariableProductsStock,
-  prepareEnableManageStockForVariations,
-  planStockUpdateByColorAndSize,
-  applyStockUpdateByColorAndSize,
-  planStockUpdateByColorOnly,
-  createVariableProduct,
-  uploadImageToWordpress,
-};
