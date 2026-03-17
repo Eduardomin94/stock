@@ -29,6 +29,7 @@ type EditFoundProduct = {
   type: string;
   regularPrice?: string;
   salePrice?: string;
+  attributes?: { id?: number; name: string; options: string[] }[];
 };
 
 type EditActionType =
@@ -175,19 +176,29 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
   let regular = product?.regular_price;
   let sale = product?.sale_price;
 
-  // 👉 si hay variación, usarla (clave)
   if (variation) {
     regular = variation?.regular_price || regular;
     sale = variation?.sale_price || sale;
   }
 
-  return {
+    return {
     id: Number(product?.id || 0),
     name: String(product?.name || ""),
     sku: String(product?.sku || ""),
     type: String(product?.type || ""),
     regularPrice: String(regular || ""),
     salePrice: String(sale || ""),
+    attributes: Array.isArray(product?.attributes)
+      ? product.attributes
+          .filter((attr: any) => attr?.variation)
+          .map((attr: any) => ({
+            id: attr?.id ? Number(attr.id) : undefined,
+            name: String(attr?.name || ""),
+            options: Array.isArray(attr?.options)
+              ? attr.options.map((opt: any) => String(opt))
+              : [],
+          }))
+      : [],
   };
 }
 
@@ -364,12 +375,12 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
-  const [editValue, setEditValue] = useState("");
-  const [editColor, setEditColor] = useState("");
-const [editSize, setEditSize] = useState("");
-  const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
   const [createStepIndex, setCreateStepIndex] = useState(0);
   const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
+  const [editValue, setEditValue] = useState("");
+const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string>>({});
+const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
+  
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -401,8 +412,9 @@ const hasSizes = (createForm.talles || "")
   .map((t) => t.trim())
   .filter(Boolean).length > 0;
 
-const isVariableProductDraft = hasColors || hasSizes;
 const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
+const editAttributes = editFoundProduct?.attributes || [];
+const hasEditAttributes = editAttributes.length > 0;
 
 
   async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
@@ -536,6 +548,7 @@ const assistantMessage: Message = {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
 
   pushAssistantInfo(
     `Encontré el producto: ${data.product.name}. Ahora elegí qué querés editar.`
@@ -548,7 +561,7 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
-
+  setEditAttributeValues({});
   pushAssistantInfo(
     `Encontré el producto: ${data.products[0].name}. Ahora elegí qué querés editar.`
   );
@@ -558,6 +571,7 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
 
   pushAssistantInfo(
     `Encontré ${data.products.length} productos. Decime el SKU exacto del que querés editar.`
@@ -568,7 +582,7 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
-
+  setEditAttributeValues({});
   pushAssistantInfo(
     `Encontré el producto: ${data.candidates[0].name}. Ahora elegí qué querés editar.`
   );
@@ -578,6 +592,7 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
 
   pushAssistantInfo(
     `Encontré varios productos parecidos. Decime el SKU exacto del que querés editar.`
@@ -588,6 +603,7 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
 
   pushAssistantInfo("No encontré ese producto.");
 }
@@ -779,6 +795,7 @@ function resetSkuValidationState() {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
   setCreateForm(initialCreateForm);
   setCreateStepIndex(0);
   setText("");
@@ -1095,6 +1112,7 @@ async function nextCreateStep() {
     setEditActionType("");
     setEditValue("");
     setEditSection("");
+    setEditAttributeValues({});
     setText("");
     pushAssistantInfo(
       "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
@@ -1114,6 +1132,7 @@ async function nextCreateStep() {
   setEditActionType("");
   setEditValue("");
   setEditSection("");
+  setEditAttributeValues({});
   setText("");
   pushAssistantInfo(
     "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
@@ -1796,6 +1815,7 @@ Stock general
       setEditSection("precio");
       setEditActionType("");
       setEditValue("");
+      setEditAttributeValues({});
     }}
     style={quickActionSecondaryStyle}
   >
@@ -1818,15 +1838,16 @@ Stock general
 {editSection === "precio" && (
   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
     <button
-      type="button"
-      onClick={() => {
-        setEditActionType("cambiar_precio");
-        setEditValue("");
-      }}
-      style={quickActionSecondaryStyle}
-    >
-      Cambiar precio
-    </button>
+  type="button"
+  onClick={() => {
+    setEditActionType("cambiar_precio");
+    setEditValue("");
+    setEditAttributeValues({});
+  }}
+  style={quickActionSecondaryStyle}
+>
+  Cambiar precio
+</button>
 
     {!hasEditSalePrice ? (
   <button
@@ -1881,7 +1902,7 @@ Stock general
         }}
       >
         <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-          {editActionType === "cambiar_precio" && "Escribí el nuevo precio."}
+          {editActionType === "cambiar_precio" && "Escribí el nuevo precio. Opcional: filtrá por atributos globales."}
           {editActionType === "agregar_precio_rebajado" && "Escribí el precio rebajado."}
           {editActionType === "cambiar_precio_rebajado" && "Escribí el nuevo precio rebajado."}
           {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
@@ -1937,6 +1958,40 @@ Stock general
       fontSize: 14,
     }}
   />
+  
+)}
+
+{editActionType === "cambiar_precio" && hasEditAttributes && (
+  <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+    {editAttributes.map((attr) => (
+      <select
+        key={attr.name}
+        value={editAttributeValues[attr.name] || ""}
+        onChange={(e) =>
+          setEditAttributeValues((prev) => ({
+            ...prev,
+            [attr.name]: e.target.value,
+          }))
+        }
+        style={{
+          flex: 1,
+          minWidth: 220,
+          border: "1px solid #334155",
+          background: "#020617",
+          color: "white",
+          borderRadius: 10,
+          padding: "10px",
+        }}
+      >
+        <option value="">Todos: {attr.name}</option>
+        {attr.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    ))}
+  </div>
 )}
 
         <button
@@ -1958,25 +2013,26 @@ if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
               setLoading(true);
 
               const payload =
-  editActionType === "cambiar_precio"
-    ? {
-        action: "cambiar_precio",
-        productId: editFoundProduct.id,
-        regularPrice: editValue.trim(),
-      }
+editActionType === "cambiar_precio"
+  ? {
+      action: "cambiar_precio",
+      productId: editFoundProduct.id,
+      regularPrice: editValue.trim(),
+      attributes: editAttributeValues,
+    }
     : editActionType === "agregar_precio_rebajado"
     ? {
         action: "agregar_precio_rebajado",
         productId: editFoundProduct.id,
         salePrice: editValue.trim(),
+        attributes: editAttributeValues,
       }
     : editActionType === "cambiar_precio_rebajado"
   ? {
       action: "cambiar_precio_rebajado",
       productId: editFoundProduct.id,
       salePrice: editValue.trim(),
-      color: editColor || undefined,
-      size: editSize || undefined,
+      attributes: editAttributeValues,
     }
     : editActionType === "quitar_precio_rebajado"
     ? {
@@ -2045,6 +2101,7 @@ try {
 setEditValue("");
 setEditSection("");
 setEditActionType("");
+setEditAttributeValues({});
             } catch (error: any) {
               pushAssistantInfo(
                 error?.message || "No pude editar el producto."

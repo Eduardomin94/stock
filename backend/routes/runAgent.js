@@ -61,6 +61,20 @@ async function updateWooProduct(baseUrl, consumerKey, consumerSecret, productId,
   return response.data;
 }
 
+function extractGlobalAttributeOptions(product = {}) {
+  const attributes = Array.isArray(product?.attributes) ? product.attributes : [];
+
+  return attributes
+    .filter((attr) => attr && attr.variation === true)
+    .map((attr) => ({
+      name: String(attr?.name || "").trim(),
+      options: Array.isArray(attr?.options)
+        ? attr.options.map((opt) => String(opt || "").trim()).filter(Boolean)
+        : [],
+    }))
+    .filter((attr) => attr.name && attr.options.length > 0);
+}
+
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
 
@@ -1026,11 +1040,34 @@ if (found.exists && found.product?.id) {
   variations = response.data || [];
 }
 
+let attributeOptions = [];
+
+if (found.exists && found.product?.id) {
+  const axios = (await import("axios")).default;
+
+  const productResponse = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${found.product.id}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  attributeOptions = extractGlobalAttributeOptions(productResponse.data || {});
+}
+
 return res.json({
   usedTool: true,
   mode: "sku",
   found: found.exists,
-  product: found.product || null,
+  product: found.product
+    ? {
+        ...found.product,
+        attributeOptions,
+      }
+    : null,
   variationSample: variations[0] || null,
 });
   }
@@ -1043,13 +1080,42 @@ return res.json({
       name: value,
     });
 
-    return res.json({
-      usedTool: true,
-      mode: "nombre",
-      found: (found.products || []).length > 0,
-      products: found.products || [],
-      candidates: found.candidates || [],
-    });
+    const axios = (await import("axios")).default;
+
+const enrichWithAttributeOptions = async (product) => {
+  if (!product?.id) return product;
+
+  const productResponse = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${product.id}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  return {
+    ...product,
+    attributeOptions: extractGlobalAttributeOptions(productResponse.data || {}),
+  };
+};
+
+const enrichedProducts = await Promise.all(
+  (found.products || []).map(enrichWithAttributeOptions)
+);
+
+const enrichedCandidates = await Promise.all(
+  (found.candidates || []).map(enrichWithAttributeOptions)
+);
+
+return res.json({
+  usedTool: true,
+  mode: "nombre",
+  found: enrichedProducts.length > 0,
+  products: enrichedProducts,
+  candidates: enrichedCandidates,
+});
   }
 
   return res.status(400).json({
@@ -1094,12 +1160,13 @@ if (looksLikeEditProductActionCommand(message)) {
   }
 
   const result = await updateProductPrice({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    regularPrice,
-  });
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  regularPrice,
+  attributes: payload?.attributes || {},
+});
 
   return res.json({
     usedTool: true,

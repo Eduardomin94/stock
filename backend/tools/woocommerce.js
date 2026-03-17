@@ -861,6 +861,7 @@ export async function updateProductPrice({
   productId,
   regularPrice,
   salePrice,
+  attributes = {},
 }) {
   if (!baseUrl) throw new Error("Falta baseUrl");
   if (!consumerKey) throw new Error("Falta consumerKey");
@@ -903,30 +904,53 @@ export async function updateProductPrice({
     productId
   );
 
+  const normalizedFilters = Object.entries(attributes || {})
+    .map(([name, value]) => ({
+      name: normalizeText(name),
+      value: normalizeText(value),
+    }))
+    .filter((item) => item.name && item.value);
+
+  const variationsToUpdate =
+    normalizedFilters.length === 0
+      ? variations
+      : variations.filter((variation) => {
+          const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+          return normalizedFilters.every((filterItem) =>
+            attrs.some(
+              (attr) =>
+                normalizeText(attr?.name || "") === filterItem.name &&
+                normalizeText(attr?.option || "") === filterItem.value
+            )
+          );
+        });
+
   await Promise.all(
-    variations.map((variation) =>
+    variationsToUpdate.map((variation) =>
       axios.put(
         `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
         buildPricePayload(variation.regular_price),
-        buildWooConfig(consumerKey, consumerSecret)
+        buildWooConfig(consumerKey, consumerSecret, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
       )
     )
   );
 
   return {
-  ok: true,
-  action: "update_product_price",
-  product_id: product.id ?? productId,
-  name: product.name ?? "",
-  type: product.type ?? "",
-  regular_price: String(regularPrice ?? ""),
-  sale_price: salePrice !== undefined && salePrice !== null ? String(salePrice) : "",
-  price:
-    salePrice !== undefined && salePrice !== null && salePrice !== ""
-      ? String(salePrice)
-      : String(regularPrice ?? ""),
-  updated_variations: variations.length,
-};
+    ok: true,
+    action: "update_product_price",
+    product_id: productId,
+    name: product.name ?? "",
+    type: product.type ?? "",
+    updated_variations: variationsToUpdate.length,
+    regular_price: "",
+    sale_price: "",
+    price: "",
+  };
 }
   const updated = await updateProduct(
     baseUrl,
