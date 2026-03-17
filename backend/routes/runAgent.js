@@ -1238,18 +1238,6 @@ if (looksLikeEditProductActionCommand(message)) {
   });
 }
 
-  return res.json({
-    usedTool: true,
-    reply: `Precio rebajado quitado correctamente para ${updated.name}.`,
-    product: {
-      id: updated.id,
-      name: updated.name,
-      sku: updated.sku || "",
-      regular_price: updated.regular_price || "",
-      sale_price: updated.sale_price || "",
-    },
-  });
-}
 
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
