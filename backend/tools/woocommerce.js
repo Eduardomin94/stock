@@ -1726,7 +1726,23 @@ export async function uploadImageToWordpress({
     url: response.data.source_url,
   };
 }
-module.exports = {
-  ...module.exports,
+export {
   findProductsByName,
+  findProductBySku,
+  deleteProductById,
+  ensureGlobalAttributeWithTerms,
+  ensureCategoryByName,
+  ensureCategoryPath,
+  suggestCategoriesByName,
+  createSimpleProduct,
+  updateProductPrice,
+  enableManageStockForVariation,
+  updateVariationStock,
+  auditVariableProductsStock,
+  prepareEnableManageStockForVariations,
+  planStockUpdateByColorAndSize,
+  applyStockUpdateByColorAndSize,
+  planStockUpdateByColorOnly,
+  createVariableProduct,
+  uploadImageToWordpress,
 };
