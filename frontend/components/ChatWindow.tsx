@@ -411,6 +411,7 @@ const hasSizes = (createForm.talles || "")
   .split(",")
   .map((t) => t.trim())
   .filter(Boolean).length > 0;
+  const isVariableProductDraft = hasColors || hasSizes;
 
 const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
 const editAttributes = editFoundProduct?.attributes || [];
