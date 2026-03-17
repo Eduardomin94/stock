@@ -861,13 +861,19 @@ export async function updateProductPrice({
   const product = productResponse.data || {};
   const productType = String(product.type || "").toLowerCase();
 
-  const buildPricePayload = () => {
-    const payload = {
-      regular_price: String(regularPrice),
-    };
+    const buildPricePayload = (currentRegularPrice = "") => {
+    const payload = {};
+
+    const cleanRegularPrice = String(
+      regularPrice ?? currentRegularPrice ?? ""
+    ).trim();
+
+    if (cleanRegularPrice !== "") {
+      payload.regular_price = cleanRegularPrice;
+    }
 
     if (salePrice !== undefined && salePrice !== null && salePrice !== "") {
-      payload.sale_price = String(salePrice);
+      payload.sale_price = String(salePrice).trim();
     } else {
       payload.sale_price = "";
     }
