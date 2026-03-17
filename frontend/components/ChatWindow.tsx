@@ -2087,19 +2087,20 @@ Stock general
         <button
           type="button"
           onClick={async () => {
-            if (!editFoundProduct?.id || !editActionType) {
-  pushAssistantInfo("Falta elegir una acción.");
-  return;
-}
+  if (!editFoundProduct?.id || !editActionType) {
+    pushAssistantInfo("Falta elegir una acción.");
+    return;
+  }
 
-if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
-  pushAssistantInfo("Completá el valor antes de guardar.");
-  return;
-}
+  if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
+    pushAssistantInfo("Completá el valor antes de guardar.");
+    return;
+  }
 
-            const token = localStorage.getItem("token") || "";
+  try {
+    setLoading(true);
 
-            const payload =
+    const payload =
   editActionType === "cambiar_precio"
     ? {
         action: "cambiar_precio",
