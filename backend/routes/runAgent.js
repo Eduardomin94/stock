@@ -1104,9 +1104,9 @@ if (looksLikeEditProductActionCommand(message)) {
   return res.json({
     usedTool: true,
     reply:
-      result.type === "variable"
-        ? `Precio actualizado correctamente para ${result.updated_variations} variaciones de ${result.name}.`
-        : `Precio actualizado correctamente para ${result.name}.`,
+  result.type === "variable"
+    ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
+    : `Precio actualizado correctamente.`,
     product: {
       id: result.product_id,
       name: result.name,
@@ -1179,7 +1179,7 @@ if (looksLikeEditProductActionCommand(message)) {
 
   return res.json({
     usedTool: true,
-    reply: `Precio rebajado actualizado correctamente para ${updated.name}.`,
+    reply: `Precio rebajado actualizado correctamente.`,
     product: {
       id: updated.id,
       name: updated.name,
@@ -1219,7 +1219,7 @@ if (looksLikeEditProductActionCommand(message)) {
 
     return res.json({
       usedTool: true,
-      reply: `Precio rebajado quitado correctamente para ${result.name}.`,
+      reply: `Precio rebajado quitado correctamente.`,
       product: {
         id: result.product_id,
         name: result.name,
@@ -1245,7 +1245,7 @@ if (looksLikeEditProductActionCommand(message)) {
 
   return res.json({
     usedTool: true,
-    reply: `Precio rebajado quitado correctamente para ${updated.name}.`,
+    reply: `Precio rebajado quitado correctamente.`,
     product: {
       id: updated.id,
       name: updated.name,
