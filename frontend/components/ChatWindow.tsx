@@ -372,11 +372,14 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
-  const [createStepIndex, setCreateStepIndex] = useState(0);
-  const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
-  const [editValue, setEditValue] = useState("");
-const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string>>({});
+const [createStepIndex, setCreateStepIndex] = useState(0);
+const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
+const [editValue, setEditValue] = useState("");
+const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
+const [selectedEditCombinations, setSelectedEditCombinations] = useState<string[]>([]);
 const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
+
+
   
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -413,6 +416,53 @@ const hasSizes = (createForm.talles || "")
 const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
 const editAttributes = editFoundProduct?.attributes || [];
 const hasEditAttributes = editAttributes.length > 0;
+
+const editAttributeCombinations = (() => {
+  if (!hasEditAttributes) return [];
+
+  const build = (
+    attrs: { name: string; options: string[] }[],
+    index = 0,
+    current: Record<string, string> = {}
+  ): Record<string, string>[] => {
+    if (index >= attrs.length) return [current];
+
+    const attr = attrs[index];
+    const results: Record<string, string>[] = [];
+
+    for (const option of attr.options) {
+      results.push(
+        ...build(attrs, index + 1, {
+          ...current,
+          [attr.name]: option,
+        })
+      );
+    }
+
+    return results;
+  };
+
+  return build(editAttributes);
+})();
+
+function getCombinationKey(values: Record<string, string>) {
+  return Object.entries(values)
+    .map(([name, value]) => `${name}:${value}`)
+    .join(" | ");
+}
+
+function isCombinationSelected(values: Record<string, string>) {
+  const key = getCombinationKey(values);
+  return selectedEditCombinations.includes(key);
+}
+
+function toggleCombination(values: Record<string, string>) {
+  const key = getCombinationKey(values);
+
+  setSelectedEditCombinations((prev) =>
+    prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+  );
+}
 
 
   async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
@@ -786,6 +836,56 @@ function resetSkuValidationState() {
   }
 }
 
+function buildAttributeCombinations(attributes: Record<string, string[]>) {
+  const entries = Object.entries(attributes).filter(
+    ([, values]) => values.length > 0
+  );
+
+  if (entries.length === 0) return [{}];
+
+  const result: Record<string, string>[] = [];
+
+  function helper(index: number, current: Record<string, string>) {
+    if (index === entries.length) {
+      result.push({ ...current });
+      return;
+    }
+
+    const [key, values] = entries[index];
+
+    values.forEach((value) => {
+      current[key] = value;
+      helper(index + 1, current);
+    });
+  }
+
+  helper(0, {});
+  return result;
+}
+
+async function sendEditPayload(payload: any) {
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const res = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      data?.detail || data?.error || data?.message || "Error editando producto"
+    );
+  }
+
+  return data;
+}
 
   function startCreateProduct() {
   setActiveAction("create");
@@ -1838,10 +1938,11 @@ Stock general
     <button
   type="button"
   onClick={() => {
-    setEditActionType("cambiar_precio");
-    setEditValue("");
-    setEditAttributeValues({});
-  }}
+  setEditActionType("cambiar_precio");
+  setEditValue("");
+  setEditAttributeValues({});
+  setEditSelectedCombinations([]);
+}}
   style={quickActionSecondaryStyle}
 >
   Cambiar precio
@@ -1851,9 +1952,10 @@ Stock general
   <button
     type="button"
     onClick={() => {
-      setEditActionType("agregar_precio_rebajado");
-      setEditValue("");
-    }}
+  setEditActionType("agregar_precio_rebajado");
+  setEditValue("");
+  setEditSelectedCombinations([]);
+}}
     style={quickActionSecondaryStyle}
   >
     Agregar precio rebajado
@@ -1863,9 +1965,10 @@ Stock general
     <button
       type="button"
       onClick={() => {
-        setEditActionType("cambiar_precio_rebajado");
-        setEditValue("");
-      }}
+  setEditActionType("cambiar_precio_rebajado");
+  setEditValue("");
+  setEditSelectedCombinations([]);
+}}
       style={quickActionSecondaryStyle}
     >
       Cambiar precio rebajado
@@ -1959,42 +2062,48 @@ Stock general
   
 )}
 
-{(
-  editActionType === "cambiar_precio" ||
-  editActionType === "agregar_precio_rebajado" ||
-  editActionType === "cambiar_precio_rebajado"
-) && hasEditAttributes && (
-  <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-    {editAttributes.map((attr) => (
-      <select
-        key={attr.name}
-        value={editAttributeValues[attr.name] || ""}
-        onChange={(e) =>
-          setEditAttributeValues((prev) => ({
-            ...prev,
-            [attr.name]: e.target.value,
-          }))
-        }
-        style={{
-          flex: 1,
-          minWidth: 220,
-          border: "1px solid #334155",
-          background: "#020617",
-          color: "white",
-          borderRadius: 10,
-          padding: "10px",
-        }}
-      >
-        <option value="">Todos: {attr.name}</option>
-        {attr.options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    ))}
+<div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+    Seleccioná las variaciones a modificar:
   </div>
-)}
+
+  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    {editAttributeCombinations.map((combo, index) => {
+      const key = getCombinationKey(combo);
+      const checked = isCombinationSelected(combo);
+
+      return (
+        <label
+          key={index}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #334155",
+            background: checked ? "#2563eb" : "#020617",
+            color: "white",
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleCombination(combo)}
+          />
+
+          <span>
+            {Object.entries(combo)
+              .map(([k, v]) => `${v}`)
+              .join(" / ")}
+          </span>
+        </label>
+      );
+    })}
+  </div>
+</div>
 
         <button
           type="button"
@@ -2014,39 +2123,83 @@ if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
             try {
               setLoading(true);
 
-              const payload =
-editActionType === "cambiar_precio"
-  ? {
-      action: "cambiar_precio",
-      productId: editFoundProduct.id,
-      regularPrice: editValue.trim(),
-      attributes: editAttributeValues,
-    }
-    : editActionType === "agregar_precio_rebajado"
+              const attributeEntries = Object.entries(editAttributeValues || {}).filter(
+  ([, values]) => Array.isArray(values) && values.length > 0
+);
+
+// 👉 si NO hay atributos → comportamiento normal
+if (attributeEntries.length === 0) {
+  const payload =
+  editActionType === "cambiar_precio"
     ? {
-        action: "agregar_precio_rebajado",
+        action: "cambiar_precio",
         productId: editFoundProduct.id,
-        salePrice: editValue.trim(),
-        attributes: editAttributeValues,
+        regularPrice: editValue.trim(),
+        selectedCombinations: editSelectedCombinations,
       }
+      : editActionType === "agregar_precio_rebajado"
+  ? {
+      action: "agregar_precio_rebajado",
+      productId: editFoundProduct.id,
+      salePrice: editValue.trim(),
+      selectedCombinations: editSelectedCombinations,
+    }
     : editActionType === "cambiar_precio_rebajado"
   ? {
       action: "cambiar_precio_rebajado",
       productId: editFoundProduct.id,
       salePrice: editValue.trim(),
-      attributes: editAttributeValues,
+      selectedCombinations: editSelectedCombinations,
     }
-    : editActionType === "quitar_precio_rebajado"
-    ? {
-        action: "quitar_precio_rebajado",
-        productId: editFoundProduct.id,
-      }
-    : {
-        action: "cambiar_descripcion",
-        productId: editFoundProduct.id,
-        description: editValue.trim(),
-      };
+      : editActionType === "quitar_precio_rebajado"
+      ? {
+          action: "quitar_precio_rebajado",
+          productId: editFoundProduct.id,
+        }
+      : {
+          action: "cambiar_descripcion",
+          productId: editFoundProduct.id,
+          description: editValue.trim(),
+        };
 
+  await sendEditPayload(payload);
+  return;
+}
+
+// 👉 si hay atributos → combinaciones
+const combinations = buildAttributeCombinations(editAttributeValues);
+
+for (const combo of combinations) {
+  const payload =
+    editActionType === "cambiar_precio"
+      ? {
+          action: "cambiar_precio",
+          productId: editFoundProduct.id,
+          regularPrice: editValue.trim(),
+          attributes: combo,
+        }
+      : editActionType === "agregar_precio_rebajado"
+      ? {
+          action: "agregar_precio_rebajado",
+          productId: editFoundProduct.id,
+          salePrice: editValue.trim(),
+          attributes: combo,
+        }
+      : editActionType === "cambiar_precio_rebajado"
+      ? {
+          action: "cambiar_precio_rebajado",
+          productId: editFoundProduct.id,
+          salePrice: editValue.trim(),
+          attributes: combo,
+        }
+      : {
+          action: "quitar_precio_rebajado",
+          productId: editFoundProduct.id,
+          attributes: combo,
+        };
+
+  await sendEditPayload(payload);
+}
               const form = new FormData();
               form.append("agentId", agentId);
               form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
@@ -2104,6 +2257,7 @@ setEditValue("");
 setEditSection("");
 setEditActionType("");
 setEditAttributeValues({});
+setEditSelectedCombinations([]);
             } catch (error: any) {
               pushAssistantInfo(
                 error?.message || "No pude editar el producto."

@@ -1159,13 +1159,14 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
-  const result = await updateProductPrice({
+ const result = await updateProductPrice({
   baseUrl,
   consumerKey,
   consumerSecret,
   productId,
   regularPrice,
   attributes: payload?.attributes || {},
+  selectedCombinations: payload?.selectedCombinations || [],
 });
 
   return res.json({
@@ -1209,15 +1210,16 @@ if (looksLikeEditProductActionCommand(message)) {
   const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
 
 if (isVariable) {
-  const result = await updateProductPrice({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    regularPrice,
-    salePrice,
-    attributes: payload?.attributes || {},
-  });
+ const result = await updateProductPrice({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  regularPrice,
+  salePrice,
+  attributes: payload?.attributes || {},
+  selectedCombinations: payload?.selectedCombinations || [],
+});
 
     return res.json({
       usedTool: true,
@@ -1277,13 +1279,15 @@ if (isVariable) {
 
   if (isVariable) {
     const result = await updateProductPrice({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      regularPrice,
-      salePrice: "",
-    });
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  regularPrice,
+  salePrice: "",
+  attributes: payload?.attributes || {},
+  selectedCombinations: payload?.selectedCombinations || [],
+});
 
     return res.json({
       usedTool: true,

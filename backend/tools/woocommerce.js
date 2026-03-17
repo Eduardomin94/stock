@@ -862,6 +862,7 @@ export async function updateProductPrice({
   regularPrice,
   salePrice,
   attributes = {},
+  selectedCombinations = [],
 }) {
   if (!baseUrl) throw new Error("Falta baseUrl");
   if (!consumerKey) throw new Error("Falta consumerKey");
@@ -904,27 +905,61 @@ export async function updateProductPrice({
     productId
   );
 
-  const normalizedFilters = Object.entries(attributes || {})
-    .map(([name, value]) => ({
-      name: normalizeText(name),
-      value: normalizeText(value),
-    }))
-    .filter((item) => item.name && item.value);
+const normalizedFilters = Object.entries(attributes || {})
+  .map(([name, value]) => ({
+    name: normalizeText(name),
+    value: normalizeText(value),
+  }))
+  .filter((item) => item.name && item.value);
 
-  const variationsToUpdate =
-    normalizedFilters.length === 0
-      ? variations
-      : variations.filter((variation) => {
-          const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? selectedCombinations : [])
+  .map((item) => {
+    const normalizedItem = {};
 
-          return normalizedFilters.every((filterItem) =>
+    for (const [key, value] of Object.entries(item || {})) {
+      const cleanKey = normalizeText(key);
+      const cleanValue = normalizeText(value);
+
+      if (cleanKey && cleanValue) {
+        normalizedItem[cleanKey] = cleanValue;
+      }
+    }
+
+    return normalizedItem;
+  })
+  .filter((item) => Object.keys(item).length > 0);
+
+const variationsFilteredByAttributes =
+  normalizedFilters.length === 0
+    ? variations
+    : variations.filter((variation) => {
+        const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+        return normalizedFilters.every((filterItem) =>
+          attrs.some(
+            (attr) =>
+              normalizeText(attr?.name || "") === filterItem.name &&
+              normalizeText(attr?.option || "") === filterItem.value
+          )
+        );
+      });
+
+const variationsToUpdate =
+  normalizedSelectedCombinations.length === 0
+    ? variationsFilteredByAttributes
+    : variationsFilteredByAttributes.filter((variation) => {
+        const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+        return normalizedSelectedCombinations.some((combo) =>
+          Object.entries(combo).every(([comboName, comboValue]) =>
             attrs.some(
               (attr) =>
-                normalizeText(attr?.name || "") === filterItem.name &&
-                normalizeText(attr?.option || "") === filterItem.value
+                normalizeText(attr?.name || "") === comboName &&
+                normalizeText(attr?.option || "") === comboValue
             )
-          );
-        });
+          )
+        );
+      });
 
           if (variationsToUpdate.length === 0) {
     return {
@@ -956,16 +991,16 @@ export async function updateProductPrice({
   );
 
   return {
-    ok: true,
-    action: "update_product_price",
-    product_id: productId,
-    name: product.name ?? "",
-    type: product.type ?? "",
-    updated_variations: variationsToUpdate.length,
-    regular_price: "",
-    sale_price: "",
-    price: "",
-  };
+  ok: true,
+  action: "update_product_price",
+  product_id: productId,
+  name: product.name ?? "",
+  type: product.type ?? "",
+  updated_variations: variationsToUpdate.length,
+  regular_price: "",
+  sale_price: "",
+  price: "",
+};
 }
   const updated = await updateProduct(
     baseUrl,
