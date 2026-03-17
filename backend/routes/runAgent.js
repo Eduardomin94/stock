@@ -1099,38 +1099,120 @@ if (looksLikeEditProductActionCommand(message)) {
 }
 
     if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
-    const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
+  const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
 
-    if (!salePrice) {
-  return res.status(400).json({
-    error: "Falta salePrice.",
-  });
-}
+  if (!salePrice) {
+    return res.status(400).json({
+      error: "Falta salePrice.",
+    });
+  }
 
-    const updated = await updateWooProduct(
+  const productResponse = await (await import("axios")).default.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  const product = productResponse.data || {};
+  const isVariable = String(product.type || "").toLowerCase() === "variable";
+  const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
+
+  if (isVariable) {
+    const result = await updateProductPrice({
       baseUrl,
       consumerKey,
       consumerSecret,
       productId,
-      {
-        sale_price: String(salePrice),
-      }
-    );
+      regularPrice,
+      salePrice,
+    });
 
     return res.json({
       usedTool: true,
-      reply: `Precio rebajado actualizado correctamente para ${updated.name}.`,
+      reply: `Precio rebajado actualizado correctamente para ${result.name}.`,
       product: {
-        id: updated.id,
-        name: updated.name,
-        sku: updated.sku || "",
-        regular_price: updated.regular_price || "",
-        sale_price: updated.sale_price || "",
+        id: result.product_id,
+        name: result.name,
+        sku: product.sku || "",
+        type: result.type || "",
+        regular_price: result.regular_price || "",
+        sale_price: result.sale_price || "",
+        price: result.price || "",
       },
+      toolResult: result,
     });
   }
 
+  const updated = await updateWooProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      sale_price: String(salePrice),
+    }
+  );
+
+  return res.json({
+    usedTool: true,
+    reply: `Precio rebajado actualizado correctamente para ${updated.name}.`,
+    product: {
+      id: updated.id,
+      name: updated.name,
+      sku: updated.sku || "",
+      type: updated.type || "",
+      regular_price: updated.regular_price || "",
+      sale_price: updated.sale_price || "",
+      price: updated.price || "",
+    },
+  });
+}
+
   if (action === "quitar_precio_rebajado") {
+  const productResponse = await (await import("axios")).default.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  const product = productResponse.data || {};
+  const isVariable = String(product.type || "").toLowerCase() === "variable";
+  const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
+
+  if (isVariable) {
+    const result = await updateProductPrice({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      regularPrice,
+      salePrice: "",
+    });
+
+    return res.json({
+      usedTool: true,
+      reply: `Precio rebajado quitado correctamente para ${result.name}.`,
+      product: {
+        id: result.product_id,
+        name: result.name,
+        sku: product.sku || "",
+        type: result.type || "",
+        regular_price: result.regular_price || "",
+        sale_price: result.sale_price || "",
+        price: result.price || "",
+      },
+      toolResult: result,
+    });
+  }
+
   const updated = await updateWooProduct(
     baseUrl,
     consumerKey,
@@ -1140,6 +1222,21 @@ if (looksLikeEditProductActionCommand(message)) {
       sale_price: "",
     }
   );
+
+  return res.json({
+    usedTool: true,
+    reply: `Precio rebajado quitado correctamente para ${updated.name}.`,
+    product: {
+      id: updated.id,
+      name: updated.name,
+      sku: updated.sku || "",
+      type: updated.type || "",
+      regular_price: updated.regular_price || "",
+      sale_price: updated.sale_price || "",
+      price: updated.price || "",
+    },
+  });
+}
 
   return res.json({
     usedTool: true,
