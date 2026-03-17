@@ -889,46 +889,19 @@ export async function updateProductPrice({
     productId
   );
 
-  const results = [];
-
-  for (const variation of variations) {
-    const updatedVariation = await updateVariation(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      variation.id,
-      buildPricePayload()
-    );
-
-    results.push({
-      variation_id: updatedVariation.id,
-      regular_price: updatedVariation.regular_price ?? "",
-      sale_price: updatedVariation.sale_price ?? "",
-      price: updatedVariation.price ?? "",
-      sku: updatedVariation.sku ?? "",
-    });
-  }
-
-  const updatedParent = await updateProduct(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    buildPricePayload()
+  await Promise.all(
+    variations.map((variation) =>
+      axios.put(
+        `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
+        buildPricePayload(),
+        buildWooConfig(consumerKey, consumerSecret)
+      )
+    )
   );
 
   return {
-    ok: true,
-    action: "update_variable_product_price",
-    product_id: updatedParent.id ?? productId,
-    name: updatedParent.name ?? product.name ?? "",
-    type: updatedParent.type ?? product.type ?? "",
-    regular_price: updatedParent.regular_price ?? "",
-    sale_price: updatedParent.sale_price ?? "",
-    price: updatedParent.price ?? "",
-    updated_variations: results.length,
-    variations: results,
+    success: true,
+    updated: variations.length,
   };
 }
 
