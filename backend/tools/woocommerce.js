@@ -262,27 +262,35 @@ console.log("SKU CHECK DEBUG", {
     id: p.id,
     name: p.name,
     sku: p.sku,
+    regular_price: p.regular_price,
+    sale_price: p.sale_price,
+    price: p.price,
   })),
   exactDirect: exact
     ? {
         id: exact.id,
         name: exact.name,
         sku: exact.sku,
+        regular_price: exact.regular_price,
+        sale_price: exact.sale_price,
+        price: exact.price,
       }
     : null,
 });
-
-  return {
+    return {
     ok: true,
     exists: Boolean(exact),
     product: exact
-      ? {
-          id: exact.id,
-          name: exact.name || "",
-          sku: exact.sku || "",
-          type: exact.type || "",
-        }
-      : null,
+  ? {
+      id: exact.id,
+      name: exact.name || "",
+      sku: exact.sku || "",
+      type: exact.type || "",
+      regular_price: exact.regular_price || "",
+      sale_price: exact.sale_price || "",
+      price: exact.price || "",
+    }
+  : null,
   };
 }
 
@@ -347,21 +355,27 @@ export async function findProductsByName({
   const finalCandidates =
     strongCandidates.length > 0 ? strongCandidates : allProducts;
 
-  return {
+    return {
     ok: true,
     search: name,
     products: exactMatches.map((product) => ({
-      id: product.id,
-      name: product.name || "",
-      sku: product.sku || "",
-      type: product.type || "",
-    })),
+  id: product.id,
+  name: product.name || "",
+  sku: product.sku || "",
+  type: product.type || "",
+  regular_price: product.regular_price || "",
+  sale_price: product.sale_price || "",
+  price: product.price || "",
+})),
     candidates: finalCandidates.slice(0, 20).map((product) => ({
-      id: product.id,
-      name: product.name || "",
-      sku: product.sku || "",
-      type: product.type || "",
-    })),
+  id: product.id,
+  name: product.name || "",
+  sku: product.sku || "",
+  type: product.type || "",
+  regular_price: product.regular_price || "",
+  sale_price: product.sale_price || "",
+  price: product.price || "",
+})),
   };
 }
 

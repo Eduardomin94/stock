@@ -27,6 +27,7 @@ type EditFoundProduct = {
   name: string;
   sku: string;
   type: string;
+  salePrice?: string;
 };
 
 type EditActionType =
@@ -34,6 +35,7 @@ type EditActionType =
   | "cambiar_precio"
   | "agregar_precio_rebajado"
   | "cambiar_precio_rebajado"
+  | "quitar_precio_rebajado"
   | "cambiar_descripcion";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
@@ -166,6 +168,19 @@ function getFileKey(file: File) {
 
 function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
+}
+function normalizeEditFoundProduct(product: any): EditFoundProduct {
+  return {
+    id: Number(product?.id || 0),
+    name: String(product?.name || ""),
+    sku: String(product?.sku || ""),
+    type: String(product?.type || ""),
+    salePrice: String(
+  product?.sale_price ||
+  (product?.price !== product?.regular_price ? product?.price : "") ||
+  ""
+),
+  };
 }
 
 function translateAgentError(message: any) {
@@ -342,6 +357,7 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
   const [editValue, setEditValue] = useState("");
+  const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
   const [createStepIndex, setCreateStepIndex] = useState(0);
   const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 
@@ -376,6 +392,7 @@ const hasSizes = (createForm.talles || "")
   .filter(Boolean).length > 0;
 
 const isVariableProductDraft = hasColors || hasSizes;
+const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
 
 
   async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
@@ -503,18 +520,22 @@ const assistantMessage: Message = {
     }
 
     if (data?.product) {
-  setEditFoundProduct(data.product);
+  setEditFoundProduct(normalizeEditFoundProduct(data.product));
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo(
     `Encontré el producto: ${data.product.name}. Ahora elegí qué querés editar.`
   );
   console.log("Producto encontrado:", data.product);
-} else if (Array.isArray(data?.products) && data.products.length === 1) {
-  setEditFoundProduct(data.products[0]);
+} 
+
+else if (Array.isArray(data?.products) && data.products.length === 1) {
+  setEditFoundProduct(normalizeEditFoundProduct(data.products[0]));
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo(
     `Encontré el producto: ${data.products[0].name}. Ahora elegí qué querés editar.`
@@ -524,15 +545,17 @@ const assistantMessage: Message = {
   setEditFoundProduct(null);
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo(
     `Encontré ${data.products.length} productos. Decime el SKU exacto del que querés editar.`
   );
   console.log("Coincidencias exactas:", data.products);
 } else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
-  setEditFoundProduct(data.candidates[0]);
+  setEditFoundProduct(normalizeEditFoundProduct(data.candidates[0]));
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo(
     `Encontré el producto: ${data.candidates[0].name}. Ahora elegí qué querés editar.`
@@ -542,6 +565,7 @@ const assistantMessage: Message = {
   setEditFoundProduct(null);
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo(
     `Encontré varios productos parecidos. Decime el SKU exacto del que querés editar.`
@@ -551,6 +575,7 @@ const assistantMessage: Message = {
   setEditFoundProduct(null);
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
 
   pushAssistantInfo("No encontré ese producto.");
 }
@@ -741,6 +766,7 @@ function resetSkuValidationState() {
   setEditFoundProduct(null);
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
   setCreateForm(initialCreateForm);
   setCreateStepIndex(0);
   setText("");
@@ -1056,6 +1082,7 @@ async function nextCreateStep() {
     setEditFoundProduct(null);
     setEditActionType("");
     setEditValue("");
+    setEditSection("");
     setText("");
     pushAssistantInfo(
       "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
@@ -1074,6 +1101,7 @@ async function nextCreateStep() {
   setEditFoundProduct(null);
   setEditActionType("");
   setEditValue("");
+  setEditSection("");
   setText("");
   pushAssistantInfo(
     "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
@@ -1731,51 +1759,87 @@ Stock general
       {editFoundProduct.sku ? ` (SKU: ${editFoundProduct.sku})` : ""}
     </div>
 
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+  salePrice detectado: {editFoundProduct.salePrice || "(vacío)"}
+</div>
+
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-      <button
-        type="button"
-        onClick={() => {
-          setEditActionType("cambiar_precio");
-          setEditValue("");
-        }}
-        style={quickActionSecondaryStyle}
-      >
-        Cambiar precio
-      </button>
+  <button
+    type="button"
+    onClick={() => {
+      setEditSection("precio");
+      setEditActionType("");
+      setEditValue("");
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Precio
+  </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setEditActionType("agregar_precio_rebajado");
-          setEditValue("");
-        }}
-        style={quickActionSecondaryStyle}
-      >
-        Agregar precio rebajado
-      </button>
+  <button
+    type="button"
+    onClick={() => {
+      setEditSection("descripcion");
+      setEditActionType("cambiar_descripcion");
+      setEditValue("");
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Descripción
+  </button>
+</div>
 
-      <button
-        type="button"
-        onClick={() => {
-          setEditActionType("cambiar_precio_rebajado");
-          setEditValue("");
-        }}
-        style={quickActionSecondaryStyle}
-      >
-        Cambiar precio rebajado
-      </button>
+{editSection === "precio" && (
+  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+    <button
+      type="button"
+      onClick={() => {
+        setEditActionType("cambiar_precio");
+        setEditValue("");
+      }}
+      style={quickActionSecondaryStyle}
+    >
+      Cambiar precio
+    </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setEditActionType("cambiar_descripcion");
-          setEditValue("");
-        }}
-        style={quickActionSecondaryStyle}
-      >
-        Cambiar descripción
-      </button>
-    </div>
+    {!hasEditSalePrice ? (
+  <button
+    type="button"
+    onClick={() => {
+      setEditActionType("agregar_precio_rebajado");
+      setEditValue("");
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Agregar precio rebajado
+  </button>
+) : (
+  <>
+    <button
+      type="button"
+      onClick={() => {
+        setEditActionType("cambiar_precio_rebajado");
+        setEditValue("");
+      }}
+      style={quickActionSecondaryStyle}
+    >
+      Cambiar precio rebajado
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setEditActionType("quitar_precio_rebajado");
+        setEditValue("");
+      }}
+      style={quickActionSecondaryStyle}
+    >
+      Quitar precio rebajado
+    </button>
+  </>
+)}
+  </div>
+)}
 
     {editActionType && (
       <div
@@ -1794,6 +1858,7 @@ Stock general
           {editActionType === "cambiar_precio" && "Escribí el nuevo precio."}
           {editActionType === "agregar_precio_rebajado" && "Escribí el precio rebajado."}
           {editActionType === "cambiar_precio_rebajado" && "Escribí el nuevo precio rebajado."}
+          {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
           {editActionType === "cambiar_descripcion" && "Escribí la nueva descripción."}
         </div>
 
@@ -1816,6 +1881,19 @@ Stock general
       lineHeight: 1.5,
     }}
   />
+) : editActionType === "quitar_precio_rebajado" ? (
+  <div
+    style={{
+      color: "#94a3b8",
+      fontSize: 14,
+      padding: "10px 12px",
+      border: "1px solid #334155",
+      borderRadius: 10,
+      background: "#020617",
+    }}
+  >
+    Este producto tiene precio rebajado cargado. Tocá “Guardar cambio” para quitarlo.
+  </div>
 ) : (
   <input
     type="number"
@@ -1838,10 +1916,15 @@ Stock general
         <button
           type="button"
           onClick={async () => {
-            if (!editFoundProduct?.id || !editActionType || !editValue.trim()) {
-              pushAssistantInfo("Completá el valor antes de guardar.");
-              return;
-            }
+            if (!editFoundProduct?.id || !editActionType) {
+  pushAssistantInfo("Falta elegir una acción.");
+  return;
+}
+
+if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
+  pushAssistantInfo("Completá el valor antes de guardar.");
+  return;
+}
 
             const token = localStorage.getItem("token") || "";
 
@@ -1849,29 +1932,34 @@ Stock general
               setLoading(true);
 
               const payload =
-                editActionType === "cambiar_precio"
-                  ? {
-                      action: "cambiar_precio",
-                      productId: editFoundProduct.id,
-                      regularPrice: editValue.trim(),
-                    }
-                  : editActionType === "agregar_precio_rebajado"
-                  ? {
-                      action: "agregar_precio_rebajado",
-                      productId: editFoundProduct.id,
-                      salePrice: editValue.trim(),
-                    }
-                  : editActionType === "cambiar_precio_rebajado"
-                  ? {
-                      action: "cambiar_precio_rebajado",
-                      productId: editFoundProduct.id,
-                      salePrice: editValue.trim(),
-                    }
-                  : {
-                      action: "cambiar_descripcion",
-                      productId: editFoundProduct.id,
-                      description: editValue.trim(),
-                    };
+  editActionType === "cambiar_precio"
+    ? {
+        action: "cambiar_precio",
+        productId: editFoundProduct.id,
+        regularPrice: editValue.trim(),
+      }
+    : editActionType === "agregar_precio_rebajado"
+    ? {
+        action: "agregar_precio_rebajado",
+        productId: editFoundProduct.id,
+        salePrice: editValue.trim(),
+      }
+    : editActionType === "cambiar_precio_rebajado"
+    ? {
+        action: "cambiar_precio_rebajado",
+        productId: editFoundProduct.id,
+        salePrice: editValue.trim(),
+      }
+    : editActionType === "quitar_precio_rebajado"
+    ? {
+        action: "quitar_precio_rebajado",
+        productId: editFoundProduct.id,
+      }
+    : {
+        action: "cambiar_descripcion",
+        productId: editFoundProduct.id,
+        description: editValue.trim(),
+      };
 
               const form = new FormData();
               form.append("agentId", agentId);
@@ -1897,6 +1985,7 @@ Stock general
 
               pushAssistantInfo(data?.reply || "Producto actualizado correctamente.");
               setEditValue("");
+              setEditSection("");
               setEditActionType("");
             } catch (error: any) {
               pushAssistantInfo(
