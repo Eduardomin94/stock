@@ -209,7 +209,7 @@ async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
   return response.data;
 }
 
-export async function findProductBySku({
+async function findProductBySku({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -300,8 +300,9 @@ return {
       }
     : null,
 };
+}
 
-export async function findProductsByName({
+async function findProductsByName({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -1725,3 +1726,7 @@ export async function uploadImageToWordpress({
     url: response.data.source_url,
   };
 }
+module.exports = {
+  ...module.exports,
+  findProductsByName,
+};
