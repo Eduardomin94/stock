@@ -27,6 +27,7 @@ type EditFoundProduct = {
   name: string;
   sku: string;
   type: string;
+  regularPrice?: string;
   salePrice?: string;
 };
 
@@ -169,17 +170,28 @@ function getFileKey(file: File) {
 function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
 }
+
 function normalizeEditFoundProduct(product: any): EditFoundProduct {
+  const regularPrice = String(
+    product?.regular_price ||
+    product?.regularPrice ||
+    ""
+  );
+
+  const salePrice = String(
+    product?.sale_price ||
+    product?.salePrice ||
+    (product?.price && product?.price !== regularPrice ? product?.price : "") ||
+    ""
+  );
+
   return {
     id: Number(product?.id || 0),
     name: String(product?.name || ""),
     sku: String(product?.sku || ""),
     type: String(product?.type || ""),
-    salePrice: String(
-  product?.sale_price ||
-  (product?.price !== product?.regular_price ? product?.price : "") ||
-  ""
-),
+    regularPrice,
+    salePrice,
   };
 }
 
@@ -357,6 +369,8 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
   const [editValue, setEditValue] = useState("");
+  const [editColor, setEditColor] = useState("");
+const [editSize, setEditSize] = useState("");
   const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
   const [createStepIndex, setCreateStepIndex] = useState(0);
   const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
@@ -1759,8 +1773,17 @@ Stock general
       {editFoundProduct.sku ? ` (SKU: ${editFoundProduct.sku})` : ""}
     </div>
 
-    <div style={{ color: "#94a3b8", fontSize: 12 }}>
-  salePrice detectado: {editFoundProduct.salePrice || "(vacío)"}
+    <div
+  style={{
+    color: "#94a3b8",
+    fontSize: 12,
+    display: "flex",
+    gap: 16,
+    flexWrap: "wrap",
+  }}
+>
+  <div>Precio normal: {editFoundProduct.regularPrice || "(vacío)"}</div>
+  <div>Precio de oferta: {editFoundProduct.salePrice || "(vacío)"}</div>
 </div>
 
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1945,11 +1968,13 @@ if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
         salePrice: editValue.trim(),
       }
     : editActionType === "cambiar_precio_rebajado"
-    ? {
-        action: "cambiar_precio_rebajado",
-        productId: editFoundProduct.id,
-        salePrice: editValue.trim(),
-      }
+  ? {
+      action: "cambiar_precio_rebajado",
+      productId: editFoundProduct.id,
+      salePrice: editValue.trim(),
+      color: editColor || undefined,
+      size: editSize || undefined,
+    }
     : editActionType === "quitar_precio_rebajado"
     ? {
         action: "quitar_precio_rebajado",
@@ -1984,9 +2009,37 @@ if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
               }
 
               pushAssistantInfo(data?.reply || "Producto actualizado correctamente.");
-              setEditValue("");
-              setEditSection("");
-              setEditActionType("");
+
+// 🔥 volver a buscar el producto actualizado
+try {
+  const form = new FormData();
+  form.append("agentId", agentId);
+
+  const mode = editFoundProduct?.sku ? "sku" : "nombre";
+  const value = editFoundProduct?.sku || editFoundProduct?.name;
+
+  form.append("message", `__search_edit_product__:${mode}|${value}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const res = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token
+      ? { Authorization: `Bearer ${token}` }
+      : undefined,
+    body: form,
+  });
+
+  const refreshed = await res.json();
+
+  if (refreshed?.product) {
+    setEditFoundProduct(normalizeEditFoundProduct(refreshed.product));
+  }
+} catch {}
+
+setEditValue("");
+setEditSection("");
+setEditActionType("");
             } catch (error: any) {
               pushAssistantInfo(
                 error?.message || "No pude editar el producto."

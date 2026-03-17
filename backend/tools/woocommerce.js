@@ -262,6 +262,7 @@ console.log("SKU CHECK DEBUG", {
     id: p.id,
     name: p.name,
     sku: p.sku,
+    type: p.type,
     regular_price: p.regular_price,
     sale_price: p.sale_price,
     price: p.price,
@@ -271,12 +272,15 @@ console.log("SKU CHECK DEBUG", {
         id: exact.id,
         name: exact.name,
         sku: exact.sku,
+        type: exact.type,
         regular_price: exact.regular_price,
         sale_price: exact.sale_price,
         price: exact.price,
       }
     : null,
 });
+
+
     return {
     ok: true,
     exists: Boolean(exact),
@@ -883,21 +887,50 @@ export async function updateProductPrice({
 
   if (productType === "variable") {
   const variations = await fetchAllVariations(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId
-  );
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId
+);
 
-  await Promise.all(
-    variations.map((variation) =>
-      axios.put(
-        `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
-        buildPricePayload(),
-        buildWooConfig(consumerKey, consumerSecret)
+const filtered = variations.filter((v) => {
+  const attrs = v.attributes || [];
+
+  const colorMatch = payload?.color
+    ? attrs.some(
+        (a) =>
+          a.name.toLowerCase().includes("color") &&
+          a.option.toLowerCase() === payload.color.toLowerCase()
       )
+    : true;
+
+  const sizeMatch = payload?.size
+    ? attrs.some(
+        (a) =>
+          a.name.toLowerCase().includes("talle") &&
+          a.option.toLowerCase() === payload.size.toLowerCase()
+      )
+    : true;
+
+  return colorMatch && sizeMatch;
+});
+
+await Promise.all(
+  filtered.map((variation) =>
+    axios.put(
+      `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
+      {
+        sale_price: String(salePrice),
+      },
+      buildWooConfig(consumerKey, consumerSecret)
     )
-  );
+  )
+);
+
+return {
+  success: true,
+  updated: filtered.length,
+};
 
   return {
     success: true,
