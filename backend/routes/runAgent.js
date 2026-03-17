@@ -1145,6 +1145,8 @@ if (looksLikeEditProductActionCommand(message)) {
 
   const action = String(payload?.action || "");
   const productId = Number(payload?.productId);
+  const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
+const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
 
   if (!action || !productId) {
     return res.status(400).json({
