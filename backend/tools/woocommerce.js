@@ -1194,6 +1194,194 @@ export async function updateVariationStock({
   };
 }
 
+export async function updateStockAdvanced({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  manageStock,
+  stockQuantity = null,
+  stockStatus = "instock",
+  selectedCombinations = [],
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const productType = String(product.type || "").toLowerCase();
+
+  if (productType !== "variable") {
+    const payload = {
+      manage_stock: Boolean(manageStock),
+    };
+
+    if (manageStock) {
+      payload.stock_quantity = Number(stockQuantity || 0);
+      payload.stock_status = "instock";
+    } else {
+      payload.stock_quantity = null;
+      payload.stock_status = stockStatus || "instock";
+    }
+
+    const updated = await updateProduct(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      payload
+    );
+
+    return {
+      ok: true,
+      action: "update_stock_advanced",
+      scope: "product",
+      product_id: updated.id,
+      name: updated.name || "",
+      manage_stock: updated.manage_stock ?? null,
+      stock_quantity: updated.stock_quantity ?? null,
+      stock_status: updated.stock_status ?? null,
+    };
+  }
+
+  const variations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? selectedCombinations : [])
+    .map((item) => {
+      const normalizedItem = {};
+
+      for (const [key, value] of Object.entries(item || {})) {
+        const cleanKey = normalizeText(key);
+        const cleanValue = normalizeText(value);
+
+        if (cleanKey && cleanValue) {
+          normalizedItem[cleanKey] = cleanValue;
+        }
+      }
+
+      return normalizedItem;
+    })
+    .filter((item) => Object.keys(item).length > 0);
+
+  const variationsToUpdate =
+    normalizedSelectedCombinations.length === 0
+      ? variations
+      : variations.filter((variation) => {
+          const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+          return normalizedSelectedCombinations.some((combo) =>
+            Object.entries(combo).every(([comboName, comboValue]) =>
+              attrs.some(
+                (attr) =>
+                  normalizeText(attr?.name || "") === comboName &&
+                  normalizeText(attr?.option || "") === comboValue
+              )
+            )
+          );
+        });
+
+  const results = [];
+
+  for (const variation of variationsToUpdate) {
+    const payload = {
+      manage_stock: Boolean(manageStock),
+    };
+
+    if (manageStock) {
+      payload.stock_quantity = Number(stockQuantity || 0);
+      payload.stock_status = "instock";
+    } else {
+      payload.stock_quantity = null;
+      payload.stock_status = stockStatus || "instock";
+    }
+
+    const updated = await updateVariation(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      variation.id,
+      payload
+    );
+
+    results.push({
+      variation_id: updated.id,
+      attributes_text: formatAttributes(updated.attributes),
+      manage_stock: updated.manage_stock ?? null,
+      stock_quantity: updated.stock_quantity ?? null,
+      stock_status: updated.stock_status ?? null,
+    });
+  }
+
+  return {
+    ok: true,
+    action: "update_stock_advanced",
+    scope: "variations",
+    product_id: productId,
+    name: product.name || "",
+    updated_count: results.length,
+    results,
+  };
+}
+
+export async function addProductImages({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  images = [],
+}) {
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const currentImages = Array.isArray(product.images) ? product.images : [];
+
+  const merged = [
+    ...currentImages.map((img) => ({ id: img.id })),
+    ...images,
+  ];
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const img of merged) {
+    const key = img?.id ? `id:${img.id}` : `src:${img?.src || ""}`;
+    if (!seen.has(key) && (img?.id || img?.src)) {
+      seen.add(key);
+      unique.push(img.id ? { id: img.id } : { src: img.src });
+    }
+  }
+
+  const updated = await updateProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    { images: unique }
+  );
+
+  return {
+    ok: true,
+    product_id: updated.id,
+    name: updated.name,
+    images: updated.images || [],
+  };
+}
+
 function cleanText(value) {
   return String(value ?? "").trim();
 }

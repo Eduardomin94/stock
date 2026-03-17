@@ -19,7 +19,8 @@ import {
   suggestCategoriesByName,
   findProductBySku,
   findProductsByName,
-  deleteProductById
+  deleteProductById,
+  updateStockAdvanced
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1251,7 +1252,24 @@ const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
     });
   }
 
-    // ✅ CAMBIAR DESCRIPCIÓN
+  // ✅ CAMBIAR STOCK
+    if (action === "cambiar_stock") {
+    result = await updateStockAdvanced({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      manageStock: Boolean(payload?.manageStock),
+      stockQuantity: payload?.stockQuantity,
+      stockStatus: String(payload?.stockStatus || "instock"),
+      selectedCombinations: Array.isArray(payload?.selectedCombinations)
+        ? payload.selectedCombinations
+        : [],
+    });
+  }
+  
+
+  // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
 
@@ -1337,6 +1355,16 @@ if (result) {
     }
   }
 
+    if (action === "cambiar_stock") {
+    if (result.scope === "variations") {
+      reply =
+        result.updated_count === 1
+          ? `Stock actualizado en 1 variación de ${result.name}.`
+          : `Stock actualizado en ${result.updated_count} variaciones de ${result.name}.`;
+    } else {
+      reply = `Stock actualizado correctamente en ${result.name}.`;
+    }
+  }
   return res.json({
     usedTool: true,
     reply,
