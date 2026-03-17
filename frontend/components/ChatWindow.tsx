@@ -376,7 +376,7 @@ const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 const [editValue, setEditValue] = useState("");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
-const [selectedEditCombinations, setSelectedEditCombinations] = useState<string[]>([]);
+const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
 const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
 
 
@@ -453,14 +453,19 @@ function getCombinationKey(values: Record<string, string>) {
 
 function isCombinationSelected(values: Record<string, string>) {
   const key = getCombinationKey(values);
-  return selectedEditCombinations.includes(key);
+
+  return selectedEditCombinations.some(
+    (item) => getCombinationKey(item) === key
+  );
 }
 
 function toggleCombination(values: Record<string, string>) {
   const key = getCombinationKey(values);
 
   setSelectedEditCombinations((prev) =>
-    prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+    prev.some((item) => getCombinationKey(item) === key)
+      ? prev.filter((item) => getCombinationKey(item) !== key)
+      : [...prev, values]
   );
 }
 
@@ -836,32 +841,6 @@ function resetSkuValidationState() {
   }
 }
 
-function buildAttributeCombinations(attributes: Record<string, string[]>) {
-  const entries = Object.entries(attributes).filter(
-    ([, values]) => values.length > 0
-  );
-
-  if (entries.length === 0) return [{}];
-
-  const result: Record<string, string>[] = [];
-
-  function helper(index: number, current: Record<string, string>) {
-    if (index === entries.length) {
-      result.push({ ...current });
-      return;
-    }
-
-    const [key, values] = entries[index];
-
-    values.forEach((value) => {
-      current[key] = value;
-      helper(index + 1, current);
-    });
-  }
-
-  helper(0, {});
-  return result;
-}
 
 async function sendEditPayload(payload: any) {
   const form = new FormData();
@@ -2120,16 +2099,7 @@ if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
 
             const token = localStorage.getItem("token") || "";
 
-            try {
-              setLoading(true);
-
-              const attributeEntries = Object.entries(editAttributeValues || {}).filter(
-  ([, values]) => Array.isArray(values) && values.length > 0
-);
-
-// 👉 si NO hay atributos → comportamiento normal
-if (attributeEntries.length === 0) {
-  const payload =
+            const payload =
   editActionType === "cambiar_precio"
     ? {
         action: "cambiar_precio",
@@ -2137,69 +2107,35 @@ if (attributeEntries.length === 0) {
         regularPrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations,
       }
-      : editActionType === "agregar_precio_rebajado"
-  ? {
-      action: "agregar_precio_rebajado",
-      productId: editFoundProduct.id,
-      salePrice: editValue.trim(),
-      selectedCombinations: selectedEditCombinations,
-    }
+    : editActionType === "agregar_precio_rebajado"
+    ? {
+        action: "agregar_precio_rebajado",
+        productId: editFoundProduct.id,
+        salePrice: editValue.trim(),
+        selectedCombinations: selectedEditCombinations,
+      }
     : editActionType === "cambiar_precio_rebajado"
-  ? {
-      action: "cambiar_precio_rebajado",
-      productId: editFoundProduct.id,
-      salePrice: editValue.trim(),
-      selectedCombinations: selectedEditCombinations,
-    }
-      : editActionType === "quitar_precio_rebajado"
-      ? {
-          action: "quitar_precio_rebajado",
-          productId: editFoundProduct.id,
-        }
-      : {
-          action: "cambiar_descripcion",
-          productId: editFoundProduct.id,
-          description: editValue.trim(),
-        };
+    ? {
+        action: "cambiar_precio_rebajado",
+        productId: editFoundProduct.id,
+        salePrice: editValue.trim(),
+        selectedCombinations: selectedEditCombinations,
+      }
+    : editActionType === "quitar_precio_rebajado"
+    ? {
+        action: "quitar_precio_rebajado",
+        productId: editFoundProduct.id,
+        selectedCombinations: selectedEditCombinations,
+      }
+    : {
+        action: "cambiar_descripcion",
+        productId: editFoundProduct.id,
+        description: editValue.trim(),
+      };
 
-  await sendEditPayload(payload);
-  return;
-}
+console.log("PAYLOAD PRECIO", payload);
 
-// 👉 si hay atributos → combinaciones
-const combinations = buildAttributeCombinations(editAttributeValues);
-
-for (const combo of combinations) {
-  const payload =
-    editActionType === "cambiar_precio"
-      ? {
-          action: "cambiar_precio",
-          productId: editFoundProduct.id,
-          regularPrice: editValue.trim(),
-          attributes: combo,
-        }
-      : editActionType === "agregar_precio_rebajado"
-      ? {
-          action: "agregar_precio_rebajado",
-          productId: editFoundProduct.id,
-          salePrice: editValue.trim(),
-          attributes: combo,
-        }
-      : editActionType === "cambiar_precio_rebajado"
-      ? {
-          action: "cambiar_precio_rebajado",
-          productId: editFoundProduct.id,
-          salePrice: editValue.trim(),
-          attributes: combo,
-        }
-      : {
-          action: "quitar_precio_rebajado",
-          productId: editFoundProduct.id,
-          attributes: combo,
-        };
-
-  await sendEditPayload(payload);
-}
+await sendEditPayload(payload);
 
 pushAssistantInfo("Producto actualizado correctamente.");
 

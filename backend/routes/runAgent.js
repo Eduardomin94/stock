@@ -1150,7 +1150,7 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
-  if (action === "cambiar_precio") {
+if (action === "cambiar_precio") {
   const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
 
   if (!regularPrice) {
@@ -1159,15 +1159,34 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
- const result = await updateProductPrice({
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-  productId,
-  regularPrice,
-  attributes: payload?.attributes || {},
-  selectedCombinations: payload?.selectedCombinations || [],
-});
+  const result = await updateProductPrice({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    regularPrice,
+    attributes: payload?.attributes || {},
+    selectedCombinations: Array.isArray(payload?.selectedCombinations)
+      ? payload.selectedCombinations
+      : [],
+  });
+
+  return res.json({
+    usedTool: true,
+    reply:
+      result.type === "variable"
+        ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
+        : `Precio actualizado correctamente.`,
+    product: {
+      id: result.product_id,
+      name: result.name,
+      type: result.type || "",
+      regular_price: result.regular_price || "",
+      sale_price: result.sale_price || "",
+    },
+    toolResult: result,
+  });
+}
 
   return res.json({
     usedTool: true,
