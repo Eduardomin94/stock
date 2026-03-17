@@ -914,9 +914,19 @@ export async function updateProductPrice({
   );
 
   return {
-    ok: true,
-    updated: variations.length,
-  };
+  ok: true,
+  action: "update_product_price",
+  product_id: product.id ?? productId,
+  name: product.name ?? "",
+  type: product.type ?? "",
+  regular_price: String(regularPrice ?? ""),
+  sale_price: salePrice !== undefined && salePrice !== null ? String(salePrice) : "",
+  price:
+    salePrice !== undefined && salePrice !== null && salePrice !== ""
+      ? String(salePrice)
+      : String(regularPrice ?? ""),
+  updated_variations: variations.length,
+};
 }
   const updated = await updateProduct(
     baseUrl,

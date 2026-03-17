@@ -2036,8 +2036,10 @@ try {
   const refreshed = await res.json();
 
   if (refreshed?.product) {
-    setEditFoundProduct(normalizeEditFoundProduct(refreshed.product));
-  }
+  setEditFoundProduct(
+    normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
+  );
+}
 } catch {}
 
 setEditValue("");
