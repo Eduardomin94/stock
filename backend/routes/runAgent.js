@@ -921,7 +921,9 @@ router.post("/", upload.array("images", 10), async (req, res) => {
   system_prompt:
     "Sos un asistente especializado en WooCommerce. Respondé en español, claro, directo y sin inventar datos. Si hay resultados de tools, basate en esos datos reales.",
 };
-      let toolContext = "";
+
+let toolContext = "";
+let result;
 
 const authHeader = req.headers.authorization || "";
 const token = authHeader.startsWith("Bearer ")
@@ -1150,206 +1152,64 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
-if (action === "cambiar_precio") {
-  const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
+  // ✅ CAMBIAR PRECIO
+  if (action === "cambiar_precio") {
+    const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
 
-  if (!regularPrice) {
-    return res.status(400).json({
-      error: "Falta regularPrice.",
-    });
-  }
-
-  const result = await updateProductPrice({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    regularPrice,
-    attributes: payload?.attributes || {},
-    selectedCombinations: Array.isArray(payload?.selectedCombinations)
-      ? payload.selectedCombinations
-      : [],
-  });
-
-  return res.json({
-    usedTool: true,
-    reply:
-      result.type === "variable"
-        ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
-        : `Precio actualizado correctamente.`,
-    product: {
-      id: result.product_id,
-      name: result.name,
-      type: result.type || "",
-      regular_price: result.regular_price || "",
-      sale_price: result.sale_price || "",
-    },
-    toolResult: result,
-  });
-}
-
-  return res.json({
-    usedTool: true,
-    reply:
-  result.type === "variable"
-    ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
-    : `Precio actualizado correctamente.`,
-    product: {
-      id: result.product_id,
-      name: result.name,
-      type: result.type || "",
-      regular_price: result.regular_price || "",
-      sale_price: result.sale_price || "",
-    },
-    toolResult: result,
-  });
-}
-
-    if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
-  const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
-
-  if (!salePrice) {
-    return res.status(400).json({
-      error: "Falta salePrice.",
-    });
-  }
-
-  const productResponse = await (await import("axios")).default.get(
-    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
-    {
-      params: {
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-      },
+    if (!regularPrice) {
+      return res.status(400).json({
+        error: "Falta regularPrice.",
+      });
     }
-  );
 
-  const product = productResponse.data || {};
-  const isVariable = String(product.type || "").toLowerCase() === "variable";
-  const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
-
-if (isVariable) {
- const result = await updateProductPrice({
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-  productId,
-  regularPrice,
-  salePrice,
-  attributes: payload?.attributes || {},
-  selectedCombinations: payload?.selectedCombinations || [],
-});
-
-    return res.json({
-      usedTool: true,
-      reply: `Precio rebajado actualizado correctamente.`,
-      product: {
-        id: result.product_id,
-        name: result.name,
-        sku: product.sku || "",
-        type: result.type || "",
-        regular_price: result.regular_price || "",
-        sale_price: result.sale_price || "",
-        price: result.price || "",
-      },
-      toolResult: result,
+    result = await updateProductPrice({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      regularPrice,
+      attributes: payload?.attributes || {},
+      selectedCombinations: Array.isArray(payload?.selectedCombinations)
+        ? payload.selectedCombinations
+        : [],
     });
   }
 
-  const updated = await updateWooProduct(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    {
-      sale_price: String(salePrice),
+  // ✅ AGREGAR / CAMBIAR PRECIO REBAJADO
+  if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
+    const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
+
+    if (!salePrice) {
+      return res.status(400).json({
+        error: "Falta salePrice.",
+      });
     }
-  );
 
-  return res.json({
-    usedTool: true,
-    reply: `Precio rebajado actualizado correctamente.`,
-    product: {
-      id: updated.id,
-      name: updated.name,
-      sku: updated.sku || "",
-      type: updated.type || "",
-      regular_price: updated.regular_price || "",
-      sale_price: updated.sale_price || "",
-      price: updated.price || "",
-    },
-  });
-}
+    result = await updateProductPrice({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      salePrice,
+      attributes: payload?.attributes || {},
+      selectedCombinations: payload?.selectedCombinations || [],
+    });
+  }
 
+  // ✅ QUITAR PRECIO REBAJADO
   if (action === "quitar_precio_rebajado") {
-  const productResponse = await (await import("axios")).default.get(
-    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
-    {
-      params: {
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-      },
-    }
-  );
-
-  const product = productResponse.data || {};
-  const isVariable = String(product.type || "").toLowerCase() === "variable";
-  const regularPrice = String(product.regular_price || "").replace(/[^\d]/g, "");
-
-  if (isVariable) {
-    const result = await updateProductPrice({
-  baseUrl,
-  consumerKey,
-  consumerSecret,
-  productId,
-  regularPrice,
-  salePrice: "",
-  attributes: payload?.attributes || {},
-  selectedCombinations: payload?.selectedCombinations || [],
-});
-
-    return res.json({
-      usedTool: true,
-      reply: `Precio rebajado quitado correctamente.`,
-      product: {
-        id: result.product_id,
-        name: result.name,
-        sku: product.sku || "",
-        type: result.type || "",
-        regular_price: result.regular_price || "",
-        sale_price: result.sale_price || "",
-        price: result.price || "",
-      },
-      toolResult: result,
+    result = await updateProductPrice({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      salePrice: "",
+      attributes: payload?.attributes || {},
+      selectedCombinations: payload?.selectedCombinations || [],
     });
   }
 
-  const updated = await updateWooProduct(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    {
-      sale_price: "",
-    }
-  );
-
-  return res.json({
-    usedTool: true,
-    reply: `Precio rebajado quitado correctamente.`,
-    product: {
-      id: updated.id,
-      name: updated.name,
-      sku: updated.sku || "",
-      type: updated.type || "",
-      regular_price: updated.regular_price || "",
-      sale_price: updated.sale_price || "",
-      price: updated.price || "",
-    },
-  });
-}
-
-
+    // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
 
@@ -1380,6 +1240,31 @@ if (isVariable) {
       },
     });
   }
+
+  // ✅ RESPUESTA FINAL ÚNICA
+  if (result) {
+    return res.json({
+      usedTool: true,
+      reply:
+        result.type === "variable"
+          ? `Precio actualizado correctamente en ${result.updated_variations} variaciones.`
+          : `Precio actualizado correctamente.`,
+      product: {
+        id: result.product_id,
+        name: result.name,
+        type: result.type || "",
+        regular_price: result.regular_price || "",
+        sale_price: result.sale_price || "",
+      },
+      toolResult: result,
+    });
+  }
+
+  return res.status(400).json({
+    error: "Acción no reconocida.",
+  });
+}
+
 
 if (looksLikeDeleteProductCommand(message)) {
   if (!baseUrl || !consumerKey || !consumerSecret) {
@@ -1475,7 +1360,7 @@ if (looksLikeDeleteProductCommand(message)) {
   const deletedResults = [];
 
   for (const product of uniqueProducts) {
-    const result = await deleteProductById({
+    result = await deleteProductById({
       baseUrl,
       consumerKey,
       consumerSecret,
@@ -1529,7 +1414,7 @@ if (pendingDraft && looksLikeOnlyCategoryReply(message)) {
 
   categories = [categoryResult.category.id];
 
-  const result = await createSimpleProduct({
+  result = await createSimpleProduct({
     baseUrl,
     consumerKey,
     consumerSecret,
@@ -1700,7 +1585,7 @@ if (files.length > 0) {
   uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
 }
 
-   const result = await createSimpleProduct({
+   result = await createSimpleProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -1947,7 +1832,7 @@ console.log("VARIABLE SKU DEBUG", {
   message,
 });
 
-const result = await createVariableProduct({
+result = await createVariableProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -2084,7 +1969,7 @@ const normalizedVariations = parsed.variations.map((variation) => ({
   }),
 }));
 
-const result = await createVariableProduct({
+result = await createVariableProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -2148,7 +2033,7 @@ if (files.length > 0) {
 
 
 
-  const result = await createVariableProduct({
+  result = await createVariableProduct({
   baseUrl,
   consumerKey,
   consumerSecret,
@@ -2192,7 +2077,7 @@ if (looksLikeColorSizeStockBatch(message)) {
       const productSearch = extractProductSearch(message);
       const lines = extractColorSizeStockLines(message);
 
-      const result = await applyStockUpdateByColorAndSize({
+      result = await applyStockUpdateByColorAndSize({
         baseUrl,
         consumerKey,
         consumerSecret,
@@ -2284,7 +2169,7 @@ if (looksLikeColorSizeStockBatch(message)) {
         });
       }
 
-      const result = await enableManageStockForVariation({
+      result = await enableManageStockForVariation({
         baseUrl,
         consumerKey,
         consumerSecret,
@@ -2319,7 +2204,7 @@ if (looksLikeColorSizeStockBatch(message)) {
         });
       }
 
-      const result = await updateVariationStock({
+      result = await updateVariationStock({
         baseUrl,
         consumerKey,
         consumerSecret,
@@ -2355,7 +2240,7 @@ if (looksLikeColorSizeStockBatch(message)) {
         });
       }
 
-      const result = await updateProductPrice({
+      result = await updateProductPrice({
         baseUrl,
         consumerKey,
         consumerSecret,

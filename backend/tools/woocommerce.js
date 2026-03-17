@@ -914,6 +914,12 @@ const normalizedFilters = Object.entries(attributes || {})
 
 const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? selectedCombinations : [])
   .map((item) => {
+    // 👉 SI VIENE COMO ARRAY (["Negro", "1"])
+    if (Array.isArray(item)) {
+      return item.map((v) => normalizeText(v));
+    }
+
+    // 👉 SI VIENE COMO OBJETO ({ Color: "Negro", Talle: "1" })
     const normalizedItem = {};
 
     for (const [key, value] of Object.entries(item || {})) {
@@ -927,7 +933,10 @@ const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? se
 
     return normalizedItem;
   })
-  .filter((item) => Object.keys(item).length > 0);
+  .filter((item) =>
+    Array.isArray(item) ? item.length > 0 : Object.keys(item).length > 0
+  );
+
 
 const variationsFilteredByAttributes =
   normalizedFilters.length === 0
@@ -950,15 +959,27 @@ const variationsToUpdate =
     : variationsFilteredByAttributes.filter((variation) => {
         const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
 
-        return normalizedSelectedCombinations.some((combo) =>
-          Object.entries(combo).every(([comboName, comboValue]) =>
+        return normalizedSelectedCombinations.some((combo) => {
+          // 👉 CASO ARRAY ["negro", "1"]
+          if (Array.isArray(combo)) {
+  const values = attrs.map((attr) =>
+    normalizeText(String(attr?.option || "").replace(/^0+/, ""))
+  );
+
+  return combo.every((v) =>
+    values.includes(normalizeText(String(v).replace(/^0+/, "")))
+  );
+}
+
+          // 👉 CASO OBJETO { color: "negro" }
+          return Object.entries(combo).every(([comboName, comboValue]) =>
             attrs.some(
               (attr) =>
                 normalizeText(attr?.name || "") === comboName &&
                 normalizeText(attr?.option || "") === comboValue
             )
-          )
-        );
+          );
+        });
       });
 
           if (variationsToUpdate.length === 0) {

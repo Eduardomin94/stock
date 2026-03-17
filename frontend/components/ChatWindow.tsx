@@ -2100,33 +2100,42 @@ Stock general
   try {
     setLoading(true);
 
+    const hasVariations = selectedEditCombinations.length > 0;
     const payload =
   editActionType === "cambiar_precio"
     ? {
         action: "cambiar_precio",
         productId: editFoundProduct.id,
         regularPrice: editValue.trim(),
-        selectedCombinations: selectedEditCombinations,
+        selectedCombinations: selectedEditCombinations.map((combo) =>
+  Object.values(combo)
+),
       }
     : editActionType === "agregar_precio_rebajado"
     ? {
         action: "agregar_precio_rebajado",
         productId: editFoundProduct.id,
         salePrice: editValue.trim(),
-        selectedCombinations: selectedEditCombinations,
+        selectedCombinations: selectedEditCombinations.map((combo) =>
+  Object.values(combo)
+),
       }
     : editActionType === "cambiar_precio_rebajado"
     ? {
         action: "cambiar_precio_rebajado",
         productId: editFoundProduct.id,
         salePrice: editValue.trim(),
-        selectedCombinations: selectedEditCombinations,
+        selectedCombinations: selectedEditCombinations.map((combo) =>
+  Object.values(combo)
+),
       }
     : editActionType === "quitar_precio_rebajado"
     ? {
         action: "quitar_precio_rebajado",
         productId: editFoundProduct.id,
-        selectedCombinations: selectedEditCombinations,
+        selectedCombinations: selectedEditCombinations.map((combo) =>
+  Object.values(combo)
+),
       }
     : {
         action: "cambiar_descripcion",
@@ -2135,6 +2144,16 @@ Stock general
       };
 
 console.log("PAYLOAD PRECIO", payload);
+
+if (
+  (editActionType === "cambiar_precio" ||
+    editActionType === "agregar_precio_rebajado" ||
+    editActionType === "cambiar_precio_rebajado") &&
+  !Number(editValue)
+) {
+  pushAssistantInfo("El precio debe ser un número válido.");
+  return;
+}
 
 await sendEditPayload(payload);
 
