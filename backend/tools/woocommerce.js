@@ -997,9 +997,9 @@ const variationsToUpdate =
     };
   }
 
-  await Promise.all(
-    variationsToUpdate.map((variation) =>
-      axios.put(
+    const updatedVariationDetails = await Promise.all(
+    variationsToUpdate.map(async (variation) => {
+      await axios.put(
         `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
         buildPricePayload(variation.regular_price),
         buildWooConfig(consumerKey, consumerSecret, {
@@ -1007,21 +1007,37 @@ const variationsToUpdate =
             "Content-Type": "application/json",
           },
         })
-      )
-    )
+      );
+
+      return {
+        id: variation.id,
+        attributes: Array.isArray(variation.attributes)
+          ? variation.attributes.map((attr) => ({
+              name: String(attr?.name || "").trim(),
+              option: String(attr?.option || "").trim(),
+            }))
+          : [],
+        attributes_text: Array.isArray(variation.attributes)
+          ? variation.attributes
+              .map((attr) => `${String(attr?.name || "").trim()}: ${String(attr?.option || "").trim()}`)
+              .join(" | ")
+          : "",
+      };
+    })
   );
 
   return {
-  ok: true,
-  action: "update_product_price",
-  product_id: productId,
-  name: product.name ?? "",
-  type: product.type ?? "",
-  updated_variations: variationsToUpdate.length,
-  regular_price: "",
-  sale_price: "",
-  price: "",
-};
+    ok: true,
+    action: "update_product_price",
+    product_id: productId,
+    name: product.name ?? "",
+    type: product.type ?? "",
+    updated_variations: variationsToUpdate.length,
+    updated_variation_details: updatedVariationDetails,
+    regular_price: "",
+    sale_price: "",
+    price: "",
+  };
 }
   const updated = await updateProduct(
     baseUrl,

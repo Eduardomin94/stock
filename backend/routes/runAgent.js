@@ -1243,14 +1243,20 @@ if (looksLikeEditProductActionCommand(message)) {
 
 // ✅ RESPUESTA FINAL ÚNICA
 if (result) {
+  const variationLines = Array.isArray(result.updated_variation_details)
+    ? result.updated_variation_details
+        .map((item) => `- ${item.attributes_text || `Variación #${item.id}`}`)
+        .join("\n")
+    : "";
+
   let reply = "Producto actualizado correctamente.";
 
   if (action === "cambiar_precio") {
     if (result.type === "variable") {
       reply =
         result.updated_variations === 1
-          ? `Precio normal actualizado a ${regularPrice} en 1 variación de ${result.name}.`
-          : `Precio normal actualizado a ${regularPrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+          ? `Precio normal actualizado a ${regularPrice} en esta variación de ${result.name}:\n${variationLines}`
+          : `Precio normal actualizado a ${regularPrice} en estas ${result.updated_variations} variaciones de ${result.name}:\n${variationLines}`;
     } else {
       reply = `Precio normal actualizado a ${result.regular_price || regularPrice} en ${result.name}.`;
     }
@@ -1260,8 +1266,8 @@ if (result) {
     if (result.type === "variable") {
       reply =
         result.updated_variations === 1
-          ? `Precio rebajado agregado: ${salePrice} en 1 variación de ${result.name}.`
-          : `Precio rebajado agregado: ${salePrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+          ? `Precio rebajado agregado: ${salePrice} en esta variación de ${result.name}:\n${variationLines}`
+          : `Precio rebajado agregado: ${salePrice} en estas ${result.updated_variations} variaciones de ${result.name}:\n${variationLines}`;
     } else {
       reply = `Precio rebajado agregado: ${result.sale_price || salePrice} en ${result.name}.`;
     }
@@ -1271,8 +1277,8 @@ if (result) {
     if (result.type === "variable") {
       reply =
         result.updated_variations === 1
-          ? `Precio rebajado cambiado a ${salePrice} en 1 variación de ${result.name}.`
-          : `Precio rebajado cambiado a ${salePrice} en ${result.updated_variations} variaciones de ${result.name}.`;
+          ? `Precio rebajado cambiado a ${salePrice} en esta variación de ${result.name}:\n${variationLines}`
+          : `Precio rebajado cambiado a ${salePrice} en estas ${result.updated_variations} variaciones de ${result.name}:\n${variationLines}`;
     } else {
       reply = `Precio rebajado cambiado a ${result.sale_price || salePrice} en ${result.name}.`;
     }
@@ -1282,8 +1288,8 @@ if (result) {
     if (result.type === "variable") {
       reply =
         result.updated_variations === 1
-          ? `Precio rebajado quitado en 1 variación de ${result.name}.`
-          : `Precio rebajado quitado en ${result.updated_variations} variaciones de ${result.name}.`;
+          ? `Precio rebajado quitado en esta variación de ${result.name}:\n${variationLines}`
+          : `Precio rebajado quitado en estas ${result.updated_variations} variaciones de ${result.name}:\n${variationLines}`;
     } else {
       reply = `Precio rebajado quitado en ${result.name}.`;
     }
