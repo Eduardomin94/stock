@@ -1941,7 +1941,7 @@ Stock general
   setEditActionType("cambiar_precio");
   setEditValue("");
   setEditAttributeValues({});
-  setEditSelectedCombinations([]);
+  setSelectedEditCombinations([])
 }}
   style={quickActionSecondaryStyle}
 >
@@ -1954,7 +1954,7 @@ Stock general
     onClick={() => {
   setEditActionType("agregar_precio_rebajado");
   setEditValue("");
-  setEditSelectedCombinations([]);
+  setSelectedEditCombinations([])
 }}
     style={quickActionSecondaryStyle}
   >
@@ -1967,7 +1967,7 @@ Stock general
       onClick={() => {
   setEditActionType("cambiar_precio_rebajado");
   setEditValue("");
-  setEditSelectedCombinations([]);
+  setSelectedEditCombinations([])
 }}
       style={quickActionSecondaryStyle}
     >
@@ -2257,7 +2257,7 @@ setEditValue("");
 setEditSection("");
 setEditActionType("");
 setEditAttributeValues({});
-setEditSelectedCombinations([]);
+setSelectedEditCombinations([])
             } catch (error: any) {
               pushAssistantInfo(
                 error?.message || "No pude editar el producto."
