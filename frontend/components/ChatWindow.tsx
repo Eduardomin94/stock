@@ -1087,11 +1087,21 @@ useEffect(() => {
       }
 
       const clean = rawUrl
-        .replace(/^https?:\/\//, "")
-        .replace(/^www\./, "")
-        .replace(/\/$/, "");
+  .replace(/^https?:\/\//, "")
+  .replace(/^www\./, "")
+  .replace(/\/wp-json\/wc\/v3.*$/, "")
+  .replace(/\/$/, "");
 
-      setStoreName(clean);
+// 👉 dominio
+const domain = clean;
+
+// 👉 nombre "lindo"
+const baseName = domain.split(".")[0];
+const prettyName =
+  baseName.charAt(0).toUpperCase() + baseName.slice(1);
+
+// 👉 combinamos ambos
+setStoreName(`${prettyName} (${domain})`);
     } catch {
       setStoreName("");
       setStoreUrl("");
