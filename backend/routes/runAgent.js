@@ -1478,9 +1478,12 @@ if (action === "mover_producto_fecha") {
     });
   }
 
-  const axios = (await import("axios")).default;
+  if (productId === targetProductId) {
+    return res.status(400).json({
+      error: "No podés mover un producto respecto de sí mismo.",
+    });
+  }
 
-  // 1. Obtener producto de referencia
   const targetRes = await axios.get(
     `${String(baseUrl || "").replace(/\/+$/, "")}/products/${targetProductId}`,
     {
@@ -1491,16 +1494,40 @@ if (action === "mover_producto_fecha") {
     }
   );
 
-  const targetProduct = targetRes.data;
+  const targetProduct = targetRes.data || {};
 
-  if (!targetProduct?.date) {
+  console.log("TARGET PRODUCT FECHAS", {
+    id: targetProduct?.id,
+    name: targetProduct?.name,
+    date_created: targetProduct?.date_created,
+    date_created_gmt: targetProduct?.date_created_gmt,
+    date_modified: targetProduct?.date_modified,
+    date_modified_gmt: targetProduct?.date_modified_gmt,
+  });
+
+  const targetDateRaw =
+    String(targetProduct?.date_created_gmt || "").trim() ||
+    String(targetProduct?.date_created || "").trim() ||
+    String(targetProduct?.date_modified_gmt || "").trim() ||
+    String(targetProduct?.date_modified || "").trim();
+
+  console.log("TARGET DATE RAW", targetDateRaw);
+
+  if (!targetDateRaw) {
     return res.status(400).json({
       error: "No se pudo obtener la fecha del producto de referencia.",
     });
   }
 
-  // 2. Calcular nueva fecha
-  const targetDate = new Date(targetProduct.date);
+  const targetDate = new Date(targetDateRaw);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return res.status(400).json({
+      error: "La fecha del producto de referencia no es válida.",
+    });
+  }
+
+  console.log("TARGET DATE PARSED", targetDate.toISOString());
 
   if (position === "before") {
     targetDate.setMinutes(targetDate.getMinutes() - 1);
@@ -1510,22 +1537,34 @@ if (action === "mover_producto_fecha") {
 
   const newDateISO = targetDate.toISOString();
 
-  // 3. Actualizar producto
+  console.log("NEW DATE TO APPLY", newDateISO);
+
   const updated = await updateWooProduct(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    {
-      date: newDateISO,
-    }
-  );
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  {
+    date_created_gmt: newDateISO,
+  }
+);
+
+  console.log("UPDATED PRODUCT RESULT", {
+    id: updated?.id,
+    name: updated?.name,
+    date_created: updated?.date_created,
+    date_created_gmt: updated?.date_created_gmt,
+    date_modified: updated?.date_modified,
+    date_modified_gmt: updated?.date_modified_gmt,
+  });
 
   result = {
     ok: true,
+    product_id: updated.id,
     name: updated.name,
-    targetName: targetProduct.name,
+    target_name: targetProduct.name,
     position,
+    new_date: newDateISO,
   };
 }
 
@@ -1630,6 +1669,13 @@ if (action === "quitar_fotos_variantes") {
     result.updated_count === 1
       ? `Foto eliminada de 1 variante de ${result.name}:\n${variationLines}`
       : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
+}
+
+if (action === "mover_producto_fecha") {
+  reply =
+    result.position === "before"
+      ? `${result.name} fue movido antes de ${result.target_name}.`
+      : `${result.name} fue movido después de ${result.target_name}.`;
 }
 
   return res.json({
