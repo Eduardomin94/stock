@@ -1632,13 +1632,6 @@ if (action === "quitar_fotos_variantes") {
       : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
 }
 
-if (action === "mover_producto_fecha") {
-  reply =
-    result.position === "before"
-      ? `${result.name} fue movido antes de ${result.target_name}.`
-      : `${result.name} fue movido después de ${result.target_name}.`;
-}
-
   return res.json({
     usedTool: true,
     reply,
