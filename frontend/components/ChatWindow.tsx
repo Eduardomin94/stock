@@ -2681,40 +2681,43 @@ if (fileInputRef.current) {
     }}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Asignar foto a variantes:
-    </div>
+  Elegí una foto y después tocá las variantes a las que querés asignarla.
+</div>
 
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {editAttributeCombinations.map((combo, index) => {
-        const checked = isCombinationSelected(combo);
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+  Seleccionadas: {selectedEditCombinations.length}
+</div>
 
-        return (
-          <label
-            key={index}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid #334155",
-              background: checked ? "#2563eb" : "#020617",
-              color: "white",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => toggleCombination(combo)}
-            />
+<div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+  }}
+>
+  {editAttributeCombinations.map((combo, index) => {
+    const checked = isCombinationSelected(combo);
 
-            <span>{Object.values(combo).join(" / ")}</span>
-          </label>
-        );
-      })}
-    </div>
+    return (
+      <button
+        key={index}
+        type="button"
+        onClick={() => toggleCombination(combo)}
+        style={{
+          border: checked ? "1px solid #2563eb" : "1px solid #334155",
+          background: checked ? "#2563eb" : "#020617",
+          color: "white",
+          borderRadius: 999,
+          padding: "8px 12px",
+          cursor: "pointer",
+          fontSize: 13,
+        }}
+      >
+        {Object.values(combo).join(" / ")}
+      </button>
+    );
+  })}
+</div>
 
     <button
       type="button"
@@ -2743,7 +2746,9 @@ if (fileInputRef.current) {
             [selectedFiles[0]]
           );
 
-          pushAssistantInfo(response?.reply || "Foto asignada.");
+          pushAssistantInfo(
+  response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+);
 
         } catch (error: any) {
           pushAssistantInfo(error?.message || "Error.");
