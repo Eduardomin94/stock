@@ -112,9 +112,12 @@ function mapVariationImagePreview(variation = {}) {
             src: String(variation.image.src || ""),
           }
         : null,
+
+    stock_quantity: variation?.stock_quantity ?? "",
+    stock_status: String(variation?.stock_status || "instock"),
+    manage_stock: Boolean(variation?.manage_stock),
   };
 }
-
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
 
