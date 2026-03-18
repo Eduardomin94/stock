@@ -207,91 +207,116 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
         src: String(img?.src || ""),
       }))
     : [],
-  variations: Array.isArray(product?.variations)
-  ? product.variations
-      .map((variationItem: any) => ({
-        id: Number(variationItem?.id || 0),
-        attributes: Array.isArray(variationItem?.attributes)
-          ? variationItem.attributes.map((attr: any) => ({
-              name: String(attr?.name || "").trim(),
-              option: String(attr?.option || "").trim(),
-            }))
-          : [],
-        image:
-          variationItem?.image && variationItem.image.src
-            ? {
-                id: Number(variationItem.image.id || 0),
-                src: String(variationItem.image.src || ""),
-              }
-            : null,
-        stock_quantity: variationItem?.stock_quantity ?? "",
-        stock_status: variationItem?.stock_status || "instock",
-        manage_stock_checked: Boolean(variationItem?.manage_stock),
-      }))
-      .sort((a, b) => {
-  const aOptions = (a.attributes || []).map((attr) => String(attr.option || "").trim());
-  const bOptions = (b.attributes || []).map((attr) => String(attr.option || "").trim());
+    variations: Array.isArray(product?.variations)
+    ? product.variations
+        .map((variationItem: any) => ({
+          id: Number(variationItem?.id || 0),
+          attributes: Array.isArray(variationItem?.attributes)
+            ? variationItem.attributes.map(
+                (attr: { name?: string; option?: string }) => ({
+                  name: String(attr?.name || "").trim(),
+                  option: String(attr?.option || "").trim(),
+                })
+              )
+            : [],
+          image:
+            variationItem?.image && variationItem.image.src
+              ? {
+                  id: Number(variationItem.image.id || 0),
+                  src: String(variationItem.image.src || ""),
+                }
+              : null,
+          stock_quantity: variationItem?.stock_quantity ?? "",
+          stock_status: variationItem?.stock_status || "instock",
+          manage_stock_checked: Boolean(variationItem?.manage_stock),
+        }))
+        .sort(
+          (
+            a: {
+              id: number;
+              attributes: { name: string; option: string }[];
+              image: { id: number; src: string } | null;
+              stock_quantity?: number | string;
+              stock_status?: "instock" | "outofstock";
+              manage_stock_checked?: boolean;
+            },
+            b: {
+              id: number;
+              attributes: { name: string; option: string }[];
+              image: { id: number; src: string } | null;
+              stock_quantity?: number | string;
+              stock_status?: "instock" | "outofstock";
+              manage_stock_checked?: boolean;
+            }
+          ) => {
+            const aOptions = (a.attributes || []).map((attr: { option: string }) =>
+              String(attr.option || "").trim()
+            );
+            const bOptions = (b.attributes || []).map((attr: { option: string }) =>
+              String(attr.option || "").trim()
+            );
 
-  const aColor = String(aOptions[0] || "");
-  const bColor = String(bOptions[0] || "");
+            const aColor = String(aOptions[0] || "");
+            const bColor = String(bOptions[0] || "");
 
-  const colorCompare = aColor.localeCompare(bColor, "es", { numeric: true });
-  if (colorCompare !== 0) {
-    return colorCompare;
-  }
+            const colorCompare = aColor.localeCompare(bColor, "es", { numeric: true });
+            if (colorCompare !== 0) {
+              return colorCompare;
+            }
 
-  const aSizeRaw = String(aOptions[1] || aOptions[0] || "").trim();
-  const bSizeRaw = String(bOptions[1] || bOptions[0] || "").trim();
+            const aSizeRaw = String(aOptions[1] || aOptions[0] || "").trim();
+            const bSizeRaw = String(bOptions[1] || bOptions[0] || "").trim();
 
-  const normalizeSize = (value: string) =>
-    value
-      .trim()
-      .toUpperCase()
-      .replace(/^TALLE\s*/i, "")
-      .replace(/^NRO\.?\s*/i, "")
-      .replace(/\s+/g, "");
+            const normalizeSize = (value: string) =>
+              value
+                .trim()
+                .toUpperCase()
+                .replace(/^TALLE\s*/i, "")
+                .replace(/^NRO\.?\s*/i, "")
+                .replace(/\s+/g, "");
 
-  const aSize = normalizeSize(aSizeRaw);
-  const bSize = normalizeSize(bSizeRaw);
+            const aSize = normalizeSize(aSizeRaw);
+            const bSize = normalizeSize(bSizeRaw);
 
-  const sizeOrder = [
-    "XXXS",
-    "XXS",
-    "XS",
-    "S",
-    "M",
-    "L",
-    "XL",
-    "XXL",
-    "XXXL",
-    "4XL",
-    "5XL",
-    "6XL",
-  ];
+            const sizeOrder = [
+              "XXXS",
+              "XXS",
+              "XS",
+              "S",
+              "M",
+              "L",
+              "XL",
+              "XXL",
+              "XXXL",
+              "4XL",
+              "5XL",
+              "6XL",
+            ];
 
-  const aSizeIndex = sizeOrder.indexOf(aSize);
-  const bSizeIndex = sizeOrder.indexOf(bSize);
+            const aSizeIndex = sizeOrder.indexOf(aSize);
+            const bSizeIndex = sizeOrder.indexOf(bSize);
 
-  const aIsNumber = /^\d+$/.test(aSize);
-  const bIsNumber = /^\d+$/.test(bSize);
+            const aIsNumber = /^\d+$/.test(aSize);
+            const bIsNumber = /^\d+$/.test(bSize);
 
-  if (aIsNumber && bIsNumber) {
-    return Number(aSize) - Number(bSize);
-  }
+            if (aIsNumber && bIsNumber) {
+              return Number(aSize) - Number(bSize);
+            }
 
-  if (aSizeIndex !== -1 && bSizeIndex !== -1) {
-    return aSizeIndex - bSizeIndex;
-  }
+            if (aSizeIndex !== -1 && bSizeIndex !== -1) {
+              return aSizeIndex - bSizeIndex;
+            }
 
-  if (aIsNumber && !bIsNumber) return -1;
-  if (!aIsNumber && bIsNumber) return 1;
+            if (aIsNumber && !bIsNumber) return -1;
+            if (!aIsNumber && bIsNumber) return 1;
 
-  if (aSizeIndex !== -1 && bSizeIndex === -1) return -1;
-  if (aSizeIndex === -1 && bSizeIndex !== -1) return 1;
+            if (aSizeIndex !== -1 && bSizeIndex === -1) return -1;
+            if (aSizeIndex === -1 && bSizeIndex !== -1) return 1;
 
-  return aSize.localeCompare(bSize, "es", { numeric: true });
-})
-  : [],
+            return aSize.localeCompare(bSize, "es", { numeric: true });
+          }
+        )
+    : [],
 };
 }
 
