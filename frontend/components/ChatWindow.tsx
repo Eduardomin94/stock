@@ -45,7 +45,8 @@ type EditActionType =
   | "cambiar_precio_rebajado"
   | "quitar_precio_rebajado"
   | "cambiar_descripcion"
-  | "cambiar_fotos_variantes";
+  | "cambiar_fotos_variantes"
+  | "quitar_fotos_variantes";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
@@ -496,6 +497,25 @@ function toggleCombination(values: Record<string, string>) {
       ? prev.filter((item) => getCombinationKey(item) !== key)
       : [...prev, values]
   );
+}
+
+function getVariationCombination(
+  variation: {
+    id: number;
+    attributes: { name: string; option: string }[];
+    image: { id: number; src: string } | null;
+  }
+) {
+  return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
+    const attrName = String(attr?.name || "").trim();
+    const attrOption = String(attr?.option || "").trim();
+
+    if (attrName && attrOption) {
+      acc[attrName] = attrOption;
+    }
+
+    return acc;
+  }, {});
 }
 
 
@@ -2473,6 +2493,8 @@ Stock general
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
 </div>
 
+
+
 {Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
   <div
     style={{
@@ -2486,62 +2508,78 @@ Stock general
       Fotos asignadas por variante
     </div>
 
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+      Marcá las variantes para asignarles una foto nueva o para quitarles la foto actual.
+    </div>
+
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {editFoundProduct.variations.map((variation) => (
-        <div
-          key={variation.id}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: 10,
-            borderRadius: 12,
-            border: "1px solid #334155",
-            background: "#0f172a",
-          }}
-        >
-          {variation.image?.src ? (
-            <img
-              src={variation.image.src}
-              alt={`Variación ${variation.id}`}
-              style={{
-                width: 64,
-                height: 64,
-                objectFit: "cover",
-                borderRadius: 8,
-                border: "1px solid #334155",
-              }}
+      {editFoundProduct.variations.map((variation) => {
+        const combo = getVariationCombination(variation);
+        const checked = isCombinationSelected(combo);
+
+        return (
+          <label
+            key={variation.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: 10,
+              borderRadius: 12,
+              border: checked ? "1px solid #2563eb" : "1px solid #334155",
+              background: checked ? "rgba(37,99,235,0.18)" : "#0f172a",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggleCombination(combo)}
             />
-          ) : (
-            <div
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 8,
-                border: "1px solid #334155",
-                background: "#020617",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#64748b",
-                fontSize: 12,
-              }}
-            >
-              Sin foto
-            </div>
-          )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 600 }}>
-              {variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`}
-            </div>
+            {variation.image?.src ? (
+              <img
+                src={variation.image.src}
+                alt={`Variación ${variation.id}`}
+                style={{
+                  width: 64,
+                  height: 64,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748b",
+                  fontSize: 12,
+                }}
+              >
+                Sin foto
+              </div>
+            )}
 
-            <div style={{ color: "#94a3b8", fontSize: 12 }}>
-              ID variante: {variation.id}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 600 }}>
+                {variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`}
+              </div>
+
+              <div style={{ color: "#94a3b8", fontSize: 12 }}>
+                ID variante: {variation.id}
+              </div>
             </div>
-          </div>
-        </div>
-      ))}
+          </label>
+        );
+      })}
     </div>
   </div>
 )}
@@ -2756,7 +2794,7 @@ if (fileInputRef.current) {
   Agregar fotos
 </button>
 
-{editAttributeCombinations.length > 0 && (
+{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
   <div
     style={{
       display: "flex",
@@ -2768,43 +2806,12 @@ if (fileInputRef.current) {
     }}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-  Elegí una foto y después tocá las variantes a las que querés asignarla.
-</div>
+      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
+    </div>
 
     <div style={{ color: "#94a3b8", fontSize: 12 }}>
-  Seleccionadas: {selectedEditCombinations.length}
-</div>
-
-<div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-  }}
->
-  {editAttributeCombinations.map((combo, index) => {
-    const checked = isCombinationSelected(combo);
-
-    return (
-      <button
-        key={index}
-        type="button"
-        onClick={() => toggleCombination(combo)}
-        style={{
-          border: checked ? "1px solid #2563eb" : "1px solid #334155",
-          background: checked ? "#2563eb" : "#020617",
-          color: "white",
-          borderRadius: 999,
-          padding: "8px 12px",
-          cursor: "pointer",
-          fontSize: 13,
-        }}
-      >
-        {Object.values(combo).join(" / ")}
-      </button>
-    );
-  })}
-</div>
+      Seleccionadas: {selectedEditCombinations.length}
+    </div>
 
     <button
       type="button"
@@ -2834,9 +2841,16 @@ if (fileInputRef.current) {
           );
 
           pushAssistantInfo(
-  response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
-);
+            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+          );
 
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
         } catch (error: any) {
           pushAssistantInfo(error?.message || "Error.");
         } finally {
@@ -2849,45 +2863,48 @@ if (fileInputRef.current) {
     </button>
 
     <button
-  type="button"
-  onClick={async () => {
-    if (!editFoundProduct?.id) {
-      pushAssistantInfo("Falta producto.");
-      return;
-    }
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) {
+          pushAssistantInfo("Falta producto.");
+          return;
+        }
 
-    if (selectedEditCombinations.length === 0) {
-      pushAssistantInfo("Seleccioná variantes.");
-      return;
-    }
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
 
-    try {
-      setLoading(true);
+        try {
+          setLoading(true);
 
-      const response = await sendEditPayload({
-        action: "quitar_fotos_variantes",
-        productId: editFoundProduct.id,
-        selectedCombinations: selectedEditCombinations.map((combo) =>
-          Object.values(combo)
-        ),
-      });
+          const response = await sendEditPayload({
+            action: "quitar_fotos_variantes",
+            productId: editFoundProduct.id,
+            selectedCombinations: selectedEditCombinations.map((combo) =>
+              Object.values(combo)
+            ),
+          });
 
-      pushAssistantInfo(
-        response?.reply || "Foto eliminada de las variantes."
-      );
+          pushAssistantInfo(
+            response?.reply || "Foto eliminada de las variantes."
+          );
 
-    } catch (error: any) {
-      pushAssistantInfo(
-        error?.message || "No pude quitar la foto."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }}
-  style={quickActionSecondaryStyle}
->
-  Quitar foto de variantes
-</button>
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude quitar la foto."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={quickActionSecondaryStyle}
+    >
+      Quitar foto de variantes
+    </button>
   </div>
 )}
 
