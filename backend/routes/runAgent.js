@@ -1466,16 +1466,25 @@ if (action === "mover_producto_fecha") {
 
   const targetProduct = targetResponse.data || {};
 
+  console.log("TARGET PRODUCT FECHAS", {
+    id: targetProduct?.id,
+    name: targetProduct?.name,
+    date_created: targetProduct?.date_created,
+    date_created_gmt: targetProduct?.date_created_gmt,
+    date_modified: targetProduct?.date_modified,
+    date_modified_gmt: targetProduct?.date_modified_gmt,
+    date: targetProduct?.date,
+  });
+
   const targetDateRaw =
-    targetProduct?.date_created_gmt ||
-    targetProduct?.date_created ||
-    targetProduct?.date_modified_gmt ||
-    targetProduct?.date_modified ||
-    "";
+    String(targetProduct?.date_created_gmt || "").trim() ||
+    String(targetProduct?.date_created || "").trim() ||
+    String(targetProduct?.date_modified_gmt || "").trim() ||
+    String(targetProduct?.date_modified || "").trim();
 
   if (!targetDateRaw) {
     return res.status(400).json({
-      error: "No pude obtener la fecha del producto de referencia.",
+      error: "No se pudo obtener la fecha del producto de referencia.",
     });
   }
 
@@ -1501,7 +1510,7 @@ if (action === "mover_producto_fecha") {
     consumerSecret,
     productId,
     {
-      date_created: newDate,
+      date_modified: newDate,
     }
   );
 
@@ -1515,7 +1524,6 @@ if (action === "mover_producto_fecha") {
     new_date: newDate,
   };
 }
-
 
   // ✅ CAMBIAR DESCRIPCIÓN CORTA
 if (action === "cambiar_descripcion") {
