@@ -29,6 +29,7 @@ type EditFoundProduct = {
   type: string;
   regularPrice?: string;
   salePrice?: string;
+  images?: { id: number; src: string }[];
   attributes?: { id?: number; name: string; options: string[] }[];
 };
 
@@ -188,14 +189,20 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
   type: String(product?.type || ""),
   regularPrice: String(regular || ""),
   salePrice: String(sale || ""),
+  images: Array.isArray(product?.images)
+    ? product.images.map((img: any) => ({
+        id: Number(img?.id || 0),
+        src: String(img?.src || ""),
+      }))
+    : [],
   attributes: Array.isArray(product?.attributeOptions)
-  ? product.attributeOptions.map((attr: any) => ({
-      name: String(attr?.name || "").trim(),
-      options: Array.isArray(attr?.options)
-        ? attr.options.map((opt: any) => String(opt || "").trim()).filter(Boolean)
-        : [],
-    }))
-  : [],
+    ? product.attributeOptions.map((attr: any) => ({
+        name: String(attr?.name || "").trim(),
+        options: Array.isArray(attr?.options)
+          ? attr.options.map((opt: any) => String(opt || "").trim()).filter(Boolean)
+          : [],
+      }))
+    : [],
 };
 }
 
@@ -2445,6 +2452,87 @@ Stock general
       Podés agregar fotos al producto.
     </div>
 
+    {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length === 0 && (
+  <div style={{ color: "#94a3b8", fontSize: 13 }}>
+    Este producto no tiene fotos cargadas.
+  </div>
+)}
+
+    {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length > 0 && (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+    {editFoundProduct.images.map((img) => (
+      <div
+        key={img.id}
+        style={{
+          border: "1px solid #334155",
+          borderRadius: 12,
+          padding: 8,
+          background: "#0f172a",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          width: 120,
+        }}
+      >
+        <img
+          src={img.src}
+          alt={`Imagen ${img.id}`}
+          style={{
+            width: "100%",
+            height: 100,
+            objectFit: "cover",
+            borderRadius: 8,
+            border: "1px solid #334155",
+          }}
+        />
+
+        <div style={{ color: "#94a3b8", fontSize: 12 }}>
+          ID: {img.id}
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            if (!editFoundProduct?.id) return;
+
+            try {
+              setLoading(true);
+
+              const response = await sendEditPayload({
+                action: "eliminar_fotos_producto",
+                productId: editFoundProduct.id,
+                imageIds: [img.id],
+              });
+
+              pushAssistantInfo(
+                response?.reply || "Foto eliminada correctamente."
+              );
+
+              setEditFoundProduct((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      images: (prev.images || []).filter((item) => item.id !== img.id),
+                    }
+                  : prev
+              );
+            } catch (error: any) {
+              pushAssistantInfo(
+                error?.message || "No pude eliminar la foto."
+              );
+            } finally {
+              setLoading(false);
+            }
+          }}
+          style={quickActionSecondaryStyle}
+        >
+          Eliminar
+        </button>
+      </div>
+    ))}
+  </div>
+)}
+
     <button
   type="button"
   onClick={async () => {
@@ -2467,9 +2555,31 @@ Stock general
       pushAssistantInfo(
         response?.reply || "Fotos agregadas correctamente."
       );
-      pushAssistantInfo(
-  response?.reply || "Fotos agregadas correctamente."
-);
+
+      const mode = editFoundProduct?.sku ? "sku" : "nombre";
+const value = editFoundProduct?.sku || editFoundProduct?.name;
+
+if (value) {
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__search_edit_product__:${mode}|${value}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const refreshRes = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+
+  const refreshed = await refreshRes.json();
+
+  if (refreshed?.product) {
+    setEditFoundProduct(
+      normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
+    );
+  }
+}
 
 setSelectedFiles([]);
 if (fileInputRef.current) {
@@ -2487,6 +2597,8 @@ if (fileInputRef.current) {
 >
   Agregar fotos
 </button>
+
+
   </div>
 )}
 

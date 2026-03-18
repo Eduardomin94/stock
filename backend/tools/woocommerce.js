@@ -1382,6 +1382,47 @@ export async function addProductImages({
   };
 }
 
+// ❌ ELIMINAR FOTOS DEL PRODUCTO
+export async function removeProductImages({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  imageIdsToRemove = [],
+}) {
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const currentImages = Array.isArray(product?.images) ? product.images : [];
+
+  const filteredImages = currentImages.filter(
+    (img) => !imageIdsToRemove.includes(Number(img.id))
+  );
+
+  const updated = await updateProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      images: filteredImages.map((img) => ({
+        id: Number(img.id),
+      })),
+    }
+  );
+
+  return {
+    ok: true,
+    product_id: updated.id,
+    name: updated.name,
+    images: updated.images || [],
+    remaining_images: filteredImages.length,
+  };
+}
+
 function cleanText(value) {
   return String(value ?? "").trim();
 }

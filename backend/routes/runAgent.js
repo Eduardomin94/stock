@@ -23,6 +23,7 @@ import {
   updateStockAdvanced,
   uploadImageToWordpress,
   addProductImages,
+  removeProductImages,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1061,6 +1062,7 @@ if (found.exists && found.product?.id) {
 }
 
 let attributeOptions = [];
+let productImages = [];
 
 if (found.exists && found.product?.id) {
   const axios = (await import("axios")).default;
@@ -1076,6 +1078,9 @@ if (found.exists && found.product?.id) {
   );
 
   attributeOptions = extractGlobalAttributeOptions(productResponse.data || {});
+  productImages = Array.isArray(productResponse.data?.images)
+    ? productResponse.data.images
+    : [];
 }
 
 return res.json({
@@ -1084,11 +1089,12 @@ return res.json({
   found: found.exists,
   exact: found.exists,
   product: found.product
-    ? {
-        ...found.product,
-        attributeOptions,
-      }
-    : null,
+  ? {
+      ...found.product,
+      attributeOptions,
+      images: productImages,
+    }
+  : null,
   candidates: found.candidates || [],
   variationSample: variations[0] || null,
 });
@@ -1120,6 +1126,7 @@ const enrichWithAttributeOptions = async (product) => {
   return {
     ...product,
     attributeOptions: extractGlobalAttributeOptions(productResponse.data || {}),
+    images: Array.isArray(productResponse.data?.images) ? productResponse.data.images : [],
   };
 };
 
@@ -1297,6 +1304,27 @@ if (action === "agregar_fotos_producto") {
   });
 }
 
+// ❌ ELIMINAR FOTOS DEL PRODUCTO
+if (action === "eliminar_fotos_producto") {
+  const imageIds = Array.isArray(payload?.imageIds)
+    ? payload.imageIds.map((id) => Number(id)).filter(Boolean)
+    : [];
+
+  if (!imageIds.length) {
+    return res.status(400).json({
+      error: "Faltan imageIds.",
+    });
+  }
+
+  result = await removeProductImages({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    imageIdsToRemove: imageIds,
+  });
+}
+
   // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
@@ -1397,6 +1425,11 @@ if (result) {
     if (action === "agregar_fotos_producto") {
     reply = `Fotos agregadas correctamente en ${result.name}.`;
   }
+
+  if (action === "eliminar_fotos_producto") {
+  reply = `Fotos eliminadas correctamente en ${result.name}.`;
+}
+  
   return res.json({
     usedTool: true,
     reply,
@@ -1409,6 +1442,7 @@ if (result) {
     },
     toolResult: result,
   });
+
 }
 
   return res.status(400).json({
