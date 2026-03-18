@@ -30,6 +30,11 @@ type EditFoundProduct = {
   regularPrice?: string;
   salePrice?: string;
   images?: { id: number; src: string }[];
+  variations?: {
+    id: number;
+    attributes: { name: string; option: string }[];
+    image: { id: number; src: string } | null;
+  }[];
   attributes?: { id?: number; name: string; options: string[] }[];
 };
 
@@ -184,24 +189,33 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
   }
 
     return {
-  id: Number(product?.id || 0),
-  name: String(product?.name || ""),
-  sku: String(product?.sku || ""),
-  type: String(product?.type || ""),
-  regularPrice: String(regular || ""),
-  salePrice: String(sale || ""),
+  id: product.id,
+  name: product.name,
+  sku: product.sku,
+  type: product.type,
+
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
         id: Number(img?.id || 0),
         src: String(img?.src || ""),
       }))
     : [],
-  attributes: Array.isArray(product?.attributeOptions)
-    ? product.attributeOptions.map((attr: any) => ({
-        name: String(attr?.name || "").trim(),
-        options: Array.isArray(attr?.options)
-          ? attr.options.map((opt: any) => String(opt || "").trim()).filter(Boolean)
+  variations: Array.isArray(product?.variations)
+    ? product.variations.map((variationItem: any) => ({
+        id: Number(variationItem?.id || 0),
+        attributes: Array.isArray(variationItem?.attributes)
+          ? variationItem.attributes.map((attr: any) => ({
+              name: String(attr?.name || "").trim(),
+              option: String(attr?.option || "").trim(),
+            }))
           : [],
+        image:
+          variationItem?.image && variationItem.image.src
+            ? {
+                id: Number(variationItem.image.id || 0),
+                src: String(variationItem.image.src || ""),
+              }
+            : null,
       }))
     : [],
 };
@@ -2458,6 +2472,79 @@ Stock general
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
 </div>
+
+{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 12,
+    }}
+  >
+    <div style={{ color: "#94a3b8", fontSize: 13 }}>
+      Fotos asignadas por variante
+    </div>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {editFoundProduct.variations.map((variation) => (
+        <div
+          key={variation.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: 10,
+            borderRadius: 12,
+            border: "1px solid #334155",
+            background: "#0f172a",
+          }}
+        >
+          {variation.image?.src ? (
+            <img
+              src={variation.image.src}
+              alt={`Variación ${variation.id}`}
+              style={{
+                width: 64,
+                height: 64,
+                objectFit: "cover",
+                borderRadius: 8,
+                border: "1px solid #334155",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 8,
+                border: "1px solid #334155",
+                background: "#020617",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#64748b",
+                fontSize: 12,
+              }}
+            >
+              Sin foto
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 600 }}>
+              {variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`}
+            </div>
+
+            <div style={{ color: "#94a3b8", fontSize: 12 }}>
+              ID variante: {variation.id}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length === 0 && (
   <div style={{ color: "#94a3b8", fontSize: 13 }}>

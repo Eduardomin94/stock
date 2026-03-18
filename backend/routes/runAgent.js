@@ -96,6 +96,25 @@ function extractGlobalAttributeOptions(product = {}) {
     .filter((attr) => attr.name && attr.options.length > 0);
 }
 
+function mapVariationImagePreview(variation = {}) {
+  return {
+    id: Number(variation?.id || 0),
+    attributes: Array.isArray(variation?.attributes)
+      ? variation.attributes.map((attr) => ({
+          name: String(attr?.name || "").trim(),
+          option: String(attr?.option || "").trim(),
+        }))
+      : [],
+    image:
+      variation?.image && variation.image.id
+        ? {
+            id: Number(variation.image.id),
+            src: String(variation.image.src || ""),
+          }
+        : null,
+  };
+}
+
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
 
@@ -1055,7 +1074,7 @@ if (found.exists && found.product?.id) {
       params: {
         consumer_key: consumerKey,
         consumer_secret: consumerSecret,
-        per_page: 1,
+        per_page: 100,
       },
     }
   );
@@ -1095,6 +1114,7 @@ return res.json({
       ...found.product,
       attributeOptions,
       images: productImages,
+      variations: Array.isArray(variations) ? variations.map(mapVariationImagePreview) : [],
     }
   : null,
   candidates: found.candidates || [],
@@ -1125,10 +1145,26 @@ const enrichWithAttributeOptions = async (product) => {
     }
   );
 
+  const variationsResponse = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${product.id}/variations`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        per_page: 100,
+      },
+    }
+  );
+
+  const variations = Array.isArray(variationsResponse.data)
+    ? variationsResponse.data
+    : [];
+
   return {
     ...product,
     attributeOptions: extractGlobalAttributeOptions(productResponse.data || {}),
     images: Array.isArray(productResponse.data?.images) ? productResponse.data.images : [],
+    variations: variations.map(mapVariationImagePreview),
   };
 };
 
