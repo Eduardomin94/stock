@@ -2948,19 +2948,19 @@ onMouseLeave={(e) => {
           editFoundProduct.variations.length > 0;
 
         if (hasVariations) {
-          const hasSomethingToSave = editFoundProduct.variations.some(
-            (variation) =>
-              (variation.manage_stock_checked &&
-                String(variation.stock_quantity ?? "").trim() !== "") ||
-              (!variation.manage_stock_checked &&
-                String(variation.stock_status || "").trim() !== "")
-          );
+  const hasSomethingToSave = (editFoundProduct.variations || []).some(
+    (variation) =>
+      (variation.manage_stock_checked &&
+        String(variation.stock_quantity ?? "").trim() !== "") ||
+      (!variation.manage_stock_checked &&
+        String(variation.stock_status || "").trim() !== "")
+  );
 
-          if (!hasSomethingToSave) {
-            pushAssistantInfo("Completá al menos una variación.");
-            return;
-          }
-        } else {
+  if (!hasSomethingToSave) {
+    pushAssistantInfo("Completá al menos una variación.");
+    return;
+  }
+} else {
           if (!String(editValue || "").trim()) {
             pushAssistantInfo("Escribí una cantidad.");
             return;
