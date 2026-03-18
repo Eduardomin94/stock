@@ -195,11 +195,13 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
     sale = variation?.sale_price || sale;
   }
 
-    return {
-  id: product.id,
-  name: product.name,
-  sku: product.sku,
-  type: product.type,
+      return {
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    type: product.type,
+    regularPrice: String(regular || ""),
+    salePrice: String(sale || ""),
 
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
