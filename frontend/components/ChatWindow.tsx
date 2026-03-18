@@ -370,6 +370,8 @@ export default function ChatWindow() {
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
   const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+  const [draggedProductImageIndex, setDraggedProductImageIndex] = useState<number | null>(null);
+const [dragOverProductImageIndex, setDragOverProductImageIndex] = useState<number | null>(null);
   const [skuChecking, setSkuChecking] = useState(false);
 const [skuStatus, setSkuStatus] = useState<"idle" | "available" | "taken">("idle");
 const [skuStatusMessage, setSkuStatusMessage] = useState("");
@@ -658,7 +660,11 @@ else if (Array.isArray(data?.products) && data.products.length > 1) {
 }
 
 else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
-  setEditFoundProduct(normalizeEditFoundProduct(data.candidates[0]));
+  const fullProduct = await loadEditProductDetails(
+    normalizeEditFoundProduct(data.candidates[0])
+  );
+
+  setEditFoundProduct(fullProduct);
   setEditCandidates([]);
   setEditActionType("");
   setEditValue("");
@@ -667,7 +673,7 @@ else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
   setSelectedEditCombinations([]);
 
   pushAssistantInfo(
-    `Encontré el producto: ${data.candidates[0].name}. Ahora elegí qué querés editar.`
+    `Encontré el producto: ${fullProduct.name}. Ahora elegí qué querés editar.`
   );
 }
 
@@ -2460,9 +2466,69 @@ Stock general
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length > 0 && (
   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-    {editFoundProduct.images.map((img) => (
+    {editFoundProduct.images.map((img, index) => (
       <div
         key={img.id}
+        draggable
+        onDragStart={() => {
+          setDraggedProductImageIndex(index);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOverProductImageIndex(index);
+        }}
+        onDragLeave={() => {
+          setDragOverProductImageIndex((prev) => (prev === index ? null : prev));
+        }}
+        onDrop={async () => {
+          if (
+            draggedProductImageIndex === null ||
+            draggedProductImageIndex === index ||
+            !editFoundProduct?.id
+          ) {
+            return;
+          }
+
+          const currentImages = [...(editFoundProduct.images || [])];
+          const [movedItem] = currentImages.splice(draggedProductImageIndex, 1);
+          currentImages.splice(index, 0, movedItem);
+
+          setEditFoundProduct((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  images: currentImages,
+                }
+              : prev
+          );
+
+          setDraggedProductImageIndex(null);
+          setDragOverProductImageIndex(null);
+
+          try {
+            setLoading(true);
+
+            const response = await sendEditPayload({
+              action: "ordenar_fotos_producto",
+              productId: editFoundProduct.id,
+              orderedImageIds: currentImages.map((item) => item.id),
+            });
+
+            pushAssistantInfo(
+              response?.reply || "Fotos reordenadas correctamente."
+            );
+          } catch (error: any) {
+            pushAssistantInfo(
+              error?.message || "No pude reordenar las fotos."
+            );
+          } finally {
+            setLoading(false);
+          }
+        }}
+        onDragEnd={() => {
+          setDraggedProductImageIndex(null);
+          setDragOverProductImageIndex(null);
+        }}
         style={{
           border: "1px solid #334155",
           borderRadius: 12,
@@ -2472,6 +2538,10 @@ Stock general
           flexDirection: "column",
           gap: 8,
           width: 120,
+          cursor: "grab",
+          opacity: draggedProductImageIndex === index ? 0.65 : 1,
+          boxShadow:
+            dragOverProductImageIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
         }}
       >
         <img
@@ -2487,7 +2557,7 @@ Stock general
         />
 
         <div style={{ color: "#94a3b8", fontSize: 12 }}>
-          ID: {img.id}
+          {index === 0 ? "Principal" : `Foto ${index + 1}`}
         </div>
 
         <button

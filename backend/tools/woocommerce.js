@@ -1423,6 +1423,54 @@ export async function removeProductImages({
   };
 }
 
+export async function reorderProductImages({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  orderedImageIds = [],
+}) {
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const currentImages = Array.isArray(product?.images) ? product.images : [];
+
+  const imageMap = new Map(
+    currentImages.map((img) => [Number(img.id), img])
+  );
+
+  const reordered = orderedImageIds
+    .map((id) => imageMap.get(Number(id)))
+    .filter(Boolean)
+    .map((img) => ({ id: Number(img.id) }));
+
+  const missingImages = currentImages
+    .filter((img) => !orderedImageIds.includes(Number(img.id)))
+    .map((img) => ({ id: Number(img.id) }));
+
+  const finalImages = [...reordered, ...missingImages];
+
+  const updated = await updateProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      images: finalImages,
+    }
+  );
+
+  return {
+    ok: true,
+    product_id: updated.id,
+    name: updated.name,
+    images: updated.images || [],
+  };
+}
+
 function cleanText(value) {
   return String(value ?? "").trim();
 }

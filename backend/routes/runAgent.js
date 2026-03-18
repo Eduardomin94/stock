@@ -21,9 +21,9 @@ import {
   findProductsByName,
   deleteProductById,
   updateStockAdvanced,
-  uploadImageToWordpress,
   addProductImages,
   removeProductImages,
+  reorderProductImages,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1325,6 +1325,26 @@ if (action === "eliminar_fotos_producto") {
   });
 }
 
+if (action === "ordenar_fotos_producto") {
+  const orderedImageIds = Array.isArray(payload?.orderedImageIds)
+    ? payload.orderedImageIds.map((id) => Number(id)).filter(Boolean)
+    : [];
+
+  if (!orderedImageIds.length) {
+    return res.status(400).json({
+      error: "Faltan orderedImageIds.",
+    });
+  }
+
+  result = await reorderProductImages({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    orderedImageIds,
+  });
+}
+
   // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
@@ -1428,6 +1448,10 @@ if (result) {
 
   if (action === "eliminar_fotos_producto") {
   reply = `Fotos eliminadas correctamente en ${result.name}.`;
+}
+
+if (action === "ordenar_fotos_producto") {
+  reply = `Fotos reordenadas correctamente en ${result.name}.`;
 }
   
   return res.json({
