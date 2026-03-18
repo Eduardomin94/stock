@@ -1429,6 +1429,93 @@ if (action === "quitar_fotos_variantes") {
   });
 }
 
+// ✅ MOVER PRODUCTO POR FECHA (ANTES / DESPUÉS)
+if (action === "mover_producto_fecha") {
+  const targetProductId = Number(payload?.targetProductId);
+  const position = String(payload?.position || "").trim().toLowerCase();
+
+  if (!targetProductId) {
+    return res.status(400).json({
+      error: "Falta targetProductId.",
+    });
+  }
+
+  if (!["before", "after"].includes(position)) {
+    return res.status(400).json({
+      error: "position debe ser 'before' o 'after'.",
+    });
+  }
+
+  if (productId === targetProductId) {
+    return res.status(400).json({
+      error: "No podés mover un producto respecto de sí mismo.",
+    });
+  }
+
+  const baseProductsUrl = `${String(baseUrl || "").replace(/\/+$/, "")}/products`;
+
+  const targetResponse = await axios.get(
+    `${baseProductsUrl}/${targetProductId}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  const targetProduct = targetResponse.data || {};
+
+  const targetDateRaw =
+    targetProduct?.date_created_gmt ||
+    targetProduct?.date_created ||
+    targetProduct?.date_modified_gmt ||
+    targetProduct?.date_modified ||
+    "";
+
+  if (!targetDateRaw) {
+    return res.status(400).json({
+      error: "No pude obtener la fecha del producto de referencia.",
+    });
+  }
+
+  const targetDate = new Date(targetDateRaw);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return res.status(400).json({
+      error: "La fecha del producto de referencia no es válida.",
+    });
+  }
+
+  if (position === "before") {
+    targetDate.setMinutes(targetDate.getMinutes() - 1);
+  } else {
+    targetDate.setMinutes(targetDate.getMinutes() + 1);
+  }
+
+  const newDate = targetDate.toISOString();
+
+  const updated = await updateWooProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      date_created: newDate,
+    }
+  );
+
+  result = {
+    ok: true,
+    product_id: updated.id,
+    name: updated.name,
+    target_product_id: targetProduct.id,
+    target_name: targetProduct.name,
+    position,
+    new_date: newDate,
+  };
+}
+
 
   // ✅ CAMBIAR DESCRIPCIÓN CORTA
 if (action === "cambiar_descripcion") {
@@ -1631,6 +1718,13 @@ if (action === "quitar_fotos_variantes") {
     result.updated_count === 1
       ? `Foto eliminada de 1 variante de ${result.name}:\n${variationLines}`
       : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
+}
+
+if (action === "mover_producto_fecha") {
+  reply =
+    result.position === "before"
+      ? `${result.name} fue movido antes de ${result.target_name}.`
+      : `${result.name} fue movido después de ${result.target_name}.`;
 }
 
 if (action === "mover_producto_fecha") {
