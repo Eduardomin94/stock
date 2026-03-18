@@ -24,6 +24,7 @@ import {
   addProductImages,
   removeProductImages,
   reorderProductImages,
+  assignImageToSelectedVariations,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1325,6 +1326,7 @@ if (action === "eliminar_fotos_producto") {
   });
 }
 
+// ORDENAR FOTOS DEL PRODUCTO
 if (action === "ordenar_fotos_producto") {
   const orderedImageIds = Array.isArray(payload?.orderedImageIds)
     ? payload.orderedImageIds.map((id) => Number(id)).filter(Boolean)
@@ -1342,6 +1344,38 @@ if (action === "ordenar_fotos_producto") {
     consumerSecret,
     productId,
     orderedImageIds,
+  });
+}
+
+// CAMBIAR FOTOS DE VARIANTES
+if (action === "cambiar_fotos_variantes") {
+  const files = Array.isArray(req.files) ? req.files : [];
+
+  if (!files.length) {
+    return res.status(400).json({
+      error: "Faltan imágenes.",
+    });
+  }
+
+  const uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
+
+  if (!uploadedImages.length) {
+    return res.status(400).json({
+      error: "No se pudieron preparar las imágenes.",
+    });
+  }
+
+  const firstImage = uploadedImages[0];
+
+  result = await assignImageToSelectedVariations({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    imageSrc: firstImage.src,
+    selectedCombinations: Array.isArray(payload?.selectedCombinations)
+      ? payload.selectedCombinations
+      : [],
   });
 }
 
@@ -1454,6 +1488,13 @@ if (action === "ordenar_fotos_producto") {
   reply = `Fotos reordenadas correctamente en ${result.name}.`;
 }
   
+if (action === "cambiar_fotos_variantes") {
+  reply =
+    result.updated_count === 1
+      ? `Foto asignada correctamente a 1 variante de ${result.name}.`
+      : `Foto asignada correctamente a ${result.updated_count} variantes de ${result.name}.`;
+}
+
   return res.json({
     usedTool: true,
     reply,

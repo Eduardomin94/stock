@@ -1471,6 +1471,179 @@ export async function reorderProductImages({
   };
 }
 
+export async function setVariationImage({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  variationId,
+  imageId,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+  if (!variationId) throw new Error("Falta variationId");
+  if (!imageId) throw new Error("Falta imageId");
+
+  const updated = await updateVariation(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    variationId,
+    {
+      image: {
+        id: Number(imageId),
+      },
+    }
+  );
+
+  return {
+    ok: true,
+    product_id: productId,
+    variation_id: updated.id,
+    image: updated.image || null,
+    attributes_text: formatAttributes(updated.attributes),
+  };
+}
+
+export async function assignImageToSelectedVariations({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  imageSrc,
+  selectedCombinations = [],
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+  if (!imageSrc) throw new Error("Falta imageSrc");
+
+  const productWithImage = await addProductImages({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    images: [{ src: imageSrc }],
+  });
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const allImages = Array.isArray(product.images) ? product.images : [];
+
+  const matchedImage = allImages.find(
+    (img) => String(img?.src || "").trim() === String(imageSrc).trim()
+  );
+
+  const fallbackImage = allImages.length > 0 ? allImages[allImages.length - 1] : null;
+  const finalImageId = Number(matchedImage?.id || fallbackImage?.id || 0);
+
+  if (!finalImageId) {
+    throw new Error("No pude obtener el imageId final.");
+  }
+
+  const variations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? selectedCombinations : [])
+    .map((item) => {
+      if (Array.isArray(item)) {
+        return item.map((v) => normalizeText(v));
+      }
+
+      const normalizedItem = {};
+
+      for (const [key, value] of Object.entries(item || {})) {
+        const cleanKey = normalizeText(key);
+        const cleanValue = normalizeText(value);
+
+        if (cleanKey && cleanValue) {
+          normalizedItem[cleanKey] = cleanValue;
+        }
+      }
+
+      return normalizedItem;
+    })
+    .filter((item) =>
+      Array.isArray(item) ? item.length > 0 : Object.keys(item).length > 0
+    );
+
+  const variationsToUpdate =
+    normalizedSelectedCombinations.length === 0
+      ? variations
+      : variations.filter((variation) => {
+          const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+          return normalizedSelectedCombinations.some((combo) => {
+            if (Array.isArray(combo)) {
+              const values = attrs.map((attr) => normalizeText(attr?.option || ""));
+              return combo.every((v) => values.includes(normalizeText(v)));
+            }
+
+            return Object.entries(combo).every(([comboName, comboValue]) =>
+              attrs.some(
+                (attr) =>
+                  normalizeText(attr?.name || "") === comboName &&
+                  normalizeText(attr?.option || "") === comboValue
+              )
+            );
+          });
+        });
+
+  if (variationsToUpdate.length === 0) {
+    return {
+      ok: false,
+      product_id: productId,
+      updated_count: 0,
+      image_id: finalImageId,
+      message: "No encontré variaciones para actualizar.",
+    };
+  }
+
+  const results = [];
+
+  for (const variation of variationsToUpdate) {
+    const updated = await updateVariation(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      variation.id,
+      {
+        image: {
+          id: finalImageId,
+        },
+      }
+    );
+
+    results.push({
+      variation_id: updated.id,
+      image: updated.image || null,
+      attributes_text: formatAttributes(updated.attributes),
+    });
+  }
+
+  return {
+    ok: true,
+    product_id: productId,
+    name: product.name || productWithImage.name || "",
+    image_id: finalImageId,
+    updated_count: results.length,
+    results,
+  };
+}
+
 function cleanText(value) {
   return String(value ?? "").trim();
 }

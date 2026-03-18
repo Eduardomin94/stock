@@ -39,7 +39,8 @@ type EditActionType =
   | "agregar_precio_rebajado"
   | "cambiar_precio_rebajado"
   | "quitar_precio_rebajado"
-  | "cambiar_descripcion";
+  | "cambiar_descripcion"
+  | "cambiar_fotos_variantes";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
@@ -2455,8 +2456,8 @@ Stock general
     }}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Podés agregar fotos al producto.
-    </div>
+  Podés agregar fotos al producto o asignar una foto a variantes específicas.
+</div>
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length === 0 && (
   <div style={{ color: "#94a3b8", fontSize: 13 }}>
@@ -2668,6 +2669,94 @@ if (fileInputRef.current) {
   Agregar fotos
 </button>
 
+{editAttributeCombinations.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 12,
+      paddingTop: 12,
+      borderTop: "1px solid #334155",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Asignar foto a variantes:
+    </div>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {editAttributeCombinations.map((combo, index) => {
+        const checked = isCombinationSelected(combo);
+
+        return (
+          <label
+            key={index}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: checked ? "#2563eb" : "#020617",
+              color: "white",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggleCombination(combo)}
+            />
+
+            <span>{Object.values(combo).join(" / ")}</span>
+          </label>
+        );
+      })}
+    </div>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id || selectedFiles.length === 0) {
+          pushAssistantInfo("Seleccioná una foto primero.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayloadWithFiles(
+            {
+              action: "cambiar_fotos_variantes",
+              productId: editFoundProduct.id,
+              selectedCombinations: selectedEditCombinations.map((combo) =>
+                Object.values(combo)
+              ),
+            },
+            [selectedFiles[0]]
+          );
+
+          pushAssistantInfo(response?.reply || "Foto asignada.");
+
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "Error.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Asignar foto a variantes
+    </button>
+  </div>
+)}
 
   </div>
 )}
