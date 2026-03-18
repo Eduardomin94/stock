@@ -378,9 +378,11 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
 const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 const [editValue, setEditValue] = useState("");
+const [editStockMode, setEditStockMode] = useState<"quantity" | "status">("quantity");
+const [editStockStatus, setEditStockStatus] = useState<"instock" | "outofstock">("instock");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
-const [editSection, setEditSection] = useState<"" | "precio" | "descripcion">("");
+const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion">("");
 
 
   
@@ -551,13 +553,18 @@ const assistantMessage: Message = {
 
  async function handleSend(filesOverride?: File[]) {
   if (activeAction === "edit") {
-  const raw = text.trim();
+    const raw = text.trim();
 
   if (!raw) {
     pushAssistantInfo("Escribí el nombre o el SKU del producto.");
     return;
   }
 
+  if (raw.startsWith("__edit_product_action__:")) {
+    await sendToAgent(raw, filesOverride);
+    setText("");
+    return;
+  }
   setMessages((prev) => [
     ...prev,
     {
@@ -870,6 +877,34 @@ async function sendEditPayload(payload: any) {
   const form = new FormData();
   form.append("agentId", agentId);
   form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
+
+  const token = localStorage.getItem("token") || "";
+
+  const res = await fetch(`${API}/run-agent`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      data?.detail || data?.error || data?.message || "Error editando producto"
+    );
+  }
+
+  return data;
+}
+
+async function sendEditPayloadWithFiles(payload: any, files: File[]) {
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
+
+  files.forEach((file) => {
+    form.append("images", file);
+  });
 
   const token = localStorage.getItem("token") || "";
 
@@ -2100,10 +2135,39 @@ Stock general
       setEditActionType("");
       setEditValue("");
       setEditAttributeValues({});
+      setSelectedEditCombinations([]);
     }}
     style={quickActionSecondaryStyle}
   >
     Precio
+  </button>
+
+  <button
+  type="button"
+  onClick={() => {
+    setEditSection("fotos");
+    setEditActionType("");
+    setEditValue("");
+    setEditAttributeValues({});
+    setSelectedEditCombinations([]);
+  }}
+  style={quickActionSecondaryStyle}
+>
+  Fotos
+</button>
+
+  <button
+    type="button"
+    onClick={() => {
+      setEditSection("stock");
+      setEditActionType("");
+      setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Stock
   </button>
 
   <button
@@ -2112,6 +2176,8 @@ Stock general
       setEditSection("descripcion");
       setEditActionType("cambiar_descripcion");
       setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
     }}
     style={quickActionSecondaryStyle}
   >
@@ -2172,6 +2238,255 @@ Stock general
     </button>
   </>
 )}
+  </div>
+)}
+
+{editSection === "stock" && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#020617",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Elegí si querés cambiar el stock con cantidad o solo marcar disponible / sin stock.
+    </div>
+
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "#e5e7eb",
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="radio"
+          name="editStockMode"
+          checked={editStockMode === "quantity"}
+          onChange={() => setEditStockMode("quantity")}
+        />
+        Con cantidad
+      </label>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "#e5e7eb",
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="radio"
+          name="editStockMode"
+          checked={editStockMode === "status"}
+          onChange={() => setEditStockMode("status")}
+        />
+        Sin cantidad
+      </label>
+    </div>
+
+    {editStockMode === "quantity" ? (
+      <input
+        type="number"
+        min="0"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        placeholder="Ej: 5"
+        style={{
+          width: "100%",
+          border: "1px solid #334155",
+          background: "#020617",
+          color: "white",
+          borderRadius: 10,
+          padding: "10px 12px",
+          outline: "none",
+          fontSize: 14,
+        }}
+      />
+    ) : (
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => setEditStockStatus("instock")}
+          style={{
+            ...quickActionSecondaryStyle,
+            background: editStockStatus === "instock" ? "#2563eb" : "#111827",
+            border: editStockStatus === "instock" ? "1px solid #2563eb" : "1px solid #243041",
+          }}
+        >
+          Disponible
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setEditStockStatus("outofstock")}
+          style={{
+            ...quickActionSecondaryStyle,
+            background: editStockStatus === "outofstock" ? "#2563eb" : "#111827",
+            border: editStockStatus === "outofstock" ? "1px solid #2563eb" : "1px solid #243041",
+          }}
+        >
+          Sin stock
+        </button>
+      </div>
+    )}
+
+    {editAttributeCombinations.length > 0 && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ fontSize: 12, color: "#94a3b8" }}>
+      Seleccioná las variaciones a modificar:
+    </div>
+
+    {editAttributeCombinations.map((combo, index) => {
+      const key = getCombinationKey(combo);
+      const checked = isCombinationSelected(combo);
+
+      return (
+        <label
+          key={index}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #334155",
+            background: checked ? "#2563eb" : "#020617",
+            color: "white",
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleCombination(combo)}
+          />
+
+          <span>
+            {Object.values(combo).join(" / ")}
+          </span>
+        </label>
+      );
+    })}
+  </div>
+)}
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) return;
+
+        if (editStockMode === "quantity" && !String(editValue || "").trim()) {
+          pushAssistantInfo("Escribí una cantidad.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayload({
+  action: "cambiar_stock",
+  productId: editFoundProduct.id,
+  manageStock: editStockMode === "quantity",
+  stockQuantity:
+    editStockMode === "quantity"
+      ? Number(editValue || 0)
+      : undefined,
+  stockStatus: editStockMode === "status" ? editStockStatus : undefined,
+  selectedCombinations: selectedEditCombinations,
+});
+
+          pushAssistantInfo(
+            response?.reply || "Stock actualizado correctamente."
+          );
+
+          setEditValue("");
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude cambiar el stock."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Guardar stock
+    </button>
+  </div>
+)}
+
+{editSection === "fotos" && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#020617",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Podés agregar fotos al producto.
+    </div>
+
+    <button
+  type="button"
+  onClick={async () => {
+    if (!editFoundProduct?.id || selectedFiles.length === 0) {
+      pushAssistantInfo("Agregá al menos una foto.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await sendEditPayloadWithFiles(
+        {
+          action: "agregar_fotos_producto",
+          productId: editFoundProduct.id,
+        },
+        selectedFiles
+      );
+
+      pushAssistantInfo(
+        response?.reply || "Fotos agregadas correctamente."
+      );
+      pushAssistantInfo(
+  response?.reply || "Fotos agregadas correctamente."
+);
+
+setSelectedFiles([]);
+if (fileInputRef.current) {
+  fileInputRef.current.value = "";
+}
+    } catch (error: any) {
+      pushAssistantInfo(
+        error?.message || "No pude agregar las fotos."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }}
+  style={wizardPrimaryButtonStyle}
+>
+  Agregar fotos
+</button>
   </div>
 )}
 

@@ -20,7 +20,9 @@ import {
   findProductBySku,
   findProductsByName,
   deleteProductById,
-  updateStockAdvanced
+  updateStockAdvanced,
+  uploadImageToWordpress,
+  addProductImages,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1268,6 +1270,47 @@ const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
     });
   }
   
+     // ✅ AGREGAR FOTOS AL PRODUCTO
+  if (action === "agregar_fotos_producto") {
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (!files.length) {
+      return res.status(400).json({
+        error: "Faltan imágenes.",
+      });
+    }
+
+    const uploadedImages = [];
+
+    for (const file of files) {
+      const uploaded = await uploadImageToWordpress({
+        baseUrl,
+        consumerKey,
+        consumerSecret,
+        fileBuffer: file.buffer,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+      });
+
+      if (uploaded?.id) {
+        uploadedImages.push({ id: uploaded.id });
+      }
+    }
+
+    if (!uploadedImages.length) {
+      return res.status(400).json({
+        error: "No se pudieron subir las imágenes.",
+      });
+    }
+
+    result = await addProductImages({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      images: uploadedImages,
+    });
+  }
 
   // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
@@ -1364,6 +1407,10 @@ if (result) {
     } else {
       reply = `Stock actualizado correctamente en ${result.name}.`;
     }
+  }
+
+    if (action === "agregar_fotos_producto") {
+    reply = `Fotos agregadas correctamente en ${result.name}.`;
   }
   return res.json({
     usedTool: true,

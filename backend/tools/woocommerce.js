@@ -2013,9 +2013,36 @@ export async function uploadImageToWordpress({
   baseUrl,
   consumerKey,
   consumerSecret,
-  buffer,
-  filename,
+  fileBuffer,
+  fileName,
+  mimeType,
 }) {
+  const form = new FormData();
+
+  form.append("file", fileBuffer, {
+    filename: fileName,
+    contentType: mimeType || "application/octet-stream",
+  });
+
+  const response = await axios.post(
+    `${normalizeBaseUrl(baseUrl).replace("/wp-json/wc/v3", "")}/wp-json/wp/v2/media`,
+    form,
+    {
+      headers: {
+        ...form.getHeaders(),
+      },
+      auth: {
+        username: process.env.WP_USER,
+        password: process.env.WP_APP_PASSWORD,
+      },
+    }
+  );
+
+  return {
+    id: response.data.id,
+    url: response.data.source_url,
+  };
+}
   const form = new FormData();
 
   form.append("file", buffer, filename);
