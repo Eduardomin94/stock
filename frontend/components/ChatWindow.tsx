@@ -46,7 +46,8 @@ type EditActionType =
   | "quitar_precio_rebajado"
   | "cambiar_descripcion"
   | "cambiar_fotos_variantes"
-  | "quitar_fotos_variantes";
+  | "quitar_fotos_variantes"
+  | "mover_producto_fecha";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
@@ -408,6 +409,9 @@ const [editStockStatus, setEditStockStatus] = useState<"instock" | "outofstock">
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
 const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion">("");
+const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
+const [moveTargetSearch, setMoveTargetSearch] = useState("");
+const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
 
 
   
@@ -658,6 +662,9 @@ const assistantMessage: Message = {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+  setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo(
     `Encontré el producto: ${data.product.name}. Ahora elegí qué querés editar.`
@@ -672,6 +679,9 @@ else if (Array.isArray(data?.products) && data.products.length === 1) {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo(
     `Encontré el producto: ${data.products[0].name}. Ahora elegí qué querés editar.`
@@ -690,6 +700,9 @@ else if (Array.isArray(data?.products) && data.products.length > 1) {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+  setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo("Encontré varios productos exactos. Elegí uno de la lista.");
 }
@@ -706,6 +719,9 @@ else if (Array.isArray(data?.candidates) && data.candidates.length === 1) {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+  setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo(
     `Encontré el producto: ${fullProduct.name}. Ahora elegí qué querés editar.`
@@ -724,6 +740,9 @@ else if (Array.isArray(data?.candidates) && data.candidates.length > 1) {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+  setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo("Encontré varios productos parecidos. Elegí uno de la lista.");
 }
@@ -736,6 +755,9 @@ else {
   setEditSection("");
   setEditAttributeValues({});
   setSelectedEditCombinations([]);
+  setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
   pushAssistantInfo("No encontré ese producto.");
 }
@@ -1401,18 +1423,22 @@ setStoreName(`${prettyName} (${domain})`);
         <button
   type="button"
   onClick={() => {
-  setActiveAction("edit");
-  setEditFoundProduct(null);
-  setEditCandidates([]);
-  setEditActionType("");
-  setEditValue("");
-  setEditSection("");
-  setEditAttributeValues({});
-  setText("");
-  pushAssistantInfo(
-    "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
-  );
-}}
+    setActiveAction("edit");
+    setEditFoundProduct(null);
+    setEditCandidates([]);
+    setEditActionType("");
+    setEditValue("");
+    setEditSection("");
+    setEditAttributeValues({});
+    setSelectedEditCombinations([]);
+    setMoveTargetSearch("");
+    setMoveTargetProduct(null);
+    setMoveProductMode("before");
+    setText("");
+    pushAssistantInfo(
+      "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
+    );
+  }}
   style={quickActionSecondaryStyle}
 >
   Editar producto
@@ -1421,19 +1447,23 @@ setStoreName(`${prettyName} (${domain})`);
         <button
   type="button"
   onClick={() => {
-  setActiveAction("delete");
-  setDeleteMode("sku");
-  setEditFoundProduct(null);
-  setEditCandidates([]);
-  setEditActionType("");
-  setEditValue("");
-  setEditSection("");
-  setEditAttributeValues({});
-  setText("");
-  pushAssistantInfo(
-    "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
-  );
-}}
+    setActiveAction("delete");
+    setDeleteMode("sku");
+    setEditFoundProduct(null);
+    setEditCandidates([]);
+    setEditActionType("");
+    setEditValue("");
+    setEditSection("");
+    setEditAttributeValues({});
+    setSelectedEditCombinations([]);
+    setMoveTargetSearch("");
+    setMoveTargetProduct(null);
+    setMoveProductMode("before");
+    setText("");
+    pushAssistantInfo(
+      "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
+    );
+  }}
   style={quickActionSecondaryStyle}
 >
   Eliminar producto
@@ -2107,6 +2137,9 @@ Stock general
     setEditSection("");
     setEditAttributeValues({});
     setSelectedEditCombinations([]);
+    setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
 
     pushAssistantInfo(`Elegiste: ${fullProduct.name}. Ahora elegí qué querés editar.`);
   } catch (error: any) {
@@ -2184,6 +2217,9 @@ Stock general
       setEditValue("");
       setEditAttributeValues({});
       setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
     }}
     style={quickActionSecondaryStyle}
   >
@@ -2191,18 +2227,21 @@ Stock general
   </button>
 
   <button
-  type="button"
-  onClick={() => {
-    setEditSection("fotos");
-    setEditActionType("");
-    setEditValue("");
-    setEditAttributeValues({});
-    setSelectedEditCombinations([]);
-  }}
-  style={quickActionSecondaryStyle}
->
-  Fotos
-</button>
+    type="button"
+    onClick={() => {
+      setEditSection("fotos");
+      setEditActionType("");
+      setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Fotos
+  </button>
 
   <button
     type="button"
@@ -2212,6 +2251,9 @@ Stock general
       setEditValue("");
       setEditAttributeValues({});
       setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
     }}
     style={quickActionSecondaryStyle}
   >
@@ -2226,10 +2268,30 @@ Stock general
       setEditValue("");
       setEditAttributeValues({});
       setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
     }}
     style={quickActionSecondaryStyle}
   >
     Descripción
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      setEditSection("");
+      setEditActionType("mover_producto_fecha");
+      setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
+    }}
+    style={quickActionSecondaryStyle}
+  >
+    Posición
   </button>
 </div>
 
@@ -2925,14 +2987,15 @@ if (fileInputRef.current) {
         }}
       >
         <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-          {editActionType === "cambiar_precio" && "Escribí el nuevo precio. Opcional: filtrá por atributos globales."}
-          {editActionType === "agregar_precio_rebajado" && "Escribí el precio rebajado."}
-          {editActionType === "cambiar_precio_rebajado" && "Escribí el nuevo precio rebajado."}
-          {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
-          {editActionType === "cambiar_descripcion" && "Escribí la nueva descripción."}
-        </div>
+  {editActionType === "cambiar_precio" && "Escribí el nuevo precio. Opcional: filtrá por atributos globales."}
+  {editActionType === "agregar_precio_rebajado" && "Escribí el precio rebajado."}
+  {editActionType === "cambiar_precio_rebajado" && "Escribí el nuevo precio rebajado."}
+  {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
+  {editActionType === "cambiar_descripcion" && "Escribí la nueva descripción."}
+  {editActionType === "mover_producto_fecha" && "Elegí si querés poner este producto antes o después de otro producto."}
+</div>
 
-        {editActionType === "cambiar_descripcion" ? (
+{editActionType === "cambiar_descripcion" ? (
   <textarea
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
@@ -2964,6 +3027,139 @@ if (fileInputRef.current) {
   >
     Este producto tiene precio rebajado cargado. Tocá “Guardar cambio” para quitarlo.
   </div>
+) : editActionType === "mover_producto_fecha" ? (
+  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={() => setMoveProductMode("before")}
+        style={{
+          ...quickActionSecondaryStyle,
+          background: moveProductMode === "before" ? "#2563eb" : "#111827",
+          border: moveProductMode === "before" ? "1px solid #2563eb" : "1px solid #243041",
+        }}
+      >
+        Antes de
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setMoveProductMode("after")}
+        style={{
+          ...quickActionSecondaryStyle,
+          background: moveProductMode === "after" ? "#2563eb" : "#111827",
+          border: moveProductMode === "after" ? "1px solid #2563eb" : "1px solid #243041",
+        }}
+      >
+        Después de
+      </button>
+    </div>
+
+    <input
+      type="text"
+      value={moveTargetSearch}
+      onChange={(e) => setMoveTargetSearch(e.target.value)}
+      placeholder="Nombre o SKU del producto de referencia"
+      style={{
+        width: "100%",
+        border: "1px solid #334155",
+        background: "#020617",
+        color: "white",
+        borderRadius: 10,
+        padding: "10px 12px",
+        outline: "none",
+        fontSize: 14,
+      }}
+    />
+
+    <button
+      type="button"
+      onClick={async () => {
+        const raw = moveTargetSearch.trim();
+
+        if (!raw) {
+          pushAssistantInfo("Escribí el producto de referencia.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const mode = raw.includes(" ") ? "nombre" : "sku";
+          const form = new FormData();
+          form.append("agentId", agentId);
+          form.append("message", `__search_edit_product__:${mode}|${raw}`);
+
+          const token = localStorage.getItem("token") || "";
+
+          const res = await fetch(`${API}/run-agent`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            body: form,
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(
+              data?.detail || data?.error || data?.message || "Error buscando producto."
+            );
+          }
+
+          if (data?.product) {
+            const found = normalizeEditFoundProduct(data.product, data.variationSample);
+
+            if (Number(found.id) === Number(editFoundProduct?.id)) {
+              pushAssistantInfo("Elegí otro producto distinto como referencia.");
+              return;
+            }
+
+            setMoveTargetProduct(found);
+            pushAssistantInfo(`Producto de referencia encontrado: ${found.name}.`);
+            return;
+          }
+
+          if (Array.isArray(data?.products) && data.products.length === 1) {
+            const found = normalizeEditFoundProduct(data.products[0], data.variationSample);
+
+            if (Number(found.id) === Number(editFoundProduct?.id)) {
+              pushAssistantInfo("Elegí otro producto distinto como referencia.");
+              return;
+            }
+
+            setMoveTargetProduct(found);
+            pushAssistantInfo(`Producto de referencia encontrado: ${found.name}.`);
+            return;
+          }
+
+          pushAssistantInfo("No pude encontrar un único producto de referencia. Probá con el SKU exacto.");
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "No pude buscar el producto de referencia.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={quickActionSecondaryStyle}
+    >
+      Buscar producto de referencia
+    </button>
+
+    {moveTargetProduct && (
+      <div
+        style={{
+          border: "1px solid #334155",
+          background: "#0f172a",
+          borderRadius: 12,
+          padding: "10px 12px",
+          color: "#e5e7eb",
+          fontSize: 14,
+        }}
+      >
+        Referencia: {moveTargetProduct.name}
+        {moveTargetProduct.sku ? ` (SKU: ${moveTargetProduct.sku})` : ""}
+      </div>
+    )}
+  </div>
 ) : (
   <input
     type="number"
@@ -2981,69 +3177,77 @@ if (fileInputRef.current) {
       fontSize: 14,
     }}
   />
-  
 )}
 
-<div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-  <div style={{ fontSize: 12, color: "#94a3b8" }}>
-    Seleccioná las variaciones a modificar:
+{editActionType !== "mover_producto_fecha" && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+    <div style={{ fontSize: 12, color: "#94a3b8" }}>
+      Seleccioná las variaciones a modificar:
+    </div>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {editAttributeCombinations.map((combo, index) => {
+        const checked = isCombinationSelected(combo);
+
+        return (
+          <label
+            key={index}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: checked ? "#2563eb" : "#020617",
+              color: "white",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggleCombination(combo)}
+            />
+
+            <span>
+              {Object.entries(combo)
+                .map(([_, v]) => `${v}`)
+                .join(" / ")}
+            </span>
+          </label>
+        );
+      })}
+    </div>
   </div>
-
-  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-    {editAttributeCombinations.map((combo, index) => {
-      const key = getCombinationKey(combo);
-      const checked = isCombinationSelected(combo);
-
-      return (
-        <label
-          key={index}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 10px",
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: checked ? "#2563eb" : "#020617",
-            color: "white",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleCombination(combo)}
-          />
-
-          <span>
-            {Object.entries(combo)
-              .map(([k, v]) => `${v}`)
-              .join(" / ")}
-          </span>
-        </label>
-      );
-    })}
-  </div>
-</div>
+)}
 
         <button
           type="button"
           onClick={async () => {
   if (!editFoundProduct?.id || !editActionType) {
-    pushAssistantInfo("Falta elegir una acción.");
-    return;
-  }
+  pushAssistantInfo("Falta elegir una acción.");
+  return;
+}
 
-  if (editActionType !== "quitar_precio_rebajado" && !editValue.trim()) {
-    pushAssistantInfo("Completá el valor antes de guardar.");
-    return;
-  }
+if (
+  editActionType !== "quitar_precio_rebajado" &&
+  editActionType !== "mover_producto_fecha" &&
+  !editValue.trim()
+) {
+  pushAssistantInfo("Completá el valor antes de guardar.");
+  return;
+}
+
+if (editActionType === "mover_producto_fecha" && !moveTargetProduct?.id) {
+  pushAssistantInfo("Buscá y elegí el producto de referencia.");
+  return;
+}
 
   try {
     setLoading(true);
 
-    const hasVariations = selectedEditCombinations.length > 0;
     const payload =
   editActionType === "cambiar_precio"
     ? {
@@ -3051,8 +3255,8 @@ if (fileInputRef.current) {
         productId: editFoundProduct.id,
         regularPrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
-  Object.values(combo)
-),
+          Object.values(combo)
+        ),
       }
     : editActionType === "agregar_precio_rebajado"
     ? {
@@ -3060,8 +3264,8 @@ if (fileInputRef.current) {
         productId: editFoundProduct.id,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
-  Object.values(combo)
-),
+          Object.values(combo)
+        ),
       }
     : editActionType === "cambiar_precio_rebajado"
     ? {
@@ -3069,22 +3273,31 @@ if (fileInputRef.current) {
         productId: editFoundProduct.id,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
-  Object.values(combo)
-),
+          Object.values(combo)
+        ),
       }
     : editActionType === "quitar_precio_rebajado"
     ? {
         action: "quitar_precio_rebajado",
         productId: editFoundProduct.id,
         selectedCombinations: selectedEditCombinations.map((combo) =>
-  Object.values(combo)
-),
+          Object.values(combo)
+        ),
+      }
+    : editActionType === "mover_producto_fecha"
+    ? {
+        action: "mover_producto_fecha",
+        productId: editFoundProduct.id,
+        targetProductId: moveTargetProduct?.id,
+        position: moveProductMode,
       }
     : {
         action: "cambiar_descripcion",
         productId: editFoundProduct.id,
         description: editValue.trim(),
       };
+
+      
 
 console.log("PAYLOAD PRECIO", payload);
 
@@ -3138,7 +3351,10 @@ setEditValue("");
 setEditSection("");
 setEditActionType("");
 setEditAttributeValues({});
-setSelectedEditCombinations([])
+setSelectedEditCombinations([]);
+setMoveTargetSearch("");
+setMoveTargetProduct(null);
+setMoveProductMode("before");
             } catch (error: any) {
               pushAssistantInfo(
                 error?.message || "No pude editar el producto."

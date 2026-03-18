@@ -1462,6 +1462,74 @@ if (action === "cambiar_descripcion") {
   });
 }
 
+// ✅ MOVER PRODUCTO POR FECHA (ANTES / DESPUÉS)
+if (action === "mover_producto_fecha") {
+  const targetProductId = Number(payload?.targetProductId);
+  const position = String(payload?.position || "").trim().toLowerCase();
+
+  if (!targetProductId) {
+    return res.status(400).json({
+      error: "Falta targetProductId.",
+    });
+  }
+
+  if (!["before", "after"].includes(position)) {
+    return res.status(400).json({
+      error: "position debe ser 'before' o 'after'.",
+    });
+  }
+
+  const axios = (await import("axios")).default;
+
+  // 1. Obtener producto de referencia
+  const targetRes = await axios.get(
+    `${String(baseUrl || "").replace(/\/+$/, "")}/products/${targetProductId}`,
+    {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }
+  );
+
+  const targetProduct = targetRes.data;
+
+  if (!targetProduct?.date) {
+    return res.status(400).json({
+      error: "No se pudo obtener la fecha del producto de referencia.",
+    });
+  }
+
+  // 2. Calcular nueva fecha
+  const targetDate = new Date(targetProduct.date);
+
+  if (position === "before") {
+    targetDate.setMinutes(targetDate.getMinutes() - 1);
+  } else {
+    targetDate.setMinutes(targetDate.getMinutes() + 1);
+  }
+
+  const newDateISO = targetDate.toISOString();
+
+  // 3. Actualizar producto
+  const updated = await updateWooProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      date: newDateISO,
+    }
+  );
+
+  result = {
+    ok: true,
+    name: updated.name,
+    targetName: targetProduct.name,
+    position,
+  };
+}
+
 // ✅ RESPUESTA FINAL ÚNICA
 if (result) {
   const variationLines = Array.isArray(result.updated_variation_details)
@@ -1563,6 +1631,13 @@ if (action === "quitar_fotos_variantes") {
     result.updated_count === 1
       ? `Foto eliminada de 1 variante de ${result.name}:\n${variationLines}`
       : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
+}
+
+if (action === "mover_producto_fecha") {
+  reply =
+    result.position === "before"
+      ? `${result.name} fue movido antes de ${result.targetName}.`
+      : `${result.name} fue movido después de ${result.targetName}.`;
 }
 
   return res.json({
