@@ -2760,6 +2760,47 @@ if (fileInputRef.current) {
     >
       Asignar foto a variantes
     </button>
+
+    <button
+  type="button"
+  onClick={async () => {
+    if (!editFoundProduct?.id) {
+      pushAssistantInfo("Falta producto.");
+      return;
+    }
+
+    if (selectedEditCombinations.length === 0) {
+      pushAssistantInfo("Seleccioná variantes.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await sendEditPayload({
+        action: "quitar_fotos_variantes",
+        productId: editFoundProduct.id,
+        selectedCombinations: selectedEditCombinations.map((combo) =>
+          Object.values(combo)
+        ),
+      });
+
+      pushAssistantInfo(
+        response?.reply || "Foto eliminada de las variantes."
+      );
+
+    } catch (error: any) {
+      pushAssistantInfo(
+        error?.message || "No pude quitar la foto."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }}
+  style={quickActionSecondaryStyle}
+>
+  Quitar foto de variantes
+</button>
   </div>
 )}
 

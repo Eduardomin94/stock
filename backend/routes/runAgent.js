@@ -25,6 +25,7 @@ import {
   removeProductImages,
   reorderProductImages,
   assignImageToSelectedVariations,
+  removeImageFromSelectedVariations,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1379,6 +1380,20 @@ if (action === "cambiar_fotos_variantes") {
   });
 }
 
+// ✅ QUITAR FOTOS VARIANTES
+if (action === "quitar_fotos_variantes") {
+  result = await removeImageFromSelectedVariations({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    selectedCombinations: Array.isArray(payload?.selectedCombinations)
+      ? payload.selectedCombinations
+      : [],
+  });
+}
+
+
   // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
     const description = payload?.description;
@@ -1499,6 +1514,19 @@ if (action === "cambiar_fotos_variantes") {
     result.updated_count === 1
       ? `Foto asignada correctamente a 1 variante de ${result.name}:\n${variationLines}`
       : `Foto asignada correctamente a ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
+}
+
+if (action === "quitar_fotos_variantes") {
+  const variationLines = Array.isArray(result.results)
+    ? result.results
+        .map((item) => `- ${item.attributes_text || `Variación #${item.variation_id}`}`)
+        .join("\n")
+    : "";
+
+  reply =
+    result.updated_count === 1
+      ? `Foto eliminada de 1 variante de ${result.name}:\n${variationLines}`
+      : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
 }
 
   return res.json({

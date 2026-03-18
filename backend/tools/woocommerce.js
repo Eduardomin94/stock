@@ -1644,6 +1644,116 @@ export async function assignImageToSelectedVariations({
   };
 }
 
+export async function removeImageFromSelectedVariations({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  selectedCombinations = [],
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+
+  const variations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  const normalizedSelectedCombinations = (Array.isArray(selectedCombinations) ? selectedCombinations : [])
+    .map((item) => {
+      if (Array.isArray(item)) {
+        return item.map((v) => normalizeText(v));
+      }
+
+      const normalizedItem = {};
+
+      for (const [key, value] of Object.entries(item || {})) {
+        const cleanKey = normalizeText(key);
+        const cleanValue = normalizeText(value);
+
+        if (cleanKey && cleanValue) {
+          normalizedItem[cleanKey] = cleanValue;
+        }
+      }
+
+      return normalizedItem;
+    })
+    .filter((item) =>
+      Array.isArray(item) ? item.length > 0 : Object.keys(item).length > 0
+    );
+
+  const variationsToUpdate =
+    normalizedSelectedCombinations.length === 0
+      ? variations
+      : variations.filter((variation) => {
+          const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+          return normalizedSelectedCombinations.some((combo) => {
+            if (Array.isArray(combo)) {
+              const values = attrs.map((attr) => normalizeText(attr?.option || ""));
+              return combo.every((v) => values.includes(normalizeText(v)));
+            }
+
+            return Object.entries(combo).every(([comboName, comboValue]) =>
+              attrs.some(
+                (attr) =>
+                  normalizeText(attr?.name || "") === comboName &&
+                  normalizeText(attr?.option || "") === comboValue
+              )
+            );
+          });
+        });
+
+  if (variationsToUpdate.length === 0) {
+    return {
+      ok: false,
+      product_id: productId,
+      updated_count: 0,
+      message: "No encontré variaciones para actualizar.",
+    };
+  }
+
+  const results = [];
+
+  for (const variation of variationsToUpdate) {
+    const updated = await updateVariation(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      variation.id,
+      {
+        image: {},
+      }
+    );
+
+    results.push({
+      variation_id: updated.id,
+      image: updated.image || null,
+      attributes_text: formatAttributes(updated.attributes),
+    });
+  }
+
+  return {
+    ok: true,
+    product_id: productId,
+    name: product.name || "",
+    updated_count: results.length,
+    results,
+  };
+}
+
 function cleanText(value) {
   return String(value ?? "").trim();
 }
