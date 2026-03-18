@@ -1429,102 +1429,6 @@ if (action === "quitar_fotos_variantes") {
   });
 }
 
-// ✅ MOVER PRODUCTO POR FECHA (ANTES / DESPUÉS)
-if (action === "mover_producto_fecha") {
-  const targetProductId = Number(payload?.targetProductId);
-  const position = String(payload?.position || "").trim().toLowerCase();
-
-  if (!targetProductId) {
-    return res.status(400).json({
-      error: "Falta targetProductId.",
-    });
-  }
-
-  if (!["before", "after"].includes(position)) {
-    return res.status(400).json({
-      error: "position debe ser 'before' o 'after'.",
-    });
-  }
-
-  if (productId === targetProductId) {
-    return res.status(400).json({
-      error: "No podés mover un producto respecto de sí mismo.",
-    });
-  }
-
-  const baseProductsUrl = `${String(baseUrl || "").replace(/\/+$/, "")}/products`;
-
-  const targetResponse = await axios.get(
-    `${baseProductsUrl}/${targetProductId}`,
-    {
-      params: {
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-      },
-    }
-  );
-
-  const targetProduct = targetResponse.data || {};
-
-  console.log("TARGET PRODUCT FECHAS", {
-    id: targetProduct?.id,
-    name: targetProduct?.name,
-    date_created: targetProduct?.date_created,
-    date_created_gmt: targetProduct?.date_created_gmt,
-    date_modified: targetProduct?.date_modified,
-    date_modified_gmt: targetProduct?.date_modified_gmt,
-    date: targetProduct?.date,
-  });
-
-  const targetDateRaw =
-    String(targetProduct?.date_created_gmt || "").trim() ||
-    String(targetProduct?.date_created || "").trim() ||
-    String(targetProduct?.date_modified_gmt || "").trim() ||
-    String(targetProduct?.date_modified || "").trim();
-
-  if (!targetDateRaw) {
-    return res.status(400).json({
-      error: "No se pudo obtener la fecha del producto de referencia.",
-    });
-  }
-
-  const targetDate = new Date(targetDateRaw);
-
-  if (Number.isNaN(targetDate.getTime())) {
-    return res.status(400).json({
-      error: "La fecha del producto de referencia no es válida.",
-    });
-  }
-
-  if (position === "before") {
-    targetDate.setMinutes(targetDate.getMinutes() - 1);
-  } else {
-    targetDate.setMinutes(targetDate.getMinutes() + 1);
-  }
-
-  const newDate = targetDate.toISOString();
-
-  const updated = await updateWooProduct(
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    {
-      date_modified: newDate,
-    }
-  );
-
-  result = {
-    ok: true,
-    product_id: updated.id,
-    name: updated.name,
-    target_product_id: targetProduct.id,
-    target_name: targetProduct.name,
-    position,
-    new_date: newDate,
-  };
-}
-
   // ✅ CAMBIAR DESCRIPCIÓN CORTA
 if (action === "cambiar_descripcion") {
   const description = payload?.description;
@@ -1733,13 +1637,6 @@ if (action === "mover_producto_fecha") {
     result.position === "before"
       ? `${result.name} fue movido antes de ${result.target_name}.`
       : `${result.name} fue movido después de ${result.target_name}.`;
-}
-
-if (action === "mover_producto_fecha") {
-  reply =
-    result.position === "before"
-      ? `${result.name} fue movido antes de ${result.targetName}.`
-      : `${result.name} fue movido después de ${result.targetName}.`;
 }
 
   return res.json({
