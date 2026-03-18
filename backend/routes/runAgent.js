@@ -1271,46 +1271,31 @@ const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
   }
   
      // ✅ AGREGAR FOTOS AL PRODUCTO
-  if (action === "agregar_fotos_producto") {
-    const files = Array.isArray(req.files) ? req.files : [];
+if (action === "agregar_fotos_producto") {
+  const files = Array.isArray(req.files) ? req.files : [];
 
-    if (!files.length) {
-      return res.status(400).json({
-        error: "Faltan imágenes.",
-      });
-    }
-
-    const uploadedImages = [];
-
-    for (const file of files) {
-      const uploaded = await uploadImageToWordpress({
-        baseUrl,
-        consumerKey,
-        consumerSecret,
-        fileBuffer: file.buffer,
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-      });
-
-      if (uploaded?.id) {
-        uploadedImages.push({ id: uploaded.id });
-      }
-    }
-
-    if (!uploadedImages.length) {
-      return res.status(400).json({
-        error: "No se pudieron subir las imágenes.",
-      });
-    }
-
-    result = await addProductImages({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      images: uploadedImages,
+  if (!files.length) {
+    return res.status(400).json({
+      error: "Faltan imágenes.",
     });
   }
+
+  const uploadedImages = await saveImagesAndBuildUrls(files, req.body, req);
+
+  if (!uploadedImages.length) {
+    return res.status(400).json({
+      error: "No se pudieron preparar las imágenes.",
+    });
+  }
+
+  result = await addProductImages({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    images: uploadedImages.map((img) => ({ src: img.src })),
+  });
+}
 
   // ✅ CAMBIAR DESCRIPCIÓN
   if (action === "cambiar_descripcion") {
