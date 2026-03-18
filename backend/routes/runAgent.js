@@ -1430,37 +1430,37 @@ if (action === "quitar_fotos_variantes") {
 }
 
 
-  // ✅ CAMBIAR DESCRIPCIÓN
-  if (action === "cambiar_descripcion") {
-    const description = payload?.description;
+  // ✅ CAMBIAR DESCRIPCIÓN CORTA
+if (action === "cambiar_descripcion") {
+  const description = payload?.description;
 
-    if (description == null) {
-      return res.status(400).json({
-        error: "Falta description.",
-      });
-    }
-
-    const updated = await updateWooProduct(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      {
-        description: String(description),
-      }
-    );
-
-    return res.json({
-      usedTool: true,
-      reply: `Descripción actualizada correctamente para ${updated.name}.`,
-      product: {
-        id: updated.id,
-        name: updated.name,
-        sku: updated.sku || "",
-        description: updated.description || "",
-      },
+  if (description == null) {
+    return res.status(400).json({
+      error: "Falta description.",
     });
   }
+
+  const updated = await updateWooProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      short_description: String(description),
+    }
+  );
+
+  return res.json({
+    usedTool: true,
+    reply: `Descripción corta actualizada correctamente para ${updated.name}.`,
+    product: {
+      id: updated.id,
+      name: updated.name,
+      sku: updated.sku || "",
+      short_description: updated.short_description || "",
+    },
+  });
+}
 
 // ✅ RESPUESTA FINAL ÚNICA
 if (result) {
