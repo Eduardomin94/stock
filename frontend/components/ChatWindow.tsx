@@ -373,6 +373,21 @@ if (subcategory) lines.push(`subcategoria: ${subcategory}`);
   return lines.join("\n");
 }
 
+function getButtonClass(
+  variant: "primary" | "secondary" | "ghost" | "danger" = "secondary",
+  active = false
+) {
+  const classes = ["saas-btn"];
+
+  if (variant === "primary") classes.push("saas-btn-primary");
+  if (variant === "secondary") classes.push("saas-btn-secondary");
+  if (variant === "ghost") classes.push("saas-btn-ghost");
+  if (variant === "danger") classes.push("saas-btn-danger");
+  if (active) classes.push("saas-btn-active");
+
+  return classes.join(" ");
+}
+
 export default function ChatWindow() {
   const agentId = "woocommerce-assistant";
   const agentName = "Asistente WooCommerce";
@@ -1395,14 +1410,29 @@ setStoreName(`${prettyName} (${domain})`);
             }
           }}
           style={{
-            border: "1px solid #243041",
-            background: "#0f172a",
-            color: "#e5e7eb",
-            borderRadius: 12,
-            padding: "8px 12px",
-            cursor: "pointer",
-            fontSize: 13,
-          }}
+  border: "1px solid #2b3950",
+  background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+  color: "#e5e7eb",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+  el.style.borderColor = "#3b82f6";
+  el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.borderColor = "#2b3950";
+  el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+}}
         >
           Limpiar chat
         </button>
@@ -1416,7 +1446,29 @@ setStoreName(`${prettyName} (${domain})`);
           flexWrap: "wrap",
         }}
       >
-        <button type="button" onClick={startCreateProduct} style={quickActionPrimaryStyle}>
+        <button type="button" onClick={startCreateProduct} style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}>
           Crear producto
         </button>
 
@@ -1439,7 +1491,30 @@ setStoreName(`${prettyName} (${domain})`);
       "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
     );
   }}
-  style={quickActionSecondaryStyle}
+  style={{
+    border: "1px solid #2b3950",
+    background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+    color: "#e5e7eb",
+    borderRadius: 14,
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontSize: 14,
+    transition: "all 0.2s ease",
+  }}
+  onMouseEnter={(e) => {
+    const el = e.currentTarget;
+    el.style.transform = "translateY(-1px)";
+    el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+    el.style.borderColor = "#3b82f6";
+    el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
+  }}
+  onMouseLeave={(e) => {
+    const el = e.currentTarget;
+    el.style.transform = "translateY(0)";
+    el.style.boxShadow = "none";
+    el.style.borderColor = "#2b3950";
+    el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+  }}
 >
   Editar producto
 </button>
@@ -1464,7 +1539,29 @@ setStoreName(`${prettyName} (${domain})`);
       "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
     );
   }}
-  style={quickActionSecondaryStyle}
+  style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
 >
   Eliminar producto
 </button>
@@ -2221,7 +2318,29 @@ setMoveProductMode("before");
       setMoveTargetProduct(null);
       setMoveProductMode("before");
     }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Precio
   </button>
@@ -2238,7 +2357,29 @@ setMoveProductMode("before");
       setMoveTargetProduct(null);
       setMoveProductMode("before");
     }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Fotos
   </button>
@@ -2255,7 +2396,29 @@ setMoveProductMode("before");
       setMoveTargetProduct(null);
       setMoveProductMode("before");
     }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Stock
   </button>
@@ -2272,7 +2435,29 @@ setMoveProductMode("before");
       setMoveTargetProduct(null);
       setMoveProductMode("before");
     }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Descripción
   </button>
@@ -2289,7 +2474,29 @@ setMoveProductMode("before");
       setMoveTargetProduct(null);
       setMoveProductMode("before");
     }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Posición
   </button>
@@ -2305,7 +2512,29 @@ setMoveProductMode("before");
   setEditAttributeValues({});
   setSelectedEditCombinations([])
 }}
-  style={quickActionSecondaryStyle}
+  style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
 >
   Cambiar precio
 </button>
@@ -2318,7 +2547,29 @@ setMoveProductMode("before");
   setEditValue("");
   setSelectedEditCombinations([])
 }}
-    style={quickActionSecondaryStyle}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
   >
     Agregar precio rebajado
   </button>
@@ -2331,7 +2582,29 @@ setMoveProductMode("before");
   setEditValue("");
   setSelectedEditCombinations([])
 }}
-      style={quickActionSecondaryStyle}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
     >
       Cambiar precio rebajado
     </button>
@@ -2342,7 +2615,29 @@ setMoveProductMode("before");
         setEditActionType("quitar_precio_rebajado");
         setEditValue("");
       }}
-      style={quickActionSecondaryStyle}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
     >
       Quitar precio rebajado
     </button>
@@ -2782,7 +3077,29 @@ setMoveProductMode("before");
               setLoading(false);
             }
           }}
-          style={quickActionSecondaryStyle}
+          style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
         >
           Eliminar
         </button>
@@ -2963,7 +3280,29 @@ if (fileInputRef.current) {
           setLoading(false);
         }
       }}
-      style={quickActionSecondaryStyle}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
     >
       Quitar foto de variantes
     </button>
@@ -3139,7 +3478,29 @@ if (fileInputRef.current) {
           setLoading(false);
         }
       }}
-      style={quickActionSecondaryStyle}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
     >
       Buscar producto de referencia
     </button>
@@ -3569,14 +3930,29 @@ setMoveProductMode("before");
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: "1px solid #243041",
-                    background: "#0f172a",
-                    color: "#e5e7eb",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    fontSize: 14,
-                  }}
+  border: "1px solid #2b3950",
+  background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+  color: "#e5e7eb",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+  el.style.borderColor = "#3b82f6";
+  el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.borderColor = "#2b3950";
+  el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+}}
                 >
                   + Agregar fotos
                 </button>
@@ -3610,17 +3986,32 @@ setMoveProductMode("before");
               onClick={() => handleSend()}
               disabled={loading}
               style={{
-                height: 56,
-                minWidth: 120,
-                padding: "0 20px",
-                borderRadius: 14,
-                border: "none",
-                background: loading ? "#374151" : "#2563eb",
-                color: "white",
-                cursor: loading ? "not-allowed" : "pointer",
-                fontSize: 15,
-                fontWeight: 600,
-              }}
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "0 20px",
+  height: 56,
+  minWidth: 120,
+  cursor: loading ? "not-allowed" : "pointer",
+  fontSize: 15,
+  fontWeight: 600,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  if (loading) return;
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  if (loading) return;
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
             >
               Enviar
             </button>
@@ -3644,13 +4035,14 @@ const quickActionPrimaryStyle: React.CSSProperties = {
 };
 
 const quickActionSecondaryStyle: React.CSSProperties = {
-  border: "1px solid #243041",
-  background: "#111827",
+  border: "1px solid #2b3950",
+  background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
   color: "#e5e7eb",
-  borderRadius: 12,
+  borderRadius: 14,
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
+  transition: "all 0.2s ease",
 };
 
 const wizardPrimaryButtonStyle: React.CSSProperties = {
