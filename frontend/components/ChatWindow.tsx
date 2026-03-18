@@ -35,7 +35,10 @@ type EditFoundProduct = {
   attributes: { name: string; option: string }[];
   image: { id: number; src: string } | null;
   stock_quantity?: number | string;
-  stock_status?: "instock" | "outofstock";
+stock_status?: "instock" | "outofstock";
+stock_touched?: boolean;
+status_touched?: boolean;
+manage_stock_checked?: boolean;
 }[];
   attributes?: { id?: number; name: string; options: string[] }[];
 };
@@ -205,24 +208,89 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
       }))
     : [],
   variations: Array.isArray(product?.variations)
-  ? product.variations.map((variationItem: any) => ({
-      id: Number(variationItem?.id || 0),
-      attributes: Array.isArray(variationItem?.attributes)
-        ? variationItem.attributes.map((attr: any) => ({
-            name: String(attr?.name || "").trim(),
-            option: String(attr?.option || "").trim(),
-          }))
-        : [],
-      image:
-        variationItem?.image && variationItem.image.src
-          ? {
-              id: Number(variationItem.image.id || 0),
-              src: String(variationItem.image.src || ""),
-            }
-          : null,
-      stock_quantity: variationItem?.stock_quantity ?? "",
-      stock_status: variationItem?.stock_status || "instock",
-    }))
+  ? product.variations
+      .map((variationItem: any) => ({
+        id: Number(variationItem?.id || 0),
+        attributes: Array.isArray(variationItem?.attributes)
+          ? variationItem.attributes.map((attr: any) => ({
+              name: String(attr?.name || "").trim(),
+              option: String(attr?.option || "").trim(),
+            }))
+          : [],
+        image:
+          variationItem?.image && variationItem.image.src
+            ? {
+                id: Number(variationItem.image.id || 0),
+                src: String(variationItem.image.src || ""),
+              }
+            : null,
+        stock_quantity: variationItem?.stock_quantity ?? "",
+        stock_status: variationItem?.stock_status || "instock",
+        manage_stock_checked: Boolean(variationItem?.manage_stock),
+      }))
+      .sort((a, b) => {
+  const aOptions = (a.attributes || []).map((attr) => String(attr.option || "").trim());
+  const bOptions = (b.attributes || []).map((attr) => String(attr.option || "").trim());
+
+  const aColor = String(aOptions[0] || "");
+  const bColor = String(bOptions[0] || "");
+
+  const colorCompare = aColor.localeCompare(bColor, "es", { numeric: true });
+  if (colorCompare !== 0) {
+    return colorCompare;
+  }
+
+  const aSizeRaw = String(aOptions[1] || aOptions[0] || "").trim();
+  const bSizeRaw = String(bOptions[1] || bOptions[0] || "").trim();
+
+  const normalizeSize = (value: string) =>
+    value
+      .trim()
+      .toUpperCase()
+      .replace(/^TALLE\s*/i, "")
+      .replace(/^NRO\.?\s*/i, "")
+      .replace(/\s+/g, "");
+
+  const aSize = normalizeSize(aSizeRaw);
+  const bSize = normalizeSize(bSizeRaw);
+
+  const sizeOrder = [
+    "XXXS",
+    "XXS",
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "XXXL",
+    "4XL",
+    "5XL",
+    "6XL",
+  ];
+
+  const aSizeIndex = sizeOrder.indexOf(aSize);
+  const bSizeIndex = sizeOrder.indexOf(bSize);
+
+  const aIsNumber = /^\d+$/.test(aSize);
+  const bIsNumber = /^\d+$/.test(bSize);
+
+  if (aIsNumber && bIsNumber) {
+    return Number(aSize) - Number(bSize);
+  }
+
+  if (aSizeIndex !== -1 && bSizeIndex !== -1) {
+    return aSizeIndex - bSizeIndex;
+  }
+
+  if (aIsNumber && !bIsNumber) return -1;
+  if (!aIsNumber && bIsNumber) return 1;
+
+  if (aSizeIndex !== -1 && bSizeIndex === -1) return -1;
+  if (aSizeIndex === -1 && bSizeIndex !== -1) return 1;
+
+  return aSize.localeCompare(bSize, "es", { numeric: true });
+})
   : [],
 };
 }
@@ -423,8 +491,6 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
 const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 const [editValue, setEditValue] = useState("");
-const [editStockMode, setEditStockMode] = useState<"quantity" | "status">("quantity");
-const [editStockStatus, setEditStockStatus] = useState<"instock" | "outofstock">("instock");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
 const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion">("");
@@ -2663,299 +2729,285 @@ onMouseLeave={(e) => {
       background: "#020617",
     }}
   >
-    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Elegí si querés cambiar el stock con cantidad o solo marcar disponible / sin stock.
-    </div>
-
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          color: "#e5e7eb",
-          fontSize: 14,
-        }}
-      >
-        <input
-          type="radio"
-          name="editStockMode"
-          checked={editStockMode === "quantity"}
-          onChange={() => setEditStockMode("quantity")}
-        />
-        Con cantidad
-      </label>
-
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          color: "#e5e7eb",
-          fontSize: 14,
-        }}
-      >
-        <input
-          type="radio"
-          name="editStockMode"
-          checked={editStockMode === "status"}
-          onChange={() => setEditStockMode("status")}
-        />
-        Sin cantidad
-      </label>
-    </div>
+    <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "1fr auto auto",
+    gap: 10,
+    alignItems: "center",
+    marginBottom: 4,
+    color: "#cbd5e1",
+    fontSize: 13,
+  }}
+>
+  <div></div>
+  <div></div>
+  <div style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+    Marcar para manejar stock numérico
+  </div>
+</div>
 
     {Array.isArray(editFoundProduct?.variations) &&
-editFoundProduct.variations.length > 0 ? (
-  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-    {editFoundProduct.variations.map((variation, index) => {
-      const variationLabel =
-        variation.attributes.map((attr) => attr.option).join(" / ") ||
-        `Variación ${variation.id}`;
+    editFoundProduct.variations.length > 0 ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {editFoundProduct.variations.map((variation, index) => {
+          const variationLabel =
+            variation.attributes.map((attr) => attr.option).join(" / ") ||
+            `Variación ${variation.id}`;
 
-      return (
-        <div
-          key={variation.id}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 140px",
-            gap: 10,
-            alignItems: "center",
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: "#0f172a",
-          }}
-        >
-          <div style={{ color: "#e5e7eb", fontSize: 14 }}>
-            {variationLabel}
-          </div>
+          const isChecked = Boolean(variation.manage_stock_checked);
 
-          {editStockMode === "quantity" ? (
-            <input
-              type="number"
-              min="0"
-              value={variation.stock_quantity ?? ""}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                setEditFoundProduct((prev) => {
-                  if (!prev) return prev;
-
-                  const nextVariations = [...(prev.variations || [])];
-                  nextVariations[index] = {
-                    ...nextVariations[index],
-                    stock_quantity: value,
-                    stock_status:
-                      Number(value) > 0 ? "instock" : nextVariations[index].stock_status || "outofstock",
-                  };
-
-                  return {
-                    ...prev,
-                    variations: nextVariations,
-                  };
-                });
-              }}
-              placeholder="Stock"
+          return (
+            <div
+              key={variation.id}
               style={{
-                width: "100%",
-                border: "1px solid #334155",
-                background: "#020617",
-                color: "white",
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto",
+                gap: 10,
+                alignItems: "center",
+                padding: "10px 12px",
                 borderRadius: 10,
-                padding: "8px 10px",
-                outline: "none",
-                fontSize: 14,
-              }}
-            />
-          ) : (
-            <select
-              value={variation.stock_status || "instock"}
-              onChange={(e) => {
-                const value = e.target.value as "instock" | "outofstock";
-
-                setEditFoundProduct((prev) => {
-                  if (!prev) return prev;
-
-                  const nextVariations = [...(prev.variations || [])];
-                  nextVariations[index] = {
-                    ...nextVariations[index],
-                    stock_status: value,
-                  };
-
-                  return {
-                    ...prev,
-                    variations: nextVariations,
-                  };
-                });
-              }}
-              style={{
-                width: "100%",
                 border: "1px solid #334155",
-                background: "#020617",
-                color: "white",
-                borderRadius: 10,
-                padding: "8px 10px",
-                outline: "none",
-                fontSize: 14,
+                background: "#0f172a",
               }}
             >
-              <option value="instock">Disponible</option>
-              <option value="outofstock">Sin stock</option>
-            </select>
-          )}
-        </div>
-      );
-    })}
-  </div>
-) : editStockMode === "quantity" ? (
-  <input
-    type="number"
-    min="0"
-    value={editValue}
-    onChange={(e) => setEditValue(e.target.value)}
-    placeholder="Ej: 5"
-    style={{
-      width: "100%",
-      border: "1px solid #334155",
-      background: "#020617",
-      color: "white",
-      borderRadius: 10,
-      padding: "10px 12px",
-      outline: "none",
-      fontSize: 14,
-    }}
-  />
-) : (
-  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-    <button
-      type="button"
-      onClick={() => setEditStockStatus("instock")}
-      style={{
-        ...quickActionSecondaryStyle,
-        background: editStockStatus === "instock" ? "#2563eb" : "#111827",
-        border: editStockStatus === "instock" ? "1px solid #2563eb" : "1px solid #243041",
-      }}
-    >
-      Disponible
-    </button>
+              <div style={{ color: "#e5e7eb", fontSize: 14 }}>
+                {variationLabel}
+              </div>
 
-    <button
-      type="button"
-      onClick={() => setEditStockStatus("outofstock")}
-      style={{
-        ...quickActionSecondaryStyle,
-        background: editStockStatus === "outofstock" ? "#2563eb" : "#111827",
-        border: editStockStatus === "outofstock" ? "1px solid #2563eb" : "1px solid #243041",
-      }}
-    >
-      Sin stock
-    </button>
-  </div>
-)}
+              {isChecked ? (
+                <input
+                  type="number"
+                  min="0"
+                  value={variation.stock_quantity ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
 
-    {editAttributeCombinations.length > 0 && (
-  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-    <div style={{ fontSize: 12, color: "#94a3b8" }}>
-      Seleccioná las variaciones a modificar:
-    </div>
+                    setEditFoundProduct((prev) => {
+                      if (!prev) return prev;
 
-    {editAttributeCombinations.map((combo, index) => {
-      const key = getCombinationKey(combo);
-      const checked = isCombinationSelected(combo);
+                      const nextVariations = [...(prev.variations || [])];
+                      nextVariations[index] = {
+                        ...nextVariations[index],
+                        stock_quantity: value,
+                        stock_touched: true,
+                        manage_stock_checked: true,
+                        stock_status:
+                          Number(value) > 0 ? "instock" : "outofstock",
+                      };
 
-      return (
-        <label
-          key={index}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 10px",
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: checked ? "#2563eb" : "#020617",
-            color: "white",
-            fontSize: 13,
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleCombination(combo)}
-          />
+                      return {
+                        ...prev,
+                        variations: nextVariations,
+                      };
+                    });
+                  }}
+                  placeholder="Stock"
+                  style={{
+                    width: 120,
+                    border: "1px solid #334155",
+                    background: "#020617",
+                    color: "white",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    outline: "none",
+                    fontSize: 14,
+                  }}
+                />
+              ) : (
+                <select
+                  value={variation.stock_status || "instock"}
+                  onChange={(e) => {
+                    const value = e.target.value as "instock" | "outofstock";
 
-          <span>
-            {Object.values(combo).join(" / ")}
-          </span>
-        </label>
-      );
-    })}
-  </div>
-)}
+                    setEditFoundProduct((prev) => {
+                      if (!prev) return prev;
+
+                      const nextVariations = [...(prev.variations || [])];
+                      nextVariations[index] = {
+                        ...nextVariations[index],
+                        stock_status: value,
+                        status_touched: true,
+                        manage_stock_checked: false,
+                      };
+
+                      return {
+                        ...prev,
+                        variations: nextVariations,
+                      };
+                    });
+                  }}
+                  style={{
+                    width: 120,
+                    border: "1px solid #334155",
+                    background: "#020617",
+                    color: "white",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    outline: "none",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="instock">Disponible</option>
+                  <option value="outofstock">Agotado</option>
+                </select>
+              )}
+
+              <input
+  type="checkbox"
+  checked={isChecked}
+  onChange={(e) => {
+    const checked = e.target.checked;
+
+    setEditFoundProduct((prev) => {
+      if (!prev) return prev;
+
+      const nextVariations = [...(prev.variations || [])];
+      nextVariations[index] = {
+        ...nextVariations[index],
+        manage_stock_checked: checked,
+        stock_touched: checked ? true : false,
+        status_touched: !checked ? true : false,
+        stock_quantity: checked
+          ? nextVariations[index].stock_quantity ?? ""
+          : "",
+        stock_status:
+          nextVariations[index].stock_status || "instock",
+      };
+
+      return {
+        ...prev,
+        variations: nextVariations,
+      };
+    });
+  }}
+  style={{
+    width: 16,
+    height: 16,
+    cursor: "pointer",
+  }}
+/>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <input
+        type="number"
+        min="0"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        placeholder="Ej: 5"
+        style={{
+          width: "100%",
+          border: "1px solid #334155",
+          background: "#020617",
+          color: "white",
+          borderRadius: 10,
+          padding: "10px 12px",
+          outline: "none",
+          fontSize: 14,
+        }}
+      />
+    )}
 
     <button
       type="button"
       onClick={async () => {
         if (!editFoundProduct?.id) return;
 
-        if (editStockMode === "quantity" && !String(editValue || "").trim()) {
-          pushAssistantInfo("Escribí una cantidad.");
-          return;
+        const hasVariations =
+          Array.isArray(editFoundProduct?.variations) &&
+          editFoundProduct.variations.length > 0;
+
+        if (hasVariations) {
+          const hasSomethingToSave = editFoundProduct.variations.some(
+            (variation) =>
+              (variation.manage_stock_checked &&
+                String(variation.stock_quantity ?? "").trim() !== "") ||
+              (!variation.manage_stock_checked &&
+                String(variation.stock_status || "").trim() !== "")
+          );
+
+          if (!hasSomethingToSave) {
+            pushAssistantInfo("Completá al menos una variación.");
+            return;
+          }
+        } else {
+          if (!String(editValue || "").trim()) {
+            pushAssistantInfo("Escribí una cantidad.");
+            return;
+          }
         }
 
         try {
           setLoading(true);
 
           const response = await sendEditPayload({
-  action: "cambiar_stock",
-  productId: editFoundProduct.id,
-  manageStock: editStockMode === "quantity",
-  stockQuantity:
-    Array.isArray(editFoundProduct?.variations) &&
-    editFoundProduct.variations.length > 0
-      ? undefined
-      : editStockMode === "quantity"
-      ? Number(editValue || 0)
-      : undefined,
-  stockStatus:
-    Array.isArray(editFoundProduct?.variations) &&
-    editFoundProduct.variations.length > 0
-      ? undefined
-      : editStockMode === "status"
-      ? editStockStatus
-      : undefined,
-  selectedCombinations:
-    Array.isArray(editFoundProduct?.variations) &&
-    editFoundProduct.variations.length > 0
-      ? editFoundProduct.variations.map((variation) =>
-          variation.attributes.map((attr) => attr.option)
-        )
-      : selectedEditCombinations,
-  variations:
-    Array.isArray(editFoundProduct?.variations) &&
-    editFoundProduct.variations.length > 0
-      ? editFoundProduct.variations.map((variation) => ({
-          id: variation.id,
-          stock_quantity:
-            editStockMode === "quantity"
-              ? Number(variation.stock_quantity || 0)
-              : undefined,
-          stock_status:
-            editStockMode === "status"
-              ? variation.stock_status || "instock"
-              : undefined,
-          manage_stock: editStockMode === "quantity",
-        }))
-      : undefined,
-});
+            action: "cambiar_stock",
+            productId: editFoundProduct.id,
+            manageStock: true,
+            stockQuantity:
+              Array.isArray(editFoundProduct?.variations) &&
+              editFoundProduct.variations.length > 0
+                ? undefined
+                : Number(editValue || 0),
+            selectedCombinations:
+              Array.isArray(editFoundProduct?.variations) &&
+              editFoundProduct.variations.length > 0
+                ? editFoundProduct.variations.map((variation) =>
+                    variation.attributes.map((attr) => attr.option)
+                  )
+                : selectedEditCombinations,
+            variations:
+              Array.isArray(editFoundProduct?.variations) &&
+              editFoundProduct.variations.length > 0
+                ? editFoundProduct.variations.map((variation) => ({
+                    id: variation.id,
+                    stock_quantity: variation.manage_stock_checked
+                      ? Number(variation.stock_quantity || 0)
+                      : undefined,
+                    stock_status: variation.manage_stock_checked
+                      ? Number(variation.stock_quantity || 0) > 0
+                        ? "instock"
+                        : "outofstock"
+                      : variation.stock_status || "instock",
+                    manage_stock: Boolean(variation.manage_stock_checked),
+                  }))
+                : undefined,
+          });
 
           pushAssistantInfo(
             response?.reply || "Stock actualizado correctamente."
           );
 
           setEditValue("");
+
+          try {
+            const form = new FormData();
+            form.append("agentId", agentId);
+
+            const mode = editFoundProduct?.sku ? "sku" : "nombre";
+            const value = editFoundProduct?.sku || editFoundProduct?.name;
+
+            form.append("message", `__search_edit_product__:${mode}|${value}`);
+
+            const token = localStorage.getItem("token") || "";
+
+            const res = await fetch(`${API}/run-agent`, {
+              method: "POST",
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              body: form,
+            });
+
+            const refreshed = await res.json();
+
+            if (refreshed?.product) {
+              setEditFoundProduct(
+                normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
+              );
+            }
+          } catch {}
         } catch (error: any) {
           pushAssistantInfo(
             error?.message || "No pude cambiar el stock."
