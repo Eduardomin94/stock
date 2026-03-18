@@ -1304,6 +1304,28 @@ const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
 
   // ✅ CAMBIAR STOCK
     if (action === "cambiar_stock") {
+      if (Array.isArray(payload?.variations) && payload.variations.length > 0) {
+  for (const v of payload.variations) {
+    await axios.put(
+      `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}/variations/${v.id}`,
+      {
+        stock_quantity: v.manage_stock ? v.stock_quantity : null,
+        stock_status: v.stock_status,
+        manage_stock: v.manage_stock,
+      },
+      {
+        params: {
+          consumer_key: consumerKey,
+          consumer_secret: consumerSecret,
+        },
+      }
+    );
+  }
+
+  return res.json({
+    reply: "Stock de variaciones actualizado correctamente.",
+  });
+}
     result = await updateStockAdvanced({
       baseUrl,
       consumerKey,
