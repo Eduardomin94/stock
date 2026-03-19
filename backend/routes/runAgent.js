@@ -27,7 +27,6 @@ import {
   reorderProductImages,
   assignImageToSelectedVariations,
   removeImageFromSelectedVariations,
-  updateProductCashPrice,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
