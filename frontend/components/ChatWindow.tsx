@@ -15,6 +15,7 @@ type CreateProductForm = {
   talles: string;
   precio: string;
   precioRebajado: string;
+  precioEfectivo: string;
   stockMode: "none" | "same" | "perVariation";
   stockGeneral: string;
   descripcionCorta: string;
@@ -64,6 +65,7 @@ type CreateStepKey =
   | "talles"
   | "precio"
   | "precioRebajado"
+  | "precioEfectivo"
   | "stock"
   | "descripcionCorta"
   | "categoria"
@@ -123,6 +125,13 @@ const CREATE_STEPS: {
     optional: true,
   },
     {
+    key: "precioEfectivo",
+    title: "Precio en efectivo",
+    helper: "Si este usuario usa precio en efectivo, cargalo acá. Si no, dejalo vacío.",
+    placeholder: "Ej: 11900",
+    optional: true,
+  },
+    {
   key: "stock",
   title: "Stock",
   helper: "Podés dejarlo disponible sin stock numérico, usar un stock general o cargar stock por variación.",
@@ -158,6 +167,7 @@ const initialCreateForm: CreateProductForm = {
   talles: "",
   precio: "",
   precioRebajado: "",
+  precioEfectivo: "",
   stockMode: "none",
   stockGeneral: "",
   descripcionCorta: "",
@@ -357,6 +367,7 @@ function buildCreateProductMessage(
   const cleanSizes = normalizeCommaField(form.talles);
   const cleanPrice = cleanMoney(form.precio);
   const cleanSalePrice = cleanMoney(form.precioRebajado);
+  const cleanCashPrice = cleanMoney(form.precioEfectivo);
   const shortDescription = form.descripcionCorta.trim();
   const category = form.categoria.trim();
   const subcategory = form.subcategoria.trim();
@@ -381,6 +392,7 @@ function buildCreateProductMessage(
     if (sku) lines.push(`sku: ${sku}`);
     lines.push(`precio: ${cleanPrice}`);
     if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+    if (cleanCashPrice) lines.push(`precio_efectivo: ${cleanCashPrice}`);
 
     lines.push("atributos:");
     if (cleanColors) lines.push(`Color: ${cleanColors}`);
@@ -452,6 +464,7 @@ lines.push(`nombre: ${name}`);
 if (sku) lines.push(`sku: ${sku}`);
 lines.push(`precio: ${cleanPrice}`);
 if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
+if (cleanCashPrice) lines.push(`precio_efectivo: ${cleanCashPrice}`);
 
 if (form.stockMode === "none") {
   lines.push("stock_estado: disponible");
@@ -1169,7 +1182,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   resetSkuValidationState();
 
   pushAssistantInfo(
-    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, stock, descripción corta, categoría y subcategoría."
+    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, precio en efectivo, stock, descripción corta, categoría y subcategoría."
   );
 }
 
@@ -1196,10 +1209,10 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
     }
 
     setCreateForm((prev) => {
-      switch (currentCreateStep.key) {
+            switch (currentCreateStep.key) {
         case "nombre":
           return { ...prev, nombre: rawValue };
-          case "sku":
+        case "sku":
           return { ...prev, sku: rawValue };
         case "colores":
           return { ...prev, colores: rawValue };
@@ -1209,6 +1222,8 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
           return { ...prev, precio: rawValue };
         case "precioRebajado":
           return { ...prev, precioRebajado: rawValue };
+        case "precioEfectivo":
+          return { ...prev, precioEfectivo: rawValue };
         case "stock":
           return prev;
         case "descripcionCorta":
@@ -1233,7 +1248,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
       return;
     }
 
-   setText(
+      setText(
   step.key === "nombre"
     ? createForm.nombre
     : step.key === "sku"
@@ -1246,13 +1261,15 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
             ? createForm.precio
             : step.key === "precioRebajado"
               ? createForm.precioRebajado
-              : step.key === "stock"
-                ? ""
-                : step.key === "descripcionCorta"
-                  ? createForm.descripcionCorta
-                  : step.key === "categoria"
-                    ? createForm.categoria
-                    : createForm.subcategoria
+              : step.key === "precioEfectivo"
+                ? createForm.precioEfectivo
+                : step.key === "stock"
+                  ? ""
+                  : step.key === "descripcionCorta"
+                    ? createForm.descripcionCorta
+                    : step.key === "categoria"
+                      ? createForm.categoria
+                      : createForm.subcategoria
 );
   }
 
@@ -1314,14 +1331,15 @@ async function nextCreateStep() {
       return;
     }
 
-    const finalForm = {
+        const finalForm = {
       ...createForm,
       ...(currentCreateStep?.key === "nombre" ? { nombre: text.trim() } : {}),
-      ...(currentCreateStep?.key === "sku" ? { sku: text.trim() } : {}),  
+      ...(currentCreateStep?.key === "sku" ? { sku: text.trim() } : {}),
       ...(currentCreateStep?.key === "colores" ? { colores: text.trim() } : {}),
       ...(currentCreateStep?.key === "talles" ? { talles: text.trim() } : {}),
       ...(currentCreateStep?.key === "precio" ? { precio: text.trim() } : {}),
       ...(currentCreateStep?.key === "precioRebajado" ? { precioRebajado: text.trim() } : {}),
+      ...(currentCreateStep?.key === "precioEfectivo" ? { precioEfectivo: text.trim() } : {}),
       ...(currentCreateStep?.key === "descripcionCorta" ? { descripcionCorta: text.trim() } : {}),
       ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {}),
       ...(currentCreateStep?.key === "subcategoria" ? { subcategoria: text.trim() } : {}),

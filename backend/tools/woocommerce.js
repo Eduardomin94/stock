@@ -81,6 +81,16 @@ function scoreSkuCandidate(search, product) {
   return score;
 }
 
+function getMetaValue(metaData, key) {
+  if (!Array.isArray(metaData)) return "";
+
+  const found = metaData.find(
+    (item) => String(item?.key || "").trim() === String(key || "").trim()
+  );
+
+  return found?.value != null ? String(found.value).trim() : "";
+}
+
 function mapProductForEdit(product) {
   const hasSale =
     product?.sale_price &&
@@ -94,6 +104,10 @@ function mapProductForEdit(product) {
 
   const sale_price = hasSale ? product.sale_price : "";
 
+  const cash_price_general =
+    getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
+    getMetaValue(product?.meta_data, "_precio_efectivo");
+
   return {
     id: product?.id,
     name: product?.name || "",
@@ -102,6 +116,7 @@ function mapProductForEdit(product) {
     regular_price,
     sale_price,
     price: product?.price || "",
+    cash_price_general,
   };
 }
 
@@ -842,6 +857,7 @@ export async function createSimpleProduct({
   sku = "",
   regularPrice,
   salePrice = "",
+  cashPrice = "",
   description = "",
   shortDescription = "",
   categories = [],
@@ -856,38 +872,46 @@ export async function createSimpleProduct({
   if (regularPrice == null || regularPrice === "") throw new Error("Falta regularPrice");
 
   const hasStockQuantity =
-  stockQuantity !== null &&
-  stockQuantity !== undefined &&
-  String(stockQuantity).trim() !== "";
+    stockQuantity !== null &&
+    stockQuantity !== undefined &&
+    String(stockQuantity).trim() !== "";
 
-const payload = {
-  name: String(name).trim(),
-  sku: String(sku || "").trim(),
-  type: "simple",
-  regular_price: String(regularPrice),
-  description: String(description || ""),
-  short_description: String(shortDescription || ""),
-};
+  const cleanCashPrice = String(cashPrice || "").trim();
 
-if (hasStockQuantity && Boolean(manageStock)) {
-  payload.manage_stock = true;
-  payload.stock_quantity = Number(stockQuantity);
-  payload.stock_status = "instock";
-} else {
-  payload.manage_stock = false;
-  payload.stock_status = "instock";
-}
+  const payload = {
+    name: String(name).trim(),
+    sku: String(sku || "").trim(),
+    type: "simple",
+    regular_price: String(regularPrice),
+    description: String(description || ""),
+    short_description: String(shortDescription || ""),
+  };
 
+  if (hasStockQuantity && Boolean(manageStock)) {
+    payload.manage_stock = true;
+    payload.stock_quantity = Number(stockQuantity);
+    payload.stock_status = "instock";
+  } else {
+    payload.manage_stock = false;
+    payload.stock_status = "instock";
+  }
 
   if (salePrice !== undefined && salePrice !== null && String(salePrice).trim() !== "") {
     payload.sale_price = String(salePrice).trim();
   }
 
+  if (cleanCashPrice) {
+    payload.meta_data = [
+      { key: "_precio_efectivo_general", value: cleanCashPrice },
+      { key: "_precio_efectivo", value: cleanCashPrice },
+    ];
+  }
+
   if (Array.isArray(images) && images.length > 0) {
-  payload.images = images.map((url) => ({
-    src: url,
-  }));
-}
+    payload.images = images.map((url) => ({
+      src: url,
+    }));
+  }
 
   if (Array.isArray(categories) && categories.length > 0) {
     payload.categories = categories
@@ -910,6 +934,7 @@ if (hasStockQuantity && Boolean(manageStock)) {
     type: created.type ?? "",
     regular_price: created.regular_price ?? "",
     price: created.price ?? "",
+    cash_price_general: cleanCashPrice,
     manage_stock: created.manage_stock ?? null,
     stock_quantity: created.stock_quantity ?? null,
     status: created.status ?? "",
@@ -1118,6 +1143,87 @@ const variationsToUpdate =
     regular_price: updated.regular_price ?? "",
     sale_price: updated.sale_price ?? "",
     price: updated.price ?? "",
+  };
+}
+
+export async function updateProductCashPrice({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  cashPrice,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const cleanCashPrice = String(cashPrice || "").trim();
+
+  if (!cleanCashPrice) {
+    throw new Error("Falta cashPrice");
+  }
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+  const productType = String(product.type || "").toLowerCase();
+
+  await axios.put(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    {
+      meta_data: [
+        { key: "_precio_efectivo_general", value: cleanCashPrice },
+        { key: "_precio_efectivo", value: cleanCashPrice },
+      ],
+    },
+    buildWooConfig(consumerKey, consumerSecret, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  let updatedVariations = 0;
+
+  if (productType === "variable") {
+    const variations = await fetchAllVariations(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId
+    );
+
+    for (const variation of variations) {
+      await axios.put(
+        `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
+        {
+          meta_data: [
+            { key: "_precio_efectivo", value: cleanCashPrice },
+          ],
+        },
+        buildWooConfig(consumerKey, consumerSecret, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+      );
+
+      updatedVariations += 1;
+    }
+  }
+
+  return {
+    ok: true,
+    action: "update_cash_price",
+    product_id: productId,
+    name: product?.name || "",
+    type: productType || "",
+    cash_price_general: cleanCashPrice,
+    updated_variations: updatedVariations,
   };
 }
 
@@ -2231,6 +2337,7 @@ export async function createVariableProduct({
   consumerSecret,
   name,
   sku = "",
+  cashPrice = "",
   description = "",
   shortDescription = "",
   attributes = [],
@@ -2260,6 +2367,13 @@ export async function createVariableProduct({
       options: attr.options,
     })),
   };
+    const cleanCashPrice = String(cashPrice || "").trim();
+
+  if (cleanCashPrice) {
+    productPayload.meta_data = [
+      { key: "_precio_efectivo_general", value: cleanCashPrice },
+    ];
+  }
 
   if (Array.isArray(categories) && categories.length > 0) {
     productPayload.categories = categories
@@ -2322,6 +2436,11 @@ export async function createVariableProduct({
         option: String(a.option || "").trim(),
       })),
     };
+        if (cleanCashPrice) {
+      payload.meta_data = [
+        { key: "_precio_efectivo", value: cleanCashPrice },
+      ];
+    }
 
     if (
       variation.sale_price !== undefined &&

@@ -9,6 +9,7 @@ import {
   updateVariationStock,
   enableManageStockForVariation,
   updateProductPrice,
+  updateProductCashPrice,
   applyStockUpdateByColorAndSize,
   planStockUpdateByColorOnly,
   createSimpleProduct,
@@ -1237,7 +1238,8 @@ if (looksLikeEditProductActionCommand(message)) {
   const action = String(payload?.action || "");
   const productId = Number(payload?.productId);
   const regularPrice = String(payload?.regularPrice ?? "").replace(/[^\d]/g, "");
-const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
+  const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
+  const cashPrice = String(payload?.cashPrice ?? "").replace(/[^\d]/g, "");
 
   if (!action || !productId) {
     return res.status(400).json({
@@ -1301,6 +1303,22 @@ const salePrice = String(payload?.salePrice ?? "").replace(/[^\d]/g, "");
       selectedCombinations: payload?.selectedCombinations || [],
     });
   }
+
+  if (action === "cambiar_precio_efectivo") {
+  if (!cashPrice) {
+    return res.status(400).json({
+      error: "Falta cashPrice.",
+    });
+  }
+
+  result = await updateProductCashPrice({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    cashPrice,
+  });
+}
 
   // ✅ CAMBIAR STOCK
     if (action === "cambiar_stock") {
@@ -1646,6 +1664,12 @@ if (result) {
       reply = `Precio rebajado quitado en ${result.name}.`;
     }
   }
+    if (action === "cambiar_precio_efectivo") {
+    reply =
+      result.type === "variable"
+        ? `Precio en efectivo cambiado a ${cashPrice} en ${result.name}. También se actualizó en ${result.updated_variations} variaciones.`
+        : `Precio en efectivo cambiado a ${cashPrice} en ${result.name}.`;
+  }
 
     if (action === "cambiar_stock") {
     if (result.scope === "variations") {
@@ -1945,18 +1969,22 @@ if (
       }
 
       const name = extractField(message, "nombre");
-      const sku = extractField(message, "sku");
-      const regularPriceRaw = extractField(message, "precio");
-      const subcategoryName = extractField(message, "subcategoria");
-      const salePriceRaw = extractField(message, "precio_rebajado");
-      const stockQuantityRaw = extractField(message, "stock");
-      const categoryName = extractField(message, "categoria") || extractLooseCategoryValue(message);
+const sku = extractField(message, "sku");
+const regularPriceRaw = extractField(message, "precio");
+const subcategoryName = extractField(message, "subcategoria");
+const salePriceRaw = extractField(message, "precio_rebajado");
+const cashPriceRaw = extractField(message, "precio_efectivo");
+const stockQuantityRaw = extractField(message, "stock");
+const categoryName = extractField(message, "categoria") || extractLooseCategoryValue(message);
 
       const regularPrice = regularPriceRaw ? Number(regularPriceRaw) : null;
-      const salePrice = salePriceRaw
-      ? Number(String(salePriceRaw).replace(/[^\d]/g, ""))
-      : null;
-      const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
+const salePrice = salePriceRaw
+  ? Number(String(salePriceRaw).replace(/[^\d]/g, ""))
+  : null;
+const cashPrice = cashPriceRaw
+  ? Number(String(cashPriceRaw).replace(/[^\d]/g, ""))
+  : null;
+const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
       const description = extractField(message, "descripcion");
       const shortDescription = extractField(message, "descripcion_corta");
 
@@ -2051,6 +2079,7 @@ if (files.length > 0) {
   sku,
   regularPrice,
   salePrice: Number.isFinite(salePrice) ? salePrice : "",
+  cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
   description,
   shortDescription,
   categories,
@@ -2124,6 +2153,7 @@ let variations = parseVariableVariationsText(variationsRaw);
 
 const regularPriceRaw = extractField(message, "precio");
 const salePriceRaw = extractField(message, "precio_rebajado");
+const cashPriceRaw = extractField(message, "precio_efectivo");
 
 const regularPrice = regularPriceRaw
   ? Number(String(regularPriceRaw).replace(/[^\d]/g, ""))
@@ -2131,6 +2161,10 @@ const regularPrice = regularPriceRaw
 
 const salePrice = salePriceRaw
   ? Number(String(salePriceRaw).replace(/[^\d]/g, ""))
+  : null;
+
+const cashPrice = cashPriceRaw
+  ? Number(String(cashPriceRaw).replace(/[^\d]/g, ""))
   : null;
 
 const stockBlockMatch = String(message || "").match(/\nstock\s*:\s*([\s\S]*?)(\ncategoria\s*:|\nsubcategoria\s*:|$)/i);
@@ -2296,6 +2330,7 @@ result = await createVariableProduct({
   consumerSecret,
   name,
   sku,
+  cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
   description,
   shortDescription,
   categories,
