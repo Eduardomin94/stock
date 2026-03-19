@@ -27,6 +27,7 @@ import {
   reorderProductImages,
   assignImageToSelectedVariations,
   removeImageFromSelectedVariations,
+  updateProductCashPrice,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1269,6 +1270,30 @@ if (looksLikeEditProductActionCommand(message)) {
         : [],
     });
   }
+
+  // ✅ AGREGAR PRECIO EFECTIVO
+  if (action === "cambiar_precio_efectivo") {
+  const cashPriceGeneral = String(payload?.cashPriceGeneral ?? "")
+    .replace(/[^\d]/g, "");
+
+  if (!cashPriceGeneral) {
+    return res.status(400).json({
+      error: "Falta cashPriceGeneral.",
+    });
+  }
+
+  const result = await updateProductCashPrice({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    cashPriceGeneral,
+    selectedCombinations: payload?.selectedCombinations || [],
+  });
+
+  return res.json(result);
+}
+
 
   // ✅ AGREGAR / CAMBIAR PRECIO REBAJADO
   if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
