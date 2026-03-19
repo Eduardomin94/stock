@@ -30,6 +30,7 @@ type EditFoundProduct = {
   type: string;
   regularPrice?: string;
   salePrice?: string;
+  cashPriceGeneral?: string;
   images?: { id: number; src: string }[];
   variations?: {
   id: number;
@@ -212,6 +213,7 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
     type: product.type,
     regularPrice: String(regular || ""),
     salePrice: String(sale || ""),
+    cashPriceGeneral: String(product?.cash_price_general || ""),
 
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
@@ -2269,13 +2271,13 @@ Stock general
         e.preventDefault();
 
         if (activeAction === "create") {
-          if (createStepIndex < CREATE_STEPS.length - 1) {
-            nextCreateStep();
-          } else {
-            submitCreateProduct();
-          }
-          return;
-        }
+  if (createStepIndex < CREATE_STEPS_VISIBLE.length - 1) {
+    nextCreateStep();
+  } else {
+    submitCreateProduct();
+  }
+  return;
+}
 
         handleSend();
       }
@@ -2768,6 +2770,55 @@ onMouseLeave={(e) => {
     </button>
   </>
 )}
+  </div>
+)}
+
+{userMe?.usa_precio_efectivo && (
+  <div
+    style={{
+      width: "100%",
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#020617",
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Precio en efectivo
+    </div>
+
+    <input
+      type="number"
+      min="0"
+      value={editFoundProduct?.cashPriceGeneral || ""}
+      onChange={(e) => {
+        const value = e.target.value;
+
+        setEditFoundProduct((prev) =>
+          prev
+            ? {
+                ...prev,
+                cashPriceGeneral: value,
+              }
+            : prev
+        );
+      }}
+      placeholder="Ej: 11900"
+      style={{
+        width: "100%",
+        border: "1px solid #334155",
+        background: "#020617",
+        color: "white",
+        borderRadius: 10,
+        padding: "10px 12px",
+        outline: "none",
+        fontSize: 14,
+      }}
+    />
   </div>
 )}
 
@@ -3860,6 +3911,9 @@ if (editActionType === "mover_producto_fecha" && !moveTargetProduct?.id) {
         action: "cambiar_precio",
         productId: editFoundProduct.id,
         regularPrice: editValue.trim(),
+        cashPriceGeneral: userMe?.usa_precio_efectivo
+          ? String(editFoundProduct?.cashPriceGeneral || "").trim()
+          : "",
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
         ),
