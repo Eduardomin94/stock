@@ -1151,17 +1151,17 @@ export async function updateProductCashPrice({
   consumerKey,
   consumerSecret,
   productId,
-  cashPrice,
+  cashPriceGeneral,
 }) {
   if (!baseUrl) throw new Error("Falta baseUrl");
   if (!consumerKey) throw new Error("Falta consumerKey");
   if (!consumerSecret) throw new Error("Falta consumerSecret");
   if (!productId) throw new Error("Falta productId");
 
-  const cleanCashPrice = String(cashPrice || "").trim();
+const cleanCashPrice = String(cashPriceGeneral || "").trim();
 
   if (!cleanCashPrice) {
-    throw new Error("Falta cashPrice");
+    throw new Error("Falta cashPriceGeneral");
   }
 
   const productResponse = await axios.get(
