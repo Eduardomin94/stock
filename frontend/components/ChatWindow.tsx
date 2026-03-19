@@ -51,6 +51,7 @@ type EditActionType =
   | "agregar_precio_rebajado"
   | "cambiar_precio_rebajado"
   | "quitar_precio_rebajado"
+  | "cambiar_precio_efectivo"
   | "cambiar_descripcion"
   | "cambiar_fotos_variantes"
   | "quitar_fotos_variantes"
@@ -2430,7 +2431,14 @@ setMoveProductMode("before");
   <div>
   Precio de oferta: {editFoundProduct.salePrice || "(vacío)"}
 </div>
+
+{userMe?.usa_precio_efectivo && (
+  <div>
+    Precio en efectivo: {editFoundProduct.cashPriceGeneral || "(vacío)"}
+  </div>
+)}
 </div>
+
 
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
   <button
@@ -2666,6 +2674,43 @@ onMouseLeave={(e) => {
   Cambiar precio
 </button>
 
+
+{userMe?.usa_precio_efectivo && (
+  <button
+    type="button"
+    onClick={() => {
+      setEditActionType("cambiar_precio_efectivo");
+      setEditValue(editFoundProduct?.cashPriceGeneral || "");
+      setSelectedEditCombinations([]);
+    }}
+    style={{
+      border: "1px solid #2563eb",
+      background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+      color: "white",
+      borderRadius: 14,
+      padding: "10px 14px",
+      cursor: "pointer",
+      fontSize: 14,
+      fontWeight: 700,
+      transition: "all 0.2s ease",
+    }}
+    onMouseEnter={(e) => {
+      const el = e.currentTarget;
+      el.style.transform = "translateY(-1px)";
+      el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+      el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+    }}
+    onMouseLeave={(e) => {
+      const el = e.currentTarget;
+      el.style.transform = "translateY(0)";
+      el.style.boxShadow = "none";
+      el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+    }}
+  >
+    Cambiar precio en efectivo
+  </button>
+)}
+
     {!hasEditSalePrice ? (
   <button
     type="button"
@@ -2773,7 +2818,7 @@ onMouseLeave={(e) => {
   </div>
 )}
 
-{userMe?.usa_precio_efectivo && (
+{editActionType === "cambiar_precio_efectivo" && (
   <div
     style={{
       width: "100%",
@@ -2794,19 +2839,8 @@ onMouseLeave={(e) => {
     <input
       type="number"
       min="0"
-      value={editFoundProduct?.cashPriceGeneral || ""}
-      onChange={(e) => {
-        const value = e.target.value;
-
-        setEditFoundProduct((prev) =>
-          prev
-            ? {
-                ...prev,
-                cashPriceGeneral: value,
-              }
-            : prev
-        );
-      }}
+      value={editValue}
+      onChange={(e) => setEditValue(e.target.value)}
       placeholder="Ej: 11900"
       style={{
         width: "100%",
@@ -3628,6 +3662,7 @@ onMouseLeave={(e) => {
   {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
   {editActionType === "cambiar_descripcion" && "Escribí la nueva descripción."}
   {editActionType === "mover_producto_fecha" && "Elegí si querés poner este producto antes o después de otro producto."}
+  {editActionType === "cambiar_precio_efectivo" && "Escribí el nuevo precio en efectivo."}
 </div>
 
 {editActionType === "cambiar_descripcion" ? (
@@ -3907,17 +3942,14 @@ if (editActionType === "mover_producto_fecha" && !moveTargetProduct?.id) {
 
     const payload =
   editActionType === "cambiar_precio"
-    ? {
-        action: "cambiar_precio",
-        productId: editFoundProduct.id,
-        regularPrice: editValue.trim(),
-        cashPriceGeneral: userMe?.usa_precio_efectivo
-          ? String(editFoundProduct?.cashPriceGeneral || "").trim()
-          : "",
-        selectedCombinations: selectedEditCombinations.map((combo) =>
-          Object.values(combo)
-        ),
-      }
+  ? {
+      action: "cambiar_precio",
+      productId: editFoundProduct.id,
+      regularPrice: editValue.trim(),
+      selectedCombinations: selectedEditCombinations.map((combo) =>
+        Object.values(combo)
+      ),
+    }
     : editActionType === "agregar_precio_rebajado"
     ? {
         action: "agregar_precio_rebajado",
@@ -3944,6 +3976,15 @@ if (editActionType === "mover_producto_fecha" && !moveTargetProduct?.id) {
           Object.values(combo)
         ),
       }
+      : editActionType === "cambiar_precio_efectivo"
+? {
+    action: "cambiar_precio_efectivo",
+    productId: editFoundProduct.id,
+    cashPriceGeneral: editValue.trim(),
+    selectedCombinations: selectedEditCombinations.map((combo) =>
+      Object.values(combo)
+    ),
+  }
     : editActionType === "mover_producto_fecha"
     ? {
         action: "mover_producto_fecha",
@@ -3964,7 +4005,8 @@ console.log("PAYLOAD PRECIO", payload);
 if (
   (editActionType === "cambiar_precio" ||
     editActionType === "agregar_precio_rebajado" ||
-    editActionType === "cambiar_precio_rebajado") &&
+    editActionType === "cambiar_precio_rebajado" ||
+    editActionType === "cambiar_precio_efectivo") &&
   !Number(editValue)
 ) {
   pushAssistantInfo("El precio debe ser un número válido.");
