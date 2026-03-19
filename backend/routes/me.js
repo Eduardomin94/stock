@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
       id: user.id,
       email: user.email,
       store_url: user.store_url || "",
-      usa_precio_efectivo: user.email === "stock@gudaima.com",
+      usa_precio_efectivo: user.email === "cielropa@gmail.com",
     });
   } catch (error) {
     return res.status(401).json({
