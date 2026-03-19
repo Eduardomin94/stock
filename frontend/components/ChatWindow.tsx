@@ -508,6 +508,7 @@ export default function ChatWindow() {
   const [loading, setLoading] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeUrl, setStoreUrl] = useState("");
+  const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
@@ -558,7 +559,15 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
     return `chat_history_${userId}_${agentId}`;
   }, [agentId]);
 
-  const currentCreateStep = activeAction === "create" ? CREATE_STEPS[createStepIndex] : null;
+  const CREATE_STEPS_VISIBLE = CREATE_STEPS.filter((step) => {
+  if (step.key === "precioEfectivo" && !userMe?.usa_precio_efectivo) {
+    return false;
+  }
+  return true;
+});
+
+const currentCreateStep =
+  activeAction === "create" ? CREATE_STEPS_VISIBLE[createStepIndex] : null;
   const isCreateStepPhotos = currentCreateStep?.key === "fotos";
 
 const hasColors = (createForm.colores || "")
@@ -1242,7 +1251,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   }
 
   function loadCurrentStepValue(stepIndex: number) {
-    const step = CREATE_STEPS[stepIndex];
+    const step = CREATE_STEPS_VISIBLE[stepIndex];
     if (!step || step.key === "fotos") {
       setText("");
       return;
@@ -1300,7 +1309,7 @@ async function nextCreateStep() {
 
   const nextIndex = createStepIndex + 1;
 
-  if (nextIndex >= CREATE_STEPS.length) {
+  if (nextIndex >= CREATE_STEPS_VISIBLE.length) {
     return;
   }
 
@@ -1382,6 +1391,7 @@ useEffect(() => {
 
       const data = await res.json();
       console.log("ME RESPONSE", data);
+      setUserMe(data || null);
 
       const rawUrl = String(data?.store_url || "").trim();
       setStoreUrl(rawUrl);
@@ -4055,7 +4065,7 @@ setMoveProductMode("before");
   >
     <div>
       <div style={{ color: "#93c5fd", fontSize: 12, marginBottom: 4 }}>
-        Paso {createStepIndex + 1} de {CREATE_STEPS.length}
+        Paso {createStepIndex + 1} de {CREATE_STEPS_VISIBLE.length}
       </div>
 
       <div style={{ fontWeight: 700, fontSize: 15 }}>
@@ -4074,7 +4084,7 @@ setMoveProductMode("before");
           marginTop: 10,
         }}
       >
-        {CREATE_STEPS.map((step, index) => {
+        {CREATE_STEPS_VISIBLE.map((step, index) => {
           const isCurrent = index === createStepIndex;
           const isDone = index < createStepIndex;
 
@@ -4129,7 +4139,7 @@ setMoveProductMode("before");
         Anterior
       </button>
 
-      {createStepIndex < CREATE_STEPS.length - 1 ? (
+      {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
         <button
           type="button"
           onClick={nextCreateStep}
@@ -4194,7 +4204,7 @@ onMouseLeave={(e) => {
 
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>
                   {activeAction === "create"
-                    ? `Creando producto · Paso ${createStepIndex + 1} de ${CREATE_STEPS.length}`
+                    ? `Creando producto · Paso ${createStepIndex + 1} de ${CREATE_STEPS_VISIBLE.length}`
                     : "Arrastrá fotos acá · Enter envía · Shift + Enter baja de línea"}
 
                 </span>
