@@ -355,6 +355,39 @@ function translateAgentError(message: any) {
     return "Ya existe un producto con ese SKU.";
   }
 
+  if (text === "INVALID_CONTENT_TYPE") {
+    return "El servidor se está iniciando. Probá de nuevo en unos segundos.";
+  }
+
+  if (text === "INVALID_JSON") {
+    return "El servidor devolvió una respuesta inválida. Probá de nuevo en unos segundos.";
+  }
+
+  if (text === "TIMEOUT") {
+    return "El servidor tardó demasiado en responder. Probá de nuevo en unos segundos.";
+  }
+
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed") ||
+    lower.includes("networkerror") ||
+    lower.includes("network error")
+  ) {
+    return "No se pudo conectar con el servidor. Probá de nuevo en unos segundos.";
+  }
+
+  if (text.startsWith("HTTP_")) {
+    return "El servidor respondió con un error. Probá de nuevo en unos segundos.";
+  }
+
+  if (
+    lower.includes("<!doctype html") ||
+    lower.includes("<html") ||
+    lower.includes("<body>")
+  ) {
+    return "El servidor devolvió una respuesta inválida. Probá de nuevo en unos segundos.";
+  }
+
   if (text && text !== "{}") {
     return text;
   }
@@ -501,6 +534,78 @@ function getButtonClass(
   if (active) classes.push("saas-btn-active");
 
   return classes.join(" ");
+}
+
+async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    const contentType = res.headers.get("content-type") || "";
+    const rawText = await res.text();
+
+    if (!res.ok) {
+      let parsed: any = null;
+
+      if (contentType.includes("application/json")) {
+        try {
+          parsed = JSON.parse(rawText);
+        } catch {}
+      }
+
+      throw new Error(
+        parsed?.detail ||
+          parsed?.error ||
+          parsed?.message ||
+          `HTTP_${res.status}`
+      );
+    }
+
+    if (!contentType.includes("application/json")) {
+      throw new Error("INVALID_CONTENT_TYPE");
+    }
+
+    let data: any = null;
+
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      throw new Error("INVALID_JSON");
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error("TIMEOUT");
+    }
+
+    const message =
+      typeof error?.message === "string" ? error.message : String(error || "");
+
+    const canRetry =
+      retries > 0 &&
+      (
+        message === "INVALID_CONTENT_TYPE" ||
+        message === "INVALID_JSON" ||
+        message === "TIMEOUT" ||
+        message.toLowerCase().includes("fetch") ||
+        message.toLowerCase().includes("network")
+      );
+
+    if (canRetry) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return safeFetchJson(url, options, retries - 1);
+    }
+
+    throw error;
+  }
 }
 
 export default function ChatWindow() {
@@ -690,25 +795,44 @@ function getVariationCombination(
 
       const token = localStorage.getItem("token") || "";
 
-      const res = await fetch(`${API}/run-agent`, {
-  method: "POST",
-  headers: token
-    ? {
-        Authorization: `Bearer ${token}`,
-      }
-    : undefined,
-  body: form,
-});
+      const response = await safeFetchJson(
+  `${API}/run-agent`,
+  {
+    method: "POST",
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+    body: form,
+  },
+  1
+);
 
-const response = await res.json();
+const assistantText =
+  typeof response?.reply === "string"
+    ? response.reply.trim()
+    : typeof response?.error === "string"
+      ? response.error.trim()
+      : typeof response?.detail === "string"
+        ? response.detail.trim()
+        : "";
 
-if (!res.ok) {
-  throw response?.detail || response?.error || response?.message || "Error al ejecutar el agente.";
+if (!assistantText) {
+  throw new Error("INVALID_JSON");
+}
+
+if (
+  assistantText.startsWith("<!DOCTYPE html") ||
+  assistantText.startsWith("<html") ||
+  assistantText.includes("<body>")
+) {
+  throw new Error("INVALID_CONTENT_TYPE");
 }
 
 const assistantMessage: Message = {
   role: "assistant",
-  text: response.reply || response.error || response.detail || "Sin respuesta del agente.",
+  text: assistantText,
 };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -771,23 +895,19 @@ const assistantMessage: Message = {
     form.append("agentId", agentId);
     form.append("message", command);
 
-    const res = await fetch(`${API}/run-agent`, {
-      method: "POST",
-      headers: token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : undefined,
-      body: form,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data?.detail || data?.error || data?.message || "Error buscando el producto."
-      );
-    }
+    const data = await safeFetchJson(
+  `${API}/run-agent`,
+  {
+    method: "POST",
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+    body: form,
+  },
+  1
+);
 
     if (data?.product) {
   setEditFoundProduct(
@@ -992,7 +1112,9 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
 
   const token = localStorage.getItem("token") || "";
 
-  const res = await fetch(`${API}/run-agent`, {
+  const response = await safeFetchJson(
+  `${API}/run-agent`,
+  {
     method: "POST",
     headers: token
       ? {
@@ -1000,13 +1122,9 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
         }
       : undefined,
     body: form,
-  });
-
-  const response = await res.json();
-
-  if (!res.ok) {
-    throw response?.detail || response?.error || response?.message || "No se pudo validar el SKU.";
-  }
+  },
+  1
+);
 
   return {
     exists: Boolean(response?.exists),
