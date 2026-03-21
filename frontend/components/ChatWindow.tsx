@@ -7,8 +7,7 @@ type Message = {
   text: string;
 };
 
-
-function normalizeMessageText(value: unknown) {
+function normalizeMessageText(value: unknown): string {
   if (typeof value === "string") return value;
   if (value == null) return "";
   try {
@@ -22,7 +21,7 @@ function normalizeStoredMessages(value: unknown): Message[] {
   if (!Array.isArray(value)) return [];
   return value
     .map((item: any) => ({
-      role: item?.role === "user" ? "user" : "assistant",
+      role: item?.role === "user" ? ("user" as const) : ("assistant" as const),
       text: normalizeMessageText(item?.text),
     }))
     .filter((item) => item.text.trim().length > 0);
@@ -1742,7 +1741,11 @@ setStoreName(`${prettyName} (${domain})`);
 
       if (saved) {
         const parsed = JSON.parse(saved);
-        setMessages(normalizeStoredMessages(parsed));
+        if (Array.isArray(parsed)) {
+          setMessages(normalizeStoredMessages(parsed));
+        } else {
+          setMessages([]);
+        }
       } else {
         setMessages([]);
       }
@@ -2107,7 +2110,7 @@ onMouseLeave={(e) => {
               border: message.role === "user" ? "none" : "1px solid #1f2937",
             }}
           >
-            {normalizeMessageText(message.text)}
+            {message.text}
           </div>
         ))}
 
