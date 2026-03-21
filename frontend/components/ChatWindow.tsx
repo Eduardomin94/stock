@@ -653,10 +653,9 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const composerWrapRef = useRef<HTMLDivElement | null>(null);
+  const composerAreaRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const editActionInputRef = useRef<HTMLElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const editActionFieldRef = useRef<HTMLElement | null>(null);
 
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -758,60 +757,6 @@ function getVariationCombination(
     image: { id: number; src: string } | null;
   }
 ) {
-
-const scrollToComposerArea = () => {
-  composerWrapRef.current?.scrollIntoView({
-    behavior: "smooth",
-    block: "end",
-  });
-};
-
-const focusCurrentInput = () => {
-  const el = editActionInputRef.current || composerRef.current;
-  if (
-    el instanceof HTMLInputElement ||
-    el instanceof HTMLTextAreaElement
-  ) {
-    el.focus();
-  }
-};
-
-useEffect(() => {
-  if (!activeAction && !editActionType) return;
-
-  let attempts = 0;
-  const interval = setInterval(() => {
-    scrollToComposerArea();
-    focusCurrentInput();
-
-    attempts += 1;
-    if (attempts >= 12) {
-      clearInterval(interval);
-    }
-  }, 120);
-
-  return () => clearInterval(interval);
-}, [activeAction, editActionType, createStepIndex, deleteMode]);
-
-useEffect(() => {
-  const box = chatScrollRef.current;
-  if (!box) return;
-
-  const timer = setTimeout(() => {
-    box.scrollTo({
-      top: box.scrollHeight,
-      behavior: "smooth",
-    });
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
-  }, 80);
-
-  return () => clearTimeout(timer);
-}, [messages, loading]);
-
-
   return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
     const attrName = String(attr?.name || "").trim();
     const attrOption = String(attr?.option || "").trim();
@@ -1378,6 +1323,48 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
 
 
 
+
+
+  function scrollChatToBottom() {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: "smooth",
+    });
+  }
+
+  function scrollToComposer(focus = false) {
+    composerAreaRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+
+    if (focus) {
+      setTimeout(() => {
+        composerRef.current?.focus();
+      }, 180);
+    }
+  }
+
+  function scrollToEditActionField() {
+    const el = editActionFieldRef.current;
+    if (!el) return;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    setTimeout(() => {
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        el.focus();
+      }
+    }, 180);
+  }
+
+
   function cancelCreateProduct() {
   setActiveAction(null);
   setCreateStepIndex(0);
@@ -1663,6 +1650,37 @@ setStoreName(`${prettyName} (${domain})`);
 }, [isVariableProductDraft, createForm.stockMode]);
 
 
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollChatToBottom();
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [messages, loading]);
+
+  useEffect(() => {
+    if (!activeAction) return;
+
+    const timer = setTimeout(() => {
+      scrollToComposer(true);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [activeAction, createStepIndex, deleteMode]);
+
+  useEffect(() => {
+    if (!editActionType) return;
+
+    const timer = setTimeout(() => {
+      scrollToEditActionField();
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [editActionType]);
+
+
   return (
     <div
       style={{
@@ -1945,11 +1963,11 @@ onMouseLeave={(e) => {
             Pensando...
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {activeAction && (
-      <div ref={composerWrapRef}
+      <div
+        ref={composerAreaRef}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -3857,7 +3875,6 @@ onMouseLeave={(e) => {
 
 {editActionType === "cambiar_descripcion" ? (
   <textarea
-    ref={(el) => { editActionInputRef.current = el; }}
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
     placeholder="Nueva descripción"
@@ -3917,7 +3934,6 @@ onMouseLeave={(e) => {
     </div>
 
     <input
-      ref={(el) => { editActionInputRef.current = el; }}
       type="text"
       value={moveTargetSearch}
       onChange={(e) => setMoveTargetSearch(e.target.value)}
