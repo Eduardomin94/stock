@@ -2989,7 +2989,13 @@ Stock general
     <button
       type="button"
       onClick={async () => {
-        const editProductId = (editFoundProduct && typeof editFoundProduct.id === "number") ? editFoundProduct.id : null;
+        const editProductId =
+  typeof editFoundProduct === "object" &&
+  editFoundProduct !== null &&
+  "id" in editFoundProduct &&
+  typeof (editFoundProduct as { id?: unknown }).id === "number"
+    ? (editFoundProduct as { id: number }).id
+    : null;
 
         if (!editProductId || selectedFiles.length === 0) {
           pushAssistantInfo("Seleccioná una foto primero.");
@@ -4263,7 +4269,13 @@ onMouseLeave={(e) => {
     <button
   type="button"
   onClick={async () => {
-    const editProductId = (editFoundProduct && typeof editFoundProduct.id === "number") ? editFoundProduct.id : null;
+    const editProductId =
+  typeof editFoundProduct === "object" &&
+  editFoundProduct !== null &&
+  "id" in editFoundProduct &&
+  typeof (editFoundProduct as { id?: unknown }).id === "number"
+    ? (editFoundProduct as { id: number }).id
+    : null;
 
         if (!editProductId || selectedFiles.length === 0) {
       pushAssistantInfo("Agregá al menos una foto.");
