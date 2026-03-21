@@ -2143,7 +2143,7 @@ onMouseLeave={(e) => {
           background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
         }}
       >
-        {canUsePhotoUploader && selectedFiles.length > 0 && (
+        {canUsePhotoUploader && selectedFiles.length > 0 && activeAction !== "create" && (
   <>
     <div
       style={{
@@ -4887,12 +4887,93 @@ setMoveProductMode("before");
         {currentCreateStep.helper}
       </div>
 
-            <div
+      <div
         style={{
           display: "flex",
           gap: 8,
           flexWrap: "wrap",
           marginTop: 10,
+          marginBottom: 10,
+        }}
+      >
+        <button
+          type="button"
+          onClick={cancelCreateProduct}
+          style={wizardSecondaryButtonStyle}
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          onClick={previousCreateStep}
+          disabled={createStepIndex === 0}
+          style={{
+            ...wizardSecondaryButtonStyle,
+            opacity: createStepIndex === 0 ? 0.55 : 1,
+            cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          Anterior
+        </button>
+
+        {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
+          <button
+            type="button"
+            onClick={nextCreateStep}
+            style={wizardPrimaryButtonStyle}
+          >
+            Siguiente
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={submitCreateProduct}
+            style={wizardPrimaryButtonStyle}
+          >
+            Crear producto
+          </button>
+        )}
+
+        {isCreateStepPhotos && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: "1px solid #2b3950",
+              background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+              color: "#e5e7eb",
+              borderRadius: 14,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontSize: 14,
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(-1px)";
+              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+              el.style.borderColor = "#3b82f6";
+              el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(0)";
+              el.style.boxShadow = "none";
+              el.style.borderColor = "#2b3950";
+              el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+            }}
+          >
+            + Agregar fotos
+          </button>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
         }}
       >
         {CREATE_STEPS_VISIBLE.map((step, index) => {
@@ -4927,47 +5008,6 @@ setMoveProductMode("before");
       </div>
 
     </div>
-
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      <button
-        type="button"
-        onClick={cancelCreateProduct}
-        style={wizardSecondaryButtonStyle}
-      >
-        Cancelar
-      </button>
-
-      <button
-        type="button"
-        onClick={previousCreateStep}
-        disabled={createStepIndex === 0}
-        style={{
-          ...wizardSecondaryButtonStyle,
-          opacity: createStepIndex === 0 ? 0.55 : 1,
-          cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
-        }}
-      >
-        Anterior
-      </button>
-
-      {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
-        <button
-          type="button"
-          onClick={nextCreateStep}
-          style={wizardPrimaryButtonStyle}
-        >
-          Siguiente
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={submitCreateProduct}
-          style={wizardPrimaryButtonStyle}
-        >
-          Crear producto
-        </button>
-      )}
-    </div>
   </div>
 )}
 
@@ -4982,7 +5022,7 @@ setMoveProductMode("before");
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                {canUsePhotoUploader && (
+                {canUsePhotoUploader && !isCreateStepPhotos && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
