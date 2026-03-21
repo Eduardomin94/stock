@@ -757,7 +757,25 @@ function getVariationCombination(
     image: { id: number; src: string } | null;
   }
 ) {
-  return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
+  
+<style jsx global>{`
+.chat-window-saas button {
+  transition: transform 0.16s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chat-window-saas button:hover {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+  }
+}
+
+.chat-window-saas button:active {
+  transform: scale(0.98);
+}
+`}</style>
+
+return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
     const attrName = String(attr?.name || "").trim();
     const attrOption = String(attr?.option || "").trim();
 
