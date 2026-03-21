@@ -3879,6 +3879,14 @@ onMouseLeave={(e) => {
     <button
       type="button"
       onClick={async () => {
+        const editProductId =
+          typeof editFoundProduct === "object" &&
+          editFoundProduct !== null &&
+          "id" in editFoundProduct &&
+          typeof (editFoundProduct as { id?: unknown }).id === "number"
+            ? (editFoundProduct as { id: number }).id
+            : null;
+
         if (!editProductId) return;
 
         const hasVariations =
