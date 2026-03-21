@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type Message = {
   role: "user" | "assistant";
@@ -758,14 +758,16 @@ function getVariationCombination(
   }
 ) {
   
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!loading) return;
 
-    const timer = setTimeout(() => {
-      scrollChatToBottom();
-    }, 60);
+    const el = chatScrollRef.current;
+    if (!el) return;
 
-    return () => clearTimeout(timer);
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: "auto",
+    });
   }, [loading]);
 
 return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
@@ -1666,7 +1668,7 @@ setStoreName(`${prettyName} (${domain})`);
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollChatToBottom();
-    }, 80);
+    }, 120);
 
     return () => clearTimeout(timer);
   }, [messages, loading]);
