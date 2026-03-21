@@ -1477,6 +1477,27 @@ export async function updateStockAdvanced({
       payload.stock_status = stockStatus || "instock";
     }
 
+    const previousManageStock = variation.manage_stock ?? null;
+    const previousStockQuantity = variation.stock_quantity ?? null;
+    const previousStockStatus = variation.stock_status ?? null;
+
+    const nextManageStock = payload.manage_stock;
+    const nextStockQuantity = payload.manage_stock
+      ? Number(payload.stock_quantity || 0)
+      : null;
+    const nextStockStatus = payload.manage_stock
+      ? "instock"
+      : payload.stock_status || "instock";
+
+    const changed =
+      Boolean(previousManageStock) !== Boolean(nextManageStock) ||
+      Number(previousStockQuantity ?? -999999) !== Number(nextStockQuantity ?? -999999) ||
+      String(previousStockStatus || "") !== String(nextStockStatus || "");
+
+    if (!changed) {
+      continue;
+    }
+
     const updated = await updateVariation(
       baseUrl,
       consumerKey,
