@@ -2614,55 +2614,6 @@ Stock general
 )}
       </div>
     )}
-
-    {(currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria") && (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-        <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-          También podés marcar categorías existentes:
-        </div>
-
-        {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
-        {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
-
-        <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          {categoryOptions.map((category) => {
-            const checked = createSelectedCategoryIds.includes(Number(category.id));
-            const label = categoryPathMap.get(Number(category.id)) || category.name;
-
-            return (
-              <label
-                key={category.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: "1px solid #334155",
-                  background: checked ? "#2563eb" : "#020617",
-                  color: "white",
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() =>
-                    setCreateSelectedCategoryIds((prev) =>
-                      prev.includes(Number(category.id))
-                        ? prev.filter((id) => id !== Number(category.id))
-                        : [...prev, Number(category.id)]
-                    )
-                  }
-                />
-                <span>{label}</span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
-    )}
   </>
 ) : (
   <textarea
@@ -2713,6 +2664,55 @@ Stock general
     }}
   />
 )}
+{(activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      También podés marcar categorías existentes:
+    </div>
+
+    {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
+    {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
+
+    <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+      {categoryOptions.map((category) => {
+        const checked = createSelectedCategoryIds.includes(Number(category.id));
+        const label = categoryPathMap.get(Number(category.id)) || category.name;
+
+        return (
+          <label
+            key={category.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: checked ? "#2563eb" : "#020617",
+              color: "white",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() =>
+                setCreateSelectedCategoryIds((prev) =>
+                  prev.includes(Number(category.id))
+                    ? prev.filter((id) => id !== Number(category.id))
+                    : [...prev, Number(category.id)]
+                )
+              }
+            />
+            <span>{label}</span>
+          </label>
+        );
+      })}
+    </div>
+  </div>
+)}
+
 {currentCreateStep?.key === "sku" && skuStatusMessage && (
   <div
     style={{
