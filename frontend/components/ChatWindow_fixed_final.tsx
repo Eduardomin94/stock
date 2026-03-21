@@ -725,6 +725,11 @@ export default function ChatWindow() {
   const [storeUrl, setStoreUrl] = useState("");
   const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+const removeSelectedFile = (indexToRemove: number) => {
+  setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+};
+
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
