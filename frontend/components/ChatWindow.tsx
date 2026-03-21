@@ -633,7 +633,18 @@ const skuValidationIdRef = useRef(0);
 const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
-  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  
+const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+
+
+function scrollChatToBottom() {
+  messagesEndRef.current?.scrollIntoView({
+    behavior: "smooth",
+    block: "end",
+  });
+}
+const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
@@ -652,28 +663,22 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
   
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const editActionInputRef = useRef<HTMLElement | null>(null);
 
 
-  useEffect(() => {
-    if (!editActionType) return;
-    if (!editActionInputRef.current) return;
+useEffect(() => {
+  if (!messages.length) return;
 
-    editActionInputRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role !== "assistant") return;
 
-    const timer = setTimeout(() => {
-      if (editActionInputRef.current instanceof HTMLInputElement) {
-        editActionInputRef.current.focus();
-      } else if (editActionInputRef.current instanceof HTMLTextAreaElement) {
-        editActionInputRef.current.focus();
-      }
-    }, 200);
+  const timer = setTimeout(() => {
+    scrollChatToBottom();
+  }, 100);
 
-    return () => clearTimeout(timer);
-  }, [editActionType]);
+  return () => clearTimeout(timer);
+}, [messages]);
+
+
 
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -1891,6 +1896,7 @@ onMouseLeave={(e) => {
             {message.text}
           </div>
         ))}
+          <div ref={messagesEndRef} />
 
         {loading && (
           <div
@@ -2978,9 +2984,6 @@ onMouseLeave={(e) => {
     </div>
 
     <input
-      ref={(el) => {
-        editActionInputRef.current = el;
-      }}
       type="number"
       min="0"
       value={editValue}
@@ -3177,9 +3180,6 @@ onMouseLeave={(e) => {
       </div>
     ) : (
       <input
-        ref={(el) => {
-          editActionInputRef.current = el;
-        }}
         type="number"
         min="0"
         value={editValue}
@@ -3823,9 +3823,6 @@ onMouseLeave={(e) => {
 
 {editActionType === "cambiar_descripcion" ? (
   <textarea
-    ref={(el) => {
-      editActionInputRef.current = el;
-    }}
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
     placeholder="Nueva descripción"
@@ -3885,9 +3882,6 @@ onMouseLeave={(e) => {
     </div>
 
     <input
-      ref={(el) => {
-        editActionInputRef.current = el;
-      }}
       type="text"
       value={moveTargetSearch}
       onChange={(e) => setMoveTargetSearch(e.target.value)}
@@ -4016,9 +4010,6 @@ onMouseLeave={(e) => {
   </div>
 ) : (
   <input
-    ref={(el) => {
-      editActionInputRef.current = el;
-    }}
     type="number"
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
