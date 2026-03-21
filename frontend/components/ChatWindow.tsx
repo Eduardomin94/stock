@@ -646,16 +646,14 @@ function extractErrorMessage(payload: any): string {
 }
 
 async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
+  try {
     const res = await fetch(url, {
       ...options,
       signal: controller.signal,
     });
-
-    clearTimeout(timeout);
 
     const contentType = res.headers.get("content-type") || "";
     const rawText = await res.text();
@@ -711,6 +709,8 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
     }
 
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
