@@ -633,7 +633,10 @@ const skuValidationIdRef = useRef(0);
 const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
-  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  
+const composerRef = useRef<HTMLTextAreaElement | null>(null);
+const editActionInputRef = useRef<HTMLElement | null>(null);
+const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
@@ -753,7 +756,49 @@ function getVariationCombination(
     image: { id: number; src: string } | null;
   }
 ) {
-  return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
+  
+
+useEffect(() => {
+  if (!activeAction && !editActionType) return;
+
+  const tryFocus = () => {
+    const el =
+      editActionInputRef.current ||
+      composerRef.current;
+
+    if (!el) return false;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    if (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement
+    ) {
+      el.focus();
+    }
+
+    return true;
+  };
+
+  let attempts = 0;
+
+  const interval = setInterval(() => {
+    const ok = tryFocus();
+
+    if (ok || attempts > 10) {
+      clearInterval(interval);
+    }
+
+    attempts++;
+  }, 80);
+
+  return () => clearInterval(interval);
+}, [activeAction, editActionType]);
+
+return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
     const attrName = String(attr?.name || "").trim();
     const attrOption = String(attr?.option || "").trim();
 
@@ -2377,6 +2422,7 @@ Stock general
   </>
 ) : (
   <textarea
+  ref={composerRef}
   value={text}
   onChange={(e) => {
     const value = e.target.value;
