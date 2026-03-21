@@ -4136,12 +4136,19 @@ setTimeout(async () => {
         onDragLeave={() => {
           setDragOverProductImageIndex((prev) => (prev === index ? null : prev));
         }}
-        onDrop={async () => {
-          if (
-            draggedProductImageIndex === null ||
-            draggedProductImageIndex === index ||
-            !editProductId
-          ) {
+        onDrop={async () => {        const editProductId =
+          typeof editFoundProduct === "object" &&
+          editFoundProduct !== null &&
+          "id" in editFoundProduct &&
+          typeof (editFoundProduct as { id?: unknown }).id === "number"
+            ? (editFoundProduct as { id: number }).id
+            : null;
+
+        if (
+          draggedProductImageIndex === null ||
+          draggedProductImageIndex === index ||
+          !editProductId
+        ) {
             return;
           }
 
