@@ -633,18 +633,7 @@ const skuValidationIdRef = useRef(0);
 const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
-  
-const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-
-
-function scrollChatToBottom() {
-  messagesEndRef.current?.scrollIntoView({
-    behavior: "smooth",
-    block: "end",
-  });
-}
-const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
@@ -663,22 +652,6 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
   
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-
-useEffect(() => {
-  if (!messages.length) return;
-
-  const lastMessage = messages[messages.length - 1];
-  if (lastMessage.role !== "assistant") return;
-
-  const timer = setTimeout(() => {
-    scrollChatToBottom();
-  }, 100);
-
-  return () => clearTimeout(timer);
-}, [messages]);
-
-
 
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -1896,7 +1869,6 @@ onMouseLeave={(e) => {
             {message.text}
           </div>
         ))}
-          <div ref={messagesEndRef} />
 
         {loading && (
           <div
@@ -2666,7 +2638,7 @@ onMouseLeave={(e) => {
     Fotos
   </button>
 
-  <button
+  <button className="btn-saas"
     type="button"
     onClick={() => {
       setEditSection("stock");
@@ -3198,7 +3170,7 @@ onMouseLeave={(e) => {
       />
     )}
 
-    <button
+    <button className="btn-saas"
       type="button"
       onClick={async () => {
         if (!editFoundProduct?.id) return;
