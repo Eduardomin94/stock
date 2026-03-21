@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type Message = {
   role: "user" | "assistant";
-  
+  text: string;
+};
+
 // === JOB QUEUE HELPERS ===
 type Job = {
   id: string;
@@ -14,23 +16,26 @@ type Job = {
 };
 
 async function enqueueJob(body: any) {
-  const res = await fetch("/jobs", {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
+  const res = await fetch(`${API}/jobs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
   return res.json();
 }
 
 async function fetchJobs(): Promise<Job[]> {
-  const res = await fetch("/jobs");
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
+  const res = await fetch(`${API}/jobs`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   const data = await res.json();
   return Array.isArray(data) ? data : (data?.jobs || []);
 }
-text: string;
-};
-
-
 type CategoryItem = {
   id: number;
   name: string;
@@ -1369,7 +1374,7 @@ async function sendEditPayload(payload: any) {
   return data;
 }
 
-async function enqueueJob({ action: 'edit_with_files', payload: payload: any, files: File[]) {
+async function sendEditPayloadWithFiles(payload: any, files: File[]) {
   const form = new FormData();
   form.append("agentId", agentId);
   form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
@@ -1715,20 +1720,6 @@ useEffect(() => {
           : undefined,
       });
 
-      
-
-  useEffect(() => {
-    let t: any;
-    const load = async () => {
-      try {
-        const j = await fetchJobs();
-        setJobs(j);
-      } catch {}
-      t = setTimeout(load, 3000);
-    };
-    load();
-    return () => clearTimeout(t);
-  }, []);
 const data = await res.json();
       console.log("ME RESPONSE", data);
       setUserMe(data || null);
@@ -1765,6 +1756,24 @@ setStoreName(`${prettyName} (${domain})`);
 
   loadStoreInfo();
 }, []);
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async () => {
+      try {
+        const j = await fetchJobs();
+        setJobs(j);
+      } catch {}
+      t = setTimeout(load, 3000);
+    };
+
+    load();
+
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, []);
   
   useEffect(() => {
     if (!storageKey) return;
@@ -3734,7 +3743,7 @@ setTimeout(async () => {
         try {
           setLoading(true);
 
-          const response = await enqueueJob({ action: 'edit_with_files', payload: 
+          const response = await sendEditPayloadWithFiles(
             {
               action: "cambiar_fotos_variantes",
               productId: editFoundProduct.id,
@@ -4084,7 +4093,7 @@ onMouseLeave={(e) => {
     try {
       setLoading(true);
 
-      const response = await enqueueJob({ action: 'edit_with_files', payload: 
+      const response = await sendEditPayloadWithFiles(
         {
           action: "agregar_fotos_producto",
           productId: editFoundProduct.id,
@@ -4964,6 +4973,82 @@ onMouseLeave={(e) => {
         </div>
       </div>
       )}
+
+      <button
+        type="button"
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 20,
+          zIndex: 50,
+          border: "1px solid #2b3950",
+          background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+          color: "#e5e7eb",
+          borderRadius: 14,
+          padding: "10px 14px",
+          cursor: "pointer",
+          fontSize: 14,
+        }}
+        onClick={() => setShowJobs((v) => !v)}
+      >
+        Procesos
+      </button>
+
+      {showJobs && (
+        <div
+          style={{
+            position: "fixed",
+            right: 0,
+            top: 0,
+            height: "100%",
+            width: 320,
+            background: "#111",
+            color: "#fff",
+            padding: 12,
+            overflowY: "auto",
+            zIndex: 49,
+            boxShadow: "-8px 0 24px rgba(0,0,0,0.35)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Historial</h3>
+            <button
+              type="button"
+              onClick={() => setShowJobs(false)}
+              style={{
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#e5e7eb",
+                borderRadius: 10,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+          {jobs.length === 0 ? (
+            <div style={{ fontSize: 14, color: "#94a3b8" }}>Todavía no hay procesos.</div>
+          ) : (
+            jobs.map((j) => (
+              <div
+                key={j.id}
+                style={{
+                  marginBottom: 10,
+                  fontSize: 14,
+                  padding: 10,
+                  border: "1px solid #1f2937",
+                  borderRadius: 12,
+                  background: "#0b1220",
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{j.title}</div>
+                <div style={{ color: "#94a3b8", marginTop: 4 }}>{j.status}</div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -5010,35 +5095,3 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: 14,
 };
-
-
-
-      {/* === JOB DRAWER === */}
-      <button
-        style={{ position: "fixed", right: 20, bottom: 20, zIndex: 50 }}
-        onClick={() => setShowJobs(!showJobs)}
-      >
-        Procesos
-      </button>
-
-      {showJobs && (
-        <div style={{
-          position: "fixed",
-          right: 0,
-          top: 0,
-          height: "100%",
-          width: 320,
-          background: "#111",
-          color: "#fff",
-          padding: 12,
-          overflowY: "auto",
-          zIndex: 49
-        }}>
-          <h3>Historial</h3>
-          {jobs.map((j) => (
-            <div key={j.id} style={{ marginBottom: 10, fontSize: 14 }}>
-              {j.title} — {j.status}
-            </div>
-          ))}
-        </div>
-      )}
