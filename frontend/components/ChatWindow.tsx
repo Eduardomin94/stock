@@ -231,13 +231,6 @@ const CREATE_STEPS: {
     placeholder: "Ej: Remeras",
   },
   {
-    key: "subcategoria",
-    title: "Subcategoría",
-    helper: "Si tiene subcategoría, escribila. Si no tiene, dejalo vacío.",
-    placeholder: "Ej: Manga corta",
-    optional: true,
-  },
-  {
     key: "fotos",
     title: "Fotos",
     helper: "Por último, agregá las fotos del producto. La primera queda como principal.",
@@ -1513,7 +1506,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   resetSkuValidationState();
 
   pushAssistantInfo(
-    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, precio en efectivo, stock, descripción corta, categoría y subcategoría."
+    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, precio en efectivo, stock, descripción corta y categoría."
   );
 }
 
@@ -1857,7 +1850,7 @@ setStoreName(`${prettyName} (${domain})`);
 
   useEffect(() => {
     if (
-      (activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) ||
+      (activeAction === "create" && currentCreateStep?.key === "categoria") ||
       activeAction === "edit"
     ) {
       if (categoryOptions.length === 0 && !categoriesLoading) {
@@ -2762,7 +2755,7 @@ Stock general
     }}
   />
 )}
-{(activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) && (
+{(activeAction === "create" && currentCreateStep?.key === "categoria") && (
   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
       También podés marcar categorías existentes:
