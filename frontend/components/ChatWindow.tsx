@@ -15,15 +15,22 @@ type Job = {
   createdAt?: string;
 };
 
-async function enqueueJob(body: any) {
+async function enqueueJob(body: { agentId: string; message: string; files?: File[]; imageColorMap?: Record<string, string> }) {
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
+  const form = new FormData();
+  form.append("agentId", body.agentId);
+  form.append("message", body.message);
+
+  (body.files || []).forEach((file) => {
+    form.append("images", file);
+    const key = getFileKey(file);
+    form.append(`imageColor_${key}`, body.imageColorMap?.[key] || "");
+  });
+
   const res = await fetch(`${API}/jobs`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
   });
   return res.json();
 }
@@ -936,39 +943,57 @@ return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) =
     setLoading(true);
 
     try {
-      const form = new FormData();
-      form.append("agentId", agentId);
-      form.append("message", cleanText);
+      const shouldQueue =
+        activeAction === "create" ||
+        activeAction === "delete" ||
+        cleanText.startsWith("__edit_product_action__:");
 
-      filesToSend.forEach((file) => {
-  form.append("images", file);
-  form.append(`imageColor_${getFileKey(file)}`, imageColorMap[getFileKey(file)] || "");
-});
+      const response = shouldQueue
+        ? await enqueueJob({
+            agentId,
+            message: cleanText,
+            files: filesToSend,
+            imageColorMap,
+          })
+        : await (async () => {
+            const form = new FormData();
+            form.append("agentId", agentId);
+            form.append("message", cleanText);
 
-      const token = localStorage.getItem("token") || "";
+            filesToSend.forEach((file) => {
+              form.append("images", file);
+              form.append(`imageColor_${getFileKey(file)}`, imageColorMap[getFileKey(file)] || "");
+            });
 
-      const response = await safeFetchJson(
-  `${API}/run-agent`,
-  {
-    method: "POST",
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : undefined,
-    body: form,
-  },
-  1
-);
+            const token = localStorage.getItem("token") || "";
+
+            return safeFetchJson(
+              `${API}/run-agent`,
+              {
+                method: "POST",
+                headers: token
+                  ? {
+                      Authorization: `Bearer ${token}`,
+                    }
+                  : undefined,
+                body: form,
+              },
+              1
+            );
+          })();
 
 const assistantText =
-  typeof response?.reply === "string"
-    ? response.reply.trim()
-    : typeof response?.error === "string"
-      ? response.error.trim()
-      : typeof response?.detail === "string"
-        ? response.detail.trim()
-        : "";
+  shouldQueue
+    ? typeof response?.job?.title === "string"
+      ? `${response.job.title}. Podés seguir trabajando.`
+      : "Proceso agregado a la cola."
+    : typeof response?.reply === "string"
+      ? response.reply.trim()
+      : typeof response?.error === "string"
+        ? response.error.trim()
+        : typeof response?.detail === "string"
+          ? response.detail.trim()
+          : "";
 
 if (!assistantText) {
   throw new Error("INVALID_JSON");
@@ -1351,55 +1376,41 @@ function resetSkuValidationState() {
 
 
 async function sendEditPayload(payload: any) {
-  const form = new FormData();
-  form.append("agentId", agentId);
-  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
-
-  const token = localStorage.getItem("token") || "";
-
-  const res = await fetch(`${API}/run-agent`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
+  const message = `__edit_product_action__:${JSON.stringify(payload)}`;
+  const data = await enqueueJob({
+    agentId,
+    message,
+    files: [],
   });
 
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(
-      data?.detail || data?.error || data?.message || "Error editando producto"
-    );
+  if (!data?.ok && !data?.job) {
+    throw new Error(data?.detail || data?.error || data?.message || "Error editando producto");
   }
 
-  return data;
+  return {
+    queued: true,
+    job: data?.job || null,
+    reply: data?.job?.title || "Edición enviada a la cola.",
+  };
 }
 
 async function sendEditPayloadWithFiles(payload: any, files: File[]) {
-  const form = new FormData();
-  form.append("agentId", agentId);
-  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
-
-  files.forEach((file) => {
-    form.append("images", file);
+  const message = `__edit_product_action__:${JSON.stringify(payload)}`;
+  const data = await enqueueJob({
+    agentId,
+    message,
+    files,
   });
 
-  const token = localStorage.getItem("token") || "";
-
-  const res = await fetch(`${API}/run-agent`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(
-      data?.detail || data?.error || data?.message || "Error editando producto"
-    );
+  if (!data?.ok && !data?.job) {
+    throw new Error(data?.detail || data?.error || data?.message || "Error editando producto");
   }
 
-  return data;
+  return {
+    queued: true,
+    job: data?.job || null,
+    reply: data?.job?.title || "Edición enviada a la cola.",
+  };
 }
 
 async function loadEditProductDetails(candidate: EditFoundProduct) {
@@ -3626,6 +3637,7 @@ pushAssistantInfo(
 
 setEditValue("");
 
+if (!response?.queued) {
 setRefreshingEditProduct(true);
 
 setTimeout(async () => {
@@ -3658,6 +3670,7 @@ setTimeout(async () => {
     setRefreshingEditProduct(false);
   }
 }, 0);
+}
         } catch (error: any) {
           pushAssistantInfo(
             error?.message || "No pude cambiar el stock."
@@ -3758,8 +3771,10 @@ setTimeout(async () => {
             response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
           );
 
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
+          if (!response?.queued) {
+            const fullProduct = await loadEditProductDetails(editFoundProduct);
+            setEditFoundProduct(fullProduct);
+          }
           setSelectedEditCombinations([]);
           setSelectedFiles([]);
           if (fileInputRef.current) {
@@ -3804,8 +3819,10 @@ setTimeout(async () => {
             response?.reply || "Foto eliminada de las variantes."
           );
 
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
+          if (!response?.queued) {
+            const fullProduct = await loadEditProductDetails(editFoundProduct);
+            setEditFoundProduct(fullProduct);
+          }
           setSelectedEditCombinations([]);
         } catch (error: any) {
           pushAssistantInfo(
@@ -4108,7 +4125,7 @@ onMouseLeave={(e) => {
       const mode = editFoundProduct?.sku ? "sku" : "nombre";
 const value = editFoundProduct?.sku || editFoundProduct?.name;
 
-if (value) {
+if (value && !response?.queued) {
   const form = new FormData();
   form.append("agentId", agentId);
   form.append("message", `__search_edit_product__:${mode}|${value}`);
@@ -4144,7 +4161,7 @@ if (fileInputRef.current) {
   }}
   style={wizardPrimaryButtonStyle}
 >
-  Agregar fotos
+  Agregar fotos al producto
 </button>
 
 {Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
@@ -4626,6 +4643,7 @@ pushAssistantInfo(
   response?.reply || "Producto actualizado correctamente."
 );
 
+if (!response?.queued) {
 setRefreshingEditProduct(true);
 
 setTimeout(async () => {
@@ -4661,6 +4679,7 @@ setTimeout(async () => {
     setRefreshingEditProduct(false);
   }
 }, 0);
+}
 
 setEditValue("");
 setEditSection("");
@@ -4827,6 +4846,28 @@ setMoveProductMode("before");
     </div>
 
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      
+{activeAction === "create" && isCreateStepPhotos && (
+  <div style={{ marginBottom: 10 }}>
+    <button
+      type="button"
+      onClick={() => fileInputRef.current?.click()}
+      style={{
+        border: "1px solid #2b3950",
+        background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+        color: "#e5e7eb",
+        borderRadius: 14,
+        padding: "10px 14px",
+        cursor: "pointer",
+        fontSize: 14,
+        transition: "all 0.2s ease",
+      }}
+    >
+      Cargar fotos
+    </button>
+  </div>
+)}
+
       <button
         type="button"
         onClick={cancelCreateProduct}
@@ -4880,10 +4921,11 @@ setMoveProductMode("before");
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
+                {(false) && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
   border: "1px solid #2b3950",
   background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
   color: "#e5e7eb",
@@ -4907,9 +4949,10 @@ onMouseLeave={(e) => {
   el.style.borderColor = "#2b3950";
   el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
 }}
-                >
-                  + Agregar fotos
-                </button>
+                  >
+                    {activeAction === "create" ? "Cargar fotos" : "+ Agregar fotos"}
+                  </button>
+                )}
 
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>
                   {activeAction === "create"

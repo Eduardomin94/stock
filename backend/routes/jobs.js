@@ -1,213 +1,178 @@
-import express from "express";
-import fs from "fs";
-import path from "path";
-import multer from "multer";
-import jwt from "jsonwebtoken";
-import { createJob, getJobByIdForUser, listJobsByUser } from "../services/jobQueue.js";
-import { hasDatabase } from "../services/db.js";
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import multer from 'multer';
 
 const router = express.Router();
+const TMP_DIR = path.join(os.tmpdir(), 'tonica-stock-jobs');
+fs.mkdirSync(TMP_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, TMP_DIR),
+  filename: (_req, file, cb) => {
+    const safe = String(file.originalname || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}_${Math.random().toString(36).slice(2, 10)}_${safe}`);
+  },
+});
 
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 10 },
 });
 
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+const jobs = [];
+let isProcessing = false;
 
-  if (!token) {
-    return res.status(401).json({ error: "Falta token." });
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function parseTitle(message = '') {
+  const text = String(message || '');
+  const lower = text.toLowerCase();
+  const findField = (label) => {
+    const line = text.split('\n').find((x) => x.toLowerCase().startsWith(`${label}:`));
+    return line ? line.split(':').slice(1).join(':').trim() : '';
+  };
+
+  if (text.startsWith('__edit_product_action__:')) {
+    try {
+      const payload = JSON.parse(text.replace('__edit_product_action__:', ''));
+      const productId = payload?.productId ? ` #${payload.productId}` : '';
+      switch (payload?.action) {
+        case 'cambiar_stock': return `Edición de producto${productId} en proceso`;
+        case 'agregar_fotos_producto': return `Carga de fotos de producto${productId} en proceso`;
+        case 'eliminar_fotos_producto': return `Eliminar fotos de producto${productId} en proceso`;
+        case 'ordenar_fotos_producto': return `Ordenar fotos de producto${productId} en proceso`;
+        case 'cambiar_fotos_variantes': return `Carga de fotos por variante${productId} en proceso`;
+        case 'quitar_fotos_variantes': return `Quitar fotos por variante${productId} en proceso`;
+        case 'cambiar_categorias': return `Cambio de categorías de producto${productId} en proceso`;
+        default: return `Edición de producto${productId} en proceso`;
+      }
+    } catch {
+      return 'Edición de producto en proceso';
+    }
   }
+
+  if (lower.includes('crear producto variable') || lower.includes('crear producto simple')) {
+    const name = findField('nombre');
+    return `Carga de producto ${name || ''}`.trim() + ' en proceso';
+  }
+
+  if (lower.includes('eliminar producto')) {
+    const sku = findField('sku');
+    const nombre = findField('nombre');
+    return `Eliminar producto ${sku || nombre || ''}`.trim() + ' en proceso';
+  }
+
+  return 'Proceso en curso';
+}
+
+function publicJob(job) {
+  return {
+    id: job.id,
+    title: job.title,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    resultMessage: job.resultMessage || '',
+  };
+}
+
+async function processNext() {
+  if (isProcessing) return;
+  const next = jobs.find((j) => j.status === 'pending');
+  if (!next) return;
+
+  isProcessing = true;
+  next.status = 'processing';
+  next.updatedAt = nowIso();
 
   try {
-    const decoded = jwt.verify(token, process.env.AUTH_JWT_SECRET || "dev_secret_change_this");
-    req.authUser = {
-      id: String(decoded?.id || "").trim(),
-      token,
-    };
-    return next();
-  } catch {
-    return res.status(401).json({ error: "Token inválido o vencido." });
-  }
-}
+    const form = new FormData();
+    form.append('agentId', next.agentId);
+    form.append('message', next.message);
 
-function buildJobType(payload = {}, message = "") {
-  const action = String(payload?.action || "").trim();
-  const text = String(message || "").toLowerCase();
-
-  if (action) {
-    if (action.includes("eliminar")) return "eliminar_producto";
-    if (action.includes("cambiar") || action.includes("agregar") || action.includes("quitar") || action.includes("ordenar") || action.includes("mover")) {
-      return "editar_producto";
+    for (const key of Object.keys(next.imageColorMap || {})) {
+      form.append(`imageColor_${key}`, next.imageColorMap[key] || '');
     }
-  }
 
-  if (text.includes("eliminar producto")) return "eliminar_producto";
-  if (text.includes("crear producto") || text.includes("cargar producto") || text.includes("producto nuevo")) return "crear_producto";
-  if (text.includes("editar producto") || text.includes("actualizar") || text.includes("cambiar ") || text.includes("modificar")) return "editar_producto";
-
-  return "solicitud";
-}
-
-function buildJobTitle(type, payload = {}, message = "") {
-  const productName =
-    String(payload?.productName || "").trim() ||
-    String(payload?.name || "").trim() ||
-    String(payload?.nombre || "").trim() ||
-    String(payload?.productLabel || "").trim() ||
-    extractProductNameFromMessage(message);
-
-  const safeName = productName || "sin nombre";
-
-  if (type === "crear_producto") return `Carga de producto ${safeName}`;
-  if (type === "editar_producto") return `Edición de producto ${safeName}`;
-  if (type === "eliminar_producto") return `Eliminar producto ${safeName}`;
-  return `Solicitud ${safeName}`;
-}
-
-function extractProductNameFromMessage(message = "") {
-  const lines = String(message || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const namedLine = lines.find((line) => /^nombre\s*:/i.test(line));
-  if (namedLine) return namedLine.replace(/^nombre\s*:/i, "").trim();
-
-  const productLine = lines.find((line) => /^producto\s*:/i.test(line));
-  if (productLine) return productLine.replace(/^producto\s*:/i, "").trim();
-
-  const skuLine = lines.find((line) => /^sku\s*:/i.test(line));
-  if (skuLine) return skuLine.replace(/^sku\s*:/i, "").trim();
-
-  return lines[0] || "";
-}
-
-function sanitizeBody(body = {}) {
-  const payloadRaw = body.payload;
-  if (!payloadRaw) return {};
-
-  if (typeof payloadRaw === "string") {
-    try {
-      return JSON.parse(payloadRaw);
-    } catch {
-      return {};
+    for (const file of next.files || []) {
+      const buffer = await fs.promises.readFile(file.path);
+      const blob = new Blob([buffer], { type: file.mimetype || 'application/octet-stream' });
+      form.append('images', blob, file.originalname || path.basename(file.path));
     }
-  }
 
-  return payloadRaw && typeof payloadRaw === "object" ? payloadRaw : {};
+    const base = process.env.INTERNAL_API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3001}`;
+    const res = await fetch(`${base.replace(/\/$/, '')}/run-agent`, {
+      method: 'POST',
+      headers: next.authHeader ? { Authorization: next.authHeader } : undefined,
+      body: form,
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data?.detail || data?.error || data?.message || 'Error al ejecutar el proceso');
+    }
+
+    next.status = 'completed';
+    next.resultMessage = String(data?.reply || 'Proceso completado.');
+    next.title = next.title.replace(/ en proceso$/i, ' completado');
+    next.updatedAt = nowIso();
+  } catch (error) {
+    next.status = 'failed';
+    next.resultMessage = error instanceof Error ? error.message : 'Error al ejecutar el proceso';
+    next.title = next.title.replace(/ en proceso$/i, ' fallido');
+    next.updatedAt = nowIso();
+  } finally {
+    for (const file of next.files || []) {
+      try { await fs.promises.unlink(file.path); } catch {}
+    }
+    isProcessing = false;
+    setTimeout(processNext, 0);
+  }
 }
 
-function saveQueuedFiles(files = []) {
-  const targetDir = path.join(process.cwd(), "uploads", "jobs");
-
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-
-  return files.map((file, index) => {
-    const originalName = String(file.originalname || `image-${index + 1}`);
-    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const finalName = `${Date.now()}-${index + 1}-${safeName}`;
-    const absolutePath = path.join(targetDir, finalName);
-    fs.writeFileSync(absolutePath, file.buffer);
-
-    return {
-      originalname: originalName,
-      mimetype: String(file.mimetype || "application/octet-stream"),
-      size: Number(file.size || 0),
-      path: absolutePath,
-      filename: finalName,
-    };
-  });
-}
-
-router.get("/", requireAuth, async (req, res) => {
-  if (!hasDatabase) {
-    return res.status(500).json({ error: "La cola necesita base de datos configurada." });
-  }
-
-  const limit = Number(req.query.limit || 100);
-  const jobs = await listJobsByUser(req.authUser.id, limit);
-
-  return res.json({
-    jobs: jobs.map((job) => ({
-      ...job,
-      status_label: mapStatusLabel(job.status),
-    })),
-  });
+router.get('/', (_req, res) => {
+  res.json(jobs.slice().reverse().map(publicJob));
 });
 
-router.get("/:id", requireAuth, async (req, res) => {
-  if (!hasDatabase) {
-    return res.status(500).json({ error: "La cola necesita base de datos configurada." });
-  }
-
-  const job = await getJobByIdForUser(req.params.id, req.authUser.id);
-
-  if (!job) {
-    return res.status(404).json({ error: "No encontré ese proceso." });
-  }
-
-  return res.json({
-    job: {
-      ...job,
-      status_label: mapStatusLabel(job.status),
-    },
-  });
-});
-
-router.post("/", requireAuth, upload.array("images", 10), async (req, res) => {
-  if (!hasDatabase) {
-    return res.status(500).json({ error: "La cola necesita base de datos configurada." });
-  }
-
-  const message = String(req.body?.message || "").trim();
-  const agentId = String(req.body?.agentId || "woocommerce-assistant").trim() || "woocommerce-assistant";
-  const payload = sanitizeBody(req.body);
-  const files = Array.isArray(req.files) ? req.files : [];
+router.post('/', upload.array('images', 10), async (req, res) => {
+  const message = String(req.body?.message || '').trim();
+  const agentId = String(req.body?.agentId || 'woocommerce-assistant').trim();
 
   if (!message) {
-    return res.status(400).json({ error: "Falta message." });
+    return res.status(400).json({ error: "Falta 'message'" });
   }
 
-  const type = buildJobType(payload, message);
-  const title = buildJobTitle(type, payload, message);
-  const filePaths = saveQueuedFiles(files);
+  const imageColorMap = {};
+  for (const [key, value] of Object.entries(req.body || {})) {
+    if (key.startsWith('imageColor_')) imageColorMap[key] = String(value || '');
+  }
 
-  const job = await createJob({
-    userId: req.authUser.id,
+  const job = {
+    id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     agentId,
-    type,
-    title,
-    requestMessage: message,
-    requestPayload: {
-      body: { ...req.body, payload },
-      headers: {
-        authorization: `Bearer ${req.authUser.token}`,
-      },
-    },
-    filePaths,
-  });
+    message,
+    title: parseTitle(message),
+    status: 'pending',
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    authHeader: req.headers.authorization || '',
+    imageColorMap,
+    files: (req.files || []).map((file) => ({
+      path: file.path,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    })),
+  };
 
-  return res.status(201).json({
-    ok: true,
-    reply: `${title} en cola.`,
-    job: {
-      ...job,
-      status_label: mapStatusLabel(job.status),
-    },
-  });
+  jobs.push(job);
+  processNext().catch(() => {});
+
+  res.status(202).json({ ok: true, job: publicJob(job) });
 });
-
-function mapStatusLabel(status) {
-  if (status === "pending") return "en cola";
-  if (status === "processing") return "en proceso";
-  if (status === "completed") return "completado";
-  if (status === "failed") return "fallido";
-  return status || "";
-}
 
 export default router;

@@ -18,8 +18,6 @@ import { query } from "./services/db.js";
 import uploadImageRoute from "./routes/uploadImage.js";
 import meRoute from "./routes/me.js";
 import jobsRoute from "./routes/jobs.js";
-import { ensureJobsTable } from "./services/jobQueue.js";
-import { startJobWorker } from "./workers/processJobs.js";
 
 
 dotenv.config();
@@ -35,8 +33,6 @@ async function ensureDatabase() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
-
-  await ensureJobsTable();
 }
 console.log("OPENAI_API_KEY cargada:", process.env.OPENAI_API_KEY ? "SI" : "NO");
 const app = express();
@@ -64,6 +60,7 @@ app.use("/register", registerRoute);
 app.use("/login", loginRoute);
 app.use("/me", meRoute);
 app.use("/run-agent", runAgentRoute);
+app.use("/jobs", jobsRoute);
 app.use("/test-woo-audit", testWooAuditRoute);
 app.use("/test-enable-manage-stock-dry-run", testEnableManageStockDryRunRoute);
 app.use("/test-enable-manage-stock", testEnableManageStockRoute);
@@ -76,7 +73,6 @@ app.use("/test-create-simple-product", testCreateSimpleProductRoute);
 app.use("/test-create-variable-product", testCreateVariableProductRoute);
 app.use("/uploads", express.static("uploads"));
 app.use("/upload-images", uploadImageRoute);
-app.use("/jobs", jobsRoute);
 
 
 const PORT = process.env.PORT || 3001;
@@ -92,7 +88,6 @@ async function startServer() {
 
   app.listen(PORT, () => {
     console.log("Servidor de agentes funcionando");
-    startJobWorker();
   });
 }
 
