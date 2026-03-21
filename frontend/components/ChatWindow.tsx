@@ -3862,175 +3862,302 @@ setTimeout(async () => {
     }}
   >
 
-    {canUsePhotoUploader && selectedFiles.length > 0 && (
-      <>
-        <div
-          style={{
-            color: "#94a3b8",
-            fontSize: 13,
-            marginBottom: 6,
-          }}
-        >
-          Arrastrá las fotos para ordenar. La primera será la principal.
-        </div>
+{selectedFiles.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#0b1220",
+    }}
+  >
+    <div style={{ color: "#94a3b8", fontSize: 13 }}>
+      Foto cargada para asignar a variantes
+    </div>
 
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+      }}
+    >
+      {selectedFiles.map((file, index) => (
         <div
+          key={getFileKey(file)}
+          draggable
+          onDragStart={() => {
+            setDraggedFileIndex(index);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverFileIndex(index);
+          }}
+          onDragLeave={() => {
+            setDragOverFileIndex((prev) => (prev === index ? null : prev));
+          }}
+          onDrop={() => {
+            if (draggedFileIndex === null) return;
+            moveSelectedFile(draggedFileIndex, index);
+            setDraggedFileIndex(null);
+            setDragOverFileIndex(null);
+          }}
+          onDragEnd={() => {
+            setDraggedFileIndex(null);
+            setDragOverFileIndex(null);
+          }}
           style={{
-            display: "flex",
-            flexWrap: "wrap",
+            display: "inline-flex",
+            alignItems: "center",
             gap: 8,
-            marginBottom: 12,
+            padding: "8px 10px",
+            borderRadius: 999,
+            background: "#111827",
+            border: "1px solid #243041",
+            fontSize: 13,
+            color: "#d1d5db",
+            cursor: "grab",
+            opacity: draggedFileIndex === index ? 0.65 : 1,
+            boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
           }}
         >
-          {selectedFiles.map((file, index) => (
-            <div
-              key={getFileKey(file)}
-              draggable
-              onDragStart={() => {
-                setDraggedFileIndex(index);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverFileIndex(index);
-              }}
-              onDragLeave={() => {
-                setDragOverFileIndex((prev) => (prev === index ? null : prev));
-              }}
-              onDrop={() => {
-                if (draggedFileIndex === null) return;
-                moveSelectedFile(draggedFileIndex, index);
-                setDraggedFileIndex(null);
-                setDragOverFileIndex(null);
-              }}
-              onDragEnd={() => {
-                setDraggedFileIndex(null);
-                setDragOverFileIndex(null);
-              }}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <img
+              src={URL.createObjectURL(file)}
+              alt={file.name}
+              draggable={false}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 10px",
-                borderRadius: 999,
-                background: "#111827",
-                border: "1px solid #243041",
-                fontSize: 13,
-                color: "#d1d5db",
-                cursor: "grab",
-                opacity: draggedFileIndex === index ? 0.65 : 1,
-                boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
+                width: 44,
+                height: 44,
+                objectFit: "cover",
+                borderRadius: 8,
+                border: "1px solid #334155",
+                display: "block",
+                pointerEvents: "none",
+                userSelect: "none",
               }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <img
-                  src={URL.createObjectURL(file)}
-                  alt={file.name}
-                  draggable={false}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                    border: "1px solid #334155",
-                    display: "block",
-                    pointerEvents: "none",
-                    userSelect: "none",
-                  }}
-                />
+            />
+            <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
+          </div>
 
-                <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
-              </div>
+          <select
+            value={imageColorMap[getFileKey(file)] || ""}
+            onMouseDown={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const key = getFileKey(file);
+              const value = e.target.value;
 
-              <select
-                value={imageColorMap[getFileKey(file)] || ""}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const key = getFileKey(file);
-                  const value = e.target.value;
+              setImageColorMap((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            }}
+            style={{
+              marginLeft: 10,
+              background: "#020617",
+              color: "#fff",
+              border: "1px solid #334155",
+              borderRadius: 8,
+              padding: "4px 6px",
+              fontSize: 12,
+            }}
+          >
+            <option value="">Sin color</option>
+            {(createForm.colores || "")
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean)
+              .map((color) => {
+                const currentFileKey = getFileKey(file);
+                const currentSelectedColor = imageColorMap[currentFileKey] || "";
 
-                  setImageColorMap((prev) => ({
-                    ...prev,
-                    [key]: value,
-                  }));
-                }}
-                style={{
-                  marginLeft: 10,
-                  background: "#020617",
-                  color: "#fff",
-                  border: "1px solid #334155",
-                  borderRadius: 8,
-                  padding: "4px 6px",
-                  fontSize: 12,
-                }}
-              >
-                <option value="">Sin color</option>
-                {(createForm.colores || "")
-                  .split(",")
-                  .map((c) => c.trim())
-                  .filter(Boolean)
-                  .map((color) => {
-                    const currentFileKey = getFileKey(file);
-                    const currentSelectedColor = imageColorMap[currentFileKey] || "";
+                const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
+                  ([fileKey, selectedColor]) =>
+                    fileKey !== currentFileKey && selectedColor === color
+                );
 
-                    const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
-                      ([fileKey, selectedColor]) =>
-                        fileKey !== currentFileKey && selectedColor === color
-                    );
+                return (
+                  <option
+                    key={color}
+                    value={color}
+                    disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
+                  >
+                    {color}
+                  </option>
+                );
+              })}
+          </select>
 
-                    return (
-                      <option
-                        key={color}
-                        value={color}
-                        disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
-                      >
-                        {color}
-                      </option>
-                    );
-                  })}
-              </select>
-
-              <button
-                type="button"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  const removedFile = selectedFiles[index];
-                  const removedKey = getFileKey(removedFile);
-
-                  const nextFiles = selectedFiles.filter((_, i) => i !== index);
-                  setSelectedFiles(nextFiles);
-
-                  setImageColorMap((prev) => {
-                    const next = { ...prev };
-                    delete next[removedKey];
-                    return next;
-                  });
-
-                  if (nextFiles.length === 0 && fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "#93c5fd",
-                  cursor: "pointer",
-                  padding: 0,
-                  fontSize: 13,
-                }}
-              >
-                quitar
-              </button>
-            </div>
-          ))}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeSelectedFile(index);
+            }}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#93c5fd",
+              cursor: "pointer",
+              fontSize: 12,
+              padding: 0,
+            }}
+          >
+            quitar
+          </button>
         </div>
-      </>
-    )}
+      ))}
+    </div>
+  </div>
+)}
+
+{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#0b1220",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Seleccioná las variantes y después asignales o quitáles la foto.
+    </div>
+
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+      Seleccionadas: {selectedEditCombinations.length}
+    </div>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id || selectedFiles.length === 0) {
+          pushAssistantInfo("Seleccioná una foto primero.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayloadWithFiles(
+            {
+              action: "cambiar_fotos_variantes",
+              productId: editFoundProduct.id,
+              selectedCombinations: selectedEditCombinations.map((combo) =>
+                Object.values(combo)
+              ),
+            },
+            [selectedFiles[0]]
+          );
+
+          pushAssistantInfo(
+            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "Error.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Asignar foto a variantes
+    </button>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) {
+          pushAssistantInfo("Falta producto.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayload({
+            action: "quitar_fotos_variantes",
+            productId: editFoundProduct.id,
+            selectedCombinations: selectedEditCombinations.map((combo) =>
+              Object.values(combo)
+            ),
+          });
+
+          pushAssistantInfo(
+            response?.reply || "Foto eliminada de las variantes."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude quitar la foto."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={{
+        border: "1px solid #2563eb",
+        background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+        color: "white",
+        borderRadius: 14,
+        padding: "10px 14px",
+        cursor: "pointer",
+        fontSize: 14,
+        fontWeight: 700,
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "translateY(-1px)";
+        el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+        el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "translateY(0)";
+        el.style.boxShadow = "none";
+        el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+      }}
+    >
+      Quitar foto de variantes
+    </button>
+  </div>
+)}
 
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
@@ -4360,141 +4487,7 @@ if (fileInputRef.current) {
   Agregar fotos
 </button>
 
-{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginTop: 12,
-      paddingTop: 12,
-      borderTop: "1px solid #334155",
-    }}
-  >
-    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
-    </div>
 
-    <div style={{ color: "#94a3b8", fontSize: 12 }}>
-      Seleccionadas: {selectedEditCombinations.length}
-    </div>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id || selectedFiles.length === 0) {
-          pushAssistantInfo("Seleccioná una foto primero.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayloadWithFiles(
-            {
-              action: "cambiar_fotos_variantes",
-              productId: editFoundProduct.id,
-              selectedCombinations: selectedEditCombinations.map((combo) =>
-                Object.values(combo)
-              ),
-            },
-            [selectedFiles[0]]
-          );
-
-          pushAssistantInfo(
-            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-          setSelectedFiles([]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        } catch (error: any) {
-          pushAssistantInfo(error?.message || "Error.");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      Asignar foto a variantes
-    </button>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayload({
-            action: "quitar_fotos_variantes",
-            productId: editFoundProduct.id,
-            selectedCombinations: selectedEditCombinations.map((combo) =>
-              Object.values(combo)
-            ),
-          });
-
-          pushAssistantInfo(
-            response?.reply || "Foto eliminada de las variantes."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-        } catch (error: any) {
-          pushAssistantInfo(
-            error?.message || "No pude quitar la foto."
-          );
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={{
-  border: "1px solid #2563eb",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-  color: "white",
-  borderRadius: 14,
-  padding: "10px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
-onMouseEnter={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
-  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
-}}
-onMouseLeave={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(0)";
-  el.style.boxShadow = "none";
-  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
-}}
-    >
-      Quitar foto de variantes
-    </button>
-  </div>
-)}
 
   </div>
 )}
