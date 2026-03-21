@@ -1606,6 +1606,7 @@ setStoreName(`${prettyName} (${domain})`);
 
   return (
     <div
+      className="chat-window-saas"
       style={{
         border: "1px solid #182235",
         borderRadius: 20,
@@ -4496,6 +4497,52 @@ onMouseLeave={(e) => {
         </div>
       </div>
       )}
+
+      <style jsx global>{`
+        .chat-window-saas button {
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+          will-change: transform, box-shadow, filter;
+        }
+
+        .chat-window-saas button:not(:disabled) {
+          transition:
+            transform 0.16s ease,
+            box-shadow 0.22s ease,
+            filter 0.22s ease,
+            opacity 0.22s ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+          .chat-window-saas button:not(:disabled):hover {
+            transform: translateY(-1px) scale(1.01);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+            filter: brightness(1.05);
+          }
+        }
+
+        .chat-window-saas button:not(:disabled):active {
+          transform: translateY(1px) scale(0.985);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+          filter: brightness(0.97);
+        }
+
+        .chat-window-saas button:disabled {
+          transform: none !important;
+          box-shadow: none !important;
+          filter: none !important;
+        }
+
+        @media (hover: none) {
+          .chat-window-saas button:not(:disabled) {
+            transition:
+              transform 0.12s ease,
+              box-shadow 0.16s ease,
+              filter 0.16s ease,
+              opacity 0.16s ease;
+          }
+        }
+      `}</style>
     </div>
   );
 }
