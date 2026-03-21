@@ -28,7 +28,6 @@ type CreateProductForm = {
   stockGeneral: string;
   descripcionCorta: string;
   categoria: string;
-  subcategoria: string;
 };
 
 type EditFoundProduct = {
@@ -81,7 +80,6 @@ type CreateStepKey =
   | "stock"
   | "descripcionCorta"
   | "categoria"
-  | "subcategoria";
 
 const CREATE_STEPS: {
   key: CreateStepKey;
@@ -94,83 +92,68 @@ const CREATE_STEPS: {
     key: "nombre",
     title: "Nombre",
     helper: "Escribí el nombre del producto.",
-    placeholder: "Ej: Remera básica premium",
-  },
+    placeholder: "Ej: Remera básica premium"},
   {
   key: "sku",
   title: "SKU",
   helper: "Si querés, escribí el SKU (es el artículo). Si no, dejalo vacío.",
   placeholder: "Ej: REM-001",
-  optional: true,
-},
+  optional: true},
   {
     key: "colores",
     title: "Colores",
     helper: "Si tiene colores, separalos con coma. Si no tiene, dejalo vacío.",
     placeholder: "Ej: Negro, Blanco, Azul",
-    optional: true,
-  },
+    optional: true},
   {
     key: "talles",
     title: "Talles",
     helper: "Si tiene talles, separalos con coma. Si no tiene, dejalo vacío.",
     placeholder: "Ej: S, M, L o Talle 2, Talle 3",
-    optional: true,
-  },
+    optional: true},
   {
     key: "precio",
     title: "Precio",
     helper: "Ingresá el precio normal del producto.",
-    placeholder: "Ej: 12900",
-  },
+    placeholder: "Ej: 12900"},
   {
     key: "precioRebajado",
     title: "Precio rebajado",
     helper: "Si tiene oferta, cargalo acá. Si no tiene, dejalo vacío.",
     placeholder: "Ej: 10900",
-    optional: true,
-  },
+    optional: true},
     {
     key: "precioEfectivo",
     title: "Precio en efectivo",
     helper: "Si este usuario usa precio en efectivo, cargalo acá. Si no, dejalo vacío.",
     placeholder: "Ej: 11900",
-    optional: true,
-  },
+    optional: true},
     {
   key: "stock",
   title: "Stock",
   helper: "Podés dejarlo disponible sin stock numérico, usar un stock general o cargar stock por variación.",
   placeholder: "Ej: 10",
-  optional: true,
-},
+  optional: true},
   {
     key: "descripcionCorta",
     title: "Descripción corta",
     helper: "Podés dejar una descripción breve. Si no tenés, dejalo vacío.",
     placeholder: "Ej: Remera de algodón peinado, calce clásico.",
-    optional: true,
-  },
+    optional: true},
   {
     key: "categoria",
     title: "Categoría",
     helper: "Escribí la categoría principal.",
-    placeholder: "Ej: Remeras",
-  },
+    placeholder: "Ej: Remeras"},
   {
-    key: "subcategoria",
-    title: "Subcategoría",
     helper: "Si tiene subcategoría, escribila. Si no tiene, dejalo vacío.",
     placeholder: "Ej: Manga corta",
-    optional: true,
-  },
+    optional: true},
   {
     key: "fotos",
     title: "Fotos",
     helper: "Por último, agregá las fotos del producto. La primera queda como principal.",
-    optional: true,
-  },
-];
+    optional: true}];
 
 const initialCreateForm: CreateProductForm = {
   nombre: "",
@@ -183,9 +166,7 @@ const initialCreateForm: CreateProductForm = {
   stockMode: "none",
   stockGeneral: "",
   descripcionCorta: "",
-  categoria: "",
-  subcategoria: "",
-};
+  categoria: ""};
 
 function normalizeCommaField(value: string) {
   return value
@@ -256,15 +237,13 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
       ? product.categories.map((cat: any) => ({
           id: Number(cat?.id || 0),
           name: String(cat?.name || ""),
-          parent: Number(cat?.parent || 0),
-        }))
+          parent: Number(cat?.parent || 0)}))
       : [],
 
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
         id: Number(img?.id || 0),
-        src: String(img?.src || ""),
-      }))
+        src: String(img?.src || "")}))
     : [],
     variations: Array.isArray(product?.variations)
     ? product.variations
@@ -274,21 +253,18 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
             ? variationItem.attributes.map(
                 (attr: { name?: string; option?: string }) => ({
                   name: String(attr?.name || "").trim(),
-                  option: String(attr?.option || "").trim(),
-                })
+                  option: String(attr?.option || "").trim()})
               )
             : [],
           image:
             variationItem?.image && variationItem.image.src
               ? {
                   id: Number(variationItem.image.id || 0),
-                  src: String(variationItem.image.src || ""),
-                }
+                  src: String(variationItem.image.src || "")}
               : null,
           stock_quantity: variationItem?.stock_quantity ?? "",
           stock_status: variationItem?.stock_status || "instock",
-          manage_stock_checked: Boolean(variationItem?.manage_stock),
-        }))
+          manage_stock_checked: Boolean(variationItem?.manage_stock)}))
         .sort(
           (
             a: {
@@ -349,8 +325,7 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
               "XXXL",
               "4XL",
               "5XL",
-              "6XL",
-            ];
+              "6XL"];
 
             const aSizeIndex = sizeOrder.indexOf(aSize);
             const bSizeIndex = sizeOrder.indexOf(bSize);
@@ -375,8 +350,7 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
             return aSize.localeCompare(bSize, "es", { numeric: true });
           }
         )
-    : [],
-};
+    : []};
 }
 
 function translateAgentError(message: any) {
@@ -451,7 +425,6 @@ function buildCreateProductMessage(
   const cleanCashPrice = cleanMoney(form.precioEfectivo);
   const shortDescription = form.descripcionCorta.trim();
   const category = form.categoria.trim();
-  const subcategory = form.subcategoria.trim();
   const categoryIds = Array.from(
     new Set(
       (Array.isArray(selectedCategoryIds) ? selectedCategoryIds : [])
@@ -546,7 +519,6 @@ function buildCreateProductMessage(
       lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
     } else {
       lines.push(`categoria: ${category}`);
-      if (subcategory) lines.push(`subcategoria: ${subcategory}`);
     }
     return lines.join("\n");
   }
@@ -574,7 +546,6 @@ if (categoryIds.length > 0) {
   lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
 } else {
   lines.push(`categoria: ${category}`);
-  if (subcategory) lines.push(`subcategoria: ${subcategory}`);
 }
 
 
@@ -603,8 +574,7 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
 
     const res = await fetch(url, {
       ...options,
-      signal: controller.signal,
-    });
+      signal: controller.signal});
 
     clearTimeout(timeout);
 
@@ -780,8 +750,7 @@ async function loadCategories() {
     const res = await fetch(`${API}/run-agent`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: form,
-    });
+      body: form});
 
     const data = await res.json();
     if (!res.ok) {
@@ -813,8 +782,7 @@ const editAttributeCombinations = (() => {
       results.push(
         ...build(attrs, index + 1, {
           ...current,
-          [attr.name]: option,
-        })
+          [attr.name]: option})
       );
     }
 
@@ -897,8 +865,7 @@ return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) =
 
     const userMessage: Message = {
       role: "user",
-      text: previewText,
-    };
+      text: previewText};
 
     setMessages((prev) => [...prev, userMessage]);
     setText("");
@@ -922,11 +889,9 @@ return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) =
     method: "POST",
     headers: token
       ? {
-          Authorization: `Bearer ${token}`,
-        }
+          Authorization: `Bearer ${token}`}
       : undefined,
-    body: form,
-  },
+    body: form},
   1
 );
 
@@ -953,8 +918,7 @@ if (
 
 const assistantMessage: Message = {
   role: "assistant",
-  text: assistantText,
-};
+  text: assistantText};
 
       setMessages((prev) => [...prev, assistantMessage]);
       setSelectedFiles([]);
@@ -972,8 +936,7 @@ const assistantMessage: Message = {
 
   const assistantMessage: Message = {
     role: "assistant",
-    text: translateAgentError(rawMessage),
-  };
+    text: translateAgentError(rawMessage)};
 
   setMessages((prev) => [...prev, assistantMessage]);
 } finally {
@@ -999,9 +962,7 @@ const assistantMessage: Message = {
     ...prev,
     {
       role: "user",
-      text: raw,
-    },
-  ]);
+      text: raw}]);
 
   setText("");
 
@@ -1022,11 +983,9 @@ const assistantMessage: Message = {
     method: "POST",
     headers: token
       ? {
-          Authorization: `Bearer ${token}`,
-        }
+          Authorization: `Bearer ${token}`}
       : undefined,
-    body: form,
-  },
+    body: form},
   1
 );
 
@@ -1239,18 +1198,15 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
     method: "POST",
     headers: token
       ? {
-          Authorization: `Bearer ${token}`,
-        }
+          Authorization: `Bearer ${token}`}
       : undefined,
-    body: form,
-  },
+    body: form},
   1
 );
 
   return {
     exists: Boolean(response?.exists),
-    product: response?.product || null,
-  };
+    product: response?.product || null};
 }
 
 async function validateSkuLive(rawSku: string) {
@@ -1329,8 +1285,7 @@ async function sendEditPayload(payload: any) {
   const res = await fetch(`${API}/run-agent`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
+    body: form});
 
   const data = await res.json();
 
@@ -1357,8 +1312,7 @@ async function sendEditPayloadWithFiles(payload: any, files: File[]) {
   const res = await fetch(`${API}/run-agent`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
+    body: form});
 
   const data = await res.json();
 
@@ -1389,11 +1343,9 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
     method: "POST",
     headers: token
       ? {
-          Authorization: `Bearer ${token}`,
-        }
+          Authorization: `Bearer ${token}`}
       : undefined,
-    body: form,
-  });
+    body: form});
 
   const data = await res.json();
 
@@ -1447,15 +1399,13 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
 
     el.scrollTo({
       top: el.scrollHeight,
-      behavior: "smooth",
-    });
+      behavior: "smooth"});
   }
 
   function revealChat() {
     chatScrollRef.current?.scrollIntoView({
       behavior: "smooth",
-      block: "nearest",
-    });
+      block: "nearest"});
 
     setTimeout(() => {
       scrollChatToBottom();
@@ -1465,8 +1415,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   function scrollToComposer(focus = false) {
     composerAreaRef.current?.scrollIntoView({
       behavior: "smooth",
-      block: "nearest",
-    });
+      block: "nearest"});
 
     if (focus) {
       setTimeout(() => {
@@ -1481,8 +1430,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
 
     el.scrollIntoView({
       behavior: "smooth",
-      block: "center",
-    });
+      block: "center"});
 
     setTimeout(() => {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
@@ -1538,8 +1486,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
           return { ...prev, descripcionCorta: rawValue };
         case "categoria":
           return { ...prev, categoria: rawValue };
-        case "subcategoria":
-          return { ...prev, subcategoria: rawValue };
+          return { ...prev};
         default:
           return prev;
       }
@@ -1577,7 +1524,6 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
                     ? createForm.descripcionCorta
                     : step.key === "categoria"
                       ? createForm.categoria
-                      : createForm.subcategoria
 );
   }
 
@@ -1649,9 +1595,7 @@ async function nextCreateStep() {
       ...(currentCreateStep?.key === "precioRebajado" ? { precioRebajado: text.trim() } : {}),
       ...(currentCreateStep?.key === "precioEfectivo" ? { precioEfectivo: text.trim() } : {}),
       ...(currentCreateStep?.key === "descripcionCorta" ? { descripcionCorta: text.trim() } : {}),
-      ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {}),
-      ...(currentCreateStep?.key === "subcategoria" ? { subcategoria: text.trim() } : {}),
-    };
+      ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {})};
 
     const missingRequired: string[] = [];
 
@@ -1684,10 +1628,8 @@ useEffect(() => {
       const res = await fetch(`${API}/me`, {
         headers: token
           ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : undefined,
-      });
+              Authorization: `Bearer ${token}`}
+          : undefined});
 
       const data = await res.json();
       console.log("ME RESPONSE", data);
@@ -1759,7 +1701,6 @@ setStoreName(`${prettyName} (${domain})`);
 
   useEffect(() => {
     if (
-      (activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) ||
       activeAction === "edit"
     ) {
       if (categoryOptions.length === 0 && !categoriesLoading) {
@@ -1793,8 +1734,7 @@ setStoreName(`${prettyName} (${domain})`);
     setCreateForm((prev) => ({
       ...prev,
       stockMode: "none",
-      stockGeneral: "",
-    }));
+      stockGeneral: ""}));
 
     setStockByVariationMap({});
   }
@@ -1852,8 +1792,7 @@ setStoreName(`${prettyName} (${domain})`);
         display: "flex",
         flexDirection: "column",
         boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-        overflow: "hidden",
-      }}
+        overflow: "hidden"}}
     >
       <div
         style={{
@@ -1863,15 +1802,13 @@ setStoreName(`${prettyName} (${domain})`);
           justifyContent: "space-between",
           alignItems: "center",
           gap: 12,
-          flexWrap: "wrap",
-        }}
+          flexWrap: "wrap"}}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
   <div
     style={{
       fontSize: 12,
-      color: "#94a3b8",
-    }}
+      color: "#94a3b8"}}
   >
     {storeName ? `Tienda en edición: ${storeName}` : "Tienda en edición"}
   </div>
@@ -1879,8 +1816,7 @@ setStoreName(`${prettyName} (${domain})`);
   <div
     style={{
       fontWeight: 700,
-      fontSize: 18,
-    }}
+      fontSize: 18}}
   >
     Chat con {agentName}
   </div>
@@ -1902,8 +1838,7 @@ setStoreName(`${prettyName} (${domain})`);
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -1928,8 +1863,7 @@ onMouseLeave={(e) => {
           padding: "14px 16px 0 16px",
           display: "flex",
           gap: 10,
-          flexWrap: "wrap",
-        }}
+          flexWrap: "wrap"}}
       >
         <button type="button" onClick={startCreateProduct} style={{
   border: "1px solid #2563eb",
@@ -1940,8 +1874,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -1984,8 +1917,7 @@ onMouseLeave={(e) => {
     padding: "10px 14px",
     cursor: "pointer",
     fontSize: 14,
-    transition: "all 0.2s ease",
-  }}
+    transition: "all 0.2s ease"}}
   onMouseEnter={(e) => {
     const el = e.currentTarget;
     el.style.transform = "translateY(-1px)";
@@ -2033,8 +1965,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -2061,8 +1992,7 @@ onMouseLeave={(e) => {
     display: "flex",
     flexDirection: "column",
     gap: 12,
-    overflowY: "auto",
-  }}
+    overflowY: "auto"}}
 >
 
         {messages.length === 0 && activeAction === null && (
@@ -2070,8 +2000,7 @@ onMouseLeave={(e) => {
     style={{
       color: "#94a3b8",
       fontSize: 15,
-      padding: "8px 4px",
-    }}
+      padding: "8px 4px"}}
   >
     Elegí una acción para empezar.
   </div>
@@ -2082,8 +2011,7 @@ onMouseLeave={(e) => {
     style={{
       color: "#94a3b8",
       fontSize: 15,
-      padding: "8px 4px",
-    }}
+      padding: "8px 4px"}}
   >
     Ya podés empezar.
   </div>
@@ -2102,8 +2030,7 @@ onMouseLeave={(e) => {
               color: "white",
               whiteSpace: "pre-wrap",
               lineHeight: 1.5,
-              border: message.role === "user" ? "none" : "1px solid #1f2937",
-            }}
+              border: message.role === "user" ? "none" : "1px solid #1f2937"}}
           >
             {message.text}
           </div>
@@ -2118,8 +2045,7 @@ onMouseLeave={(e) => {
               borderRadius: 16,
               background: "#111827",
               color: "white",
-              border: "1px solid #1f2937",
-            }}
+              border: "1px solid #1f2937"}}
           >
             Pensando...
           </div>
@@ -2152,8 +2078,7 @@ onMouseLeave={(e) => {
         style={{
           borderTop: "1px solid #182235",
           padding: 16,
-          background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
-        }}
+          background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)"}}
       >
         {selectedFiles.length > 0 && (
   <>
@@ -2161,8 +2086,7 @@ onMouseLeave={(e) => {
       style={{
         color: "#94a3b8",
         fontSize: 13,
-        marginBottom: 6,
-      }}
+        marginBottom: 6}}
     >
       Arrastrá las fotos para ordenar. La primera será la principal.
     </div>
@@ -2172,8 +2096,7 @@ onMouseLeave={(e) => {
         display: "flex",
         flexWrap: "wrap",
         gap: 8,
-        marginBottom: 12,
-      }}
+        marginBottom: 12}}
     >
             {selectedFiles.map((file, index) => (
               <div
@@ -2211,15 +2134,13 @@ onDragEnd={() => {
     color: "#d1d5db",
     cursor: "grab",
 opacity: draggedFileIndex === index ? 0.65 : 1,
-boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
-  }}
+boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none"}}
 >
                 <div
   style={{
     display: "flex",
     alignItems: "center",
-    gap: 8,
-  }}
+    gap: 8}}
 >
   <img
   src={URL.createObjectURL(file)}
@@ -2233,8 +2154,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
     border: "1px solid #334155",
     display: "block",
     pointerEvents: "none",
-    userSelect: "none",
-  }}
+    userSelect: "none"}}
 />
 
   <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
@@ -2249,8 +2169,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
 
     setImageColorMap((prev) => ({
       ...prev,
-      [key]: value,
-    }));
+      [key]: value}));
   }}
   style={{
     marginLeft: 10,
@@ -2259,8 +2178,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
     border: "1px solid #334155",
     borderRadius: 8,
     padding: "4px 6px",
-    fontSize: 12,
-  }}
+    fontSize: 12}}
 >
   <option value="">Sin color</option>
   {(createForm.colores || "")
@@ -2314,8 +2232,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
                     color: "#93c5fd",
                     cursor: "pointer",
                     padding: 0,
-                    fontSize: 13,
-                  }}
+                    fontSize: 13}}
                 >
                   quitar
                 </button>
@@ -2330,8 +2247,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
             display: "grid",
             gridTemplateColumns: "1fr auto",
             gap: 12,
-            alignItems: "end",
-          }}
+            alignItems: "end"}}
           className="chat-input-grid"
         >
           <div
@@ -2339,8 +2255,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
               border: "1px solid #243041",
               borderRadius: 16,
               background: "#030712",
-              padding: 12,
-            }}
+              padding: 12}}
           >
             {isCreateStepPhotos ? (
   <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
@@ -2356,8 +2271,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
         alignItems: "center",
         gap: 8,
         color: "#e5e7eb",
-        fontSize: 14,
-      }}
+        fontSize: 14}}
     >
       <input
         type="radio"
@@ -2367,8 +2281,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   setCreateForm((prev) => ({
     ...prev,
     stockMode: "none",
-    stockGeneral: "",
-  }));
+    stockGeneral: ""}));
   setStockByVariationMap({});
 }}
       />
@@ -2381,8 +2294,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
         alignItems: "center",
         gap: 8,
         color: "#e5e7eb",
-        fontSize: 14,
-      }}
+        fontSize: 14}}
     >
       <input
         type="radio"
@@ -2391,8 +2303,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
         onChange={() => {
   setCreateForm((prev) => ({
     ...prev,
-    stockMode: "same",
-  }));
+    stockMode: "same"}));
   setStockByVariationMap({});
 }}
       />
@@ -2406,8 +2317,7 @@ Stock general
       alignItems: "center",
       gap: 8,
       color: "#e5e7eb",
-      fontSize: 14,
-    }}
+      fontSize: 14}}
   >
     <input
       type="radio"
@@ -2417,8 +2327,7 @@ Stock general
         setCreateForm((prev) => ({
           ...prev,
           stockMode: "perVariation",
-          stockGeneral: "",
-        }));
+          stockGeneral: ""}));
       }}
     />
     Stock por variación
@@ -2437,8 +2346,7 @@ Stock general
       onChange={(e) =>
         setCreateForm((prev) => ({
           ...prev,
-          stockGeneral: e.target.value,
-        }))
+          stockGeneral: e.target.value}))
       }
       placeholder="Ej: 10"
       style={{
@@ -2449,8 +2357,7 @@ Stock general
         borderRadius: 10,
         padding: "10px 12px",
         outline: "none",
-        fontSize: 14,
-      }}
+        fontSize: 14}}
     />
   </div>
 )}
@@ -2482,8 +2389,7 @@ Stock general
               display: "grid",
               gridTemplateColumns: "1fr 120px",
               gap: 10,
-              alignItems: "center",
-            }}
+              alignItems: "center"}}
           >
             <div style={{ color: "#e5e7eb", fontSize: 14 }}>
               {color} / {talle}
@@ -2496,8 +2402,7 @@ Stock general
               onChange={(e) =>
                 setStockByVariationMap((prev) => ({
                   ...prev,
-                  [variationKey]: e.target.value,
-                }))
+                  [variationKey]: e.target.value}))
               }
               placeholder="Stock"
               style={{
@@ -2508,8 +2413,7 @@ Stock general
                 borderRadius: 10,
                 padding: "8px 10px",
                 outline: "none",
-                fontSize: 14,
-              }}
+                fontSize: 14}}
             />
           </div>
         );
@@ -2528,8 +2432,7 @@ Stock general
             display: "grid",
             gridTemplateColumns: "1fr 120px",
             gap: 10,
-            alignItems: "center",
-          }}
+            alignItems: "center"}}
         >
           <div style={{ color: "#e5e7eb", fontSize: 14 }}>{color}</div>
 
@@ -2540,8 +2443,7 @@ Stock general
             onChange={(e) =>
               setStockByVariationMap((prev) => ({
                 ...prev,
-                [variationKey]: e.target.value,
-              }))
+                [variationKey]: e.target.value}))
             }
             placeholder="Stock"
             style={{
@@ -2552,8 +2454,7 @@ Stock general
               borderRadius: 10,
               padding: "8px 10px",
               outline: "none",
-              fontSize: 14,
-            }}
+              fontSize: 14}}
           />
         </div>
       );
@@ -2571,8 +2472,7 @@ Stock general
             display: "grid",
             gridTemplateColumns: "1fr 120px",
             gap: 10,
-            alignItems: "center",
-          }}
+            alignItems: "center"}}
         >
           <div style={{ color: "#e5e7eb", fontSize: 14 }}>{talle}</div>
 
@@ -2583,8 +2483,7 @@ Stock general
             onChange={(e) =>
               setStockByVariationMap((prev) => ({
                 ...prev,
-                [variationKey]: e.target.value,
-              }))
+                [variationKey]: e.target.value}))
             }
             placeholder="Stock"
             style={{
@@ -2595,8 +2494,7 @@ Stock general
               borderRadius: 10,
               padding: "8px 10px",
               outline: "none",
-              fontSize: 14,
-            }}
+              fontSize: 14}}
           />
         </div>
       );
@@ -2660,11 +2558,9 @@ Stock general
       outline: "none",
       fontSize: 15,
       lineHeight: 1.5,
-      marginBottom: 10,
-    }}
+      marginBottom: 10}}
   />
 )}
-{(activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) && (
   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
       También podés marcar categorías existentes:
@@ -2691,8 +2587,7 @@ Stock general
               background: checked ? "#2563eb" : "#020617",
               color: "white",
               fontSize: 13,
-              cursor: "pointer",
-            }}
+              cursor: "pointer"}}
           >
             <input
               type="checkbox"
@@ -2723,8 +2618,7 @@ Stock general
           ? "#f87171"
           : skuStatus === "available"
           ? "#4ade80"
-          : "#94a3b8",
-    }}
+          : "#94a3b8"}}
   >
     {skuChecking ? "Validando SKU..." : skuStatusMessage}
   </div>
@@ -2742,8 +2636,7 @@ Stock general
       background: "#0f172a",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
-    }}
+      gap: 10}}
   >
     <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
       Elegí el producto correcto
@@ -2792,8 +2685,7 @@ setMoveProductMode("before");
             borderRadius: 12,
             padding: "10px 12px",
             cursor: "pointer",
-            fontSize: 14,
-          }}
+            fontSize: 14}}
         >
           <div style={{ fontWeight: 700 }}>{candidate.name}</div>
           <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
@@ -2816,8 +2708,7 @@ setMoveProductMode("before");
       background: "#0f172a",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
-    }}
+      gap: 10}}
   >
     <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
       Editando: {editFoundProduct.name}
@@ -2830,8 +2721,7 @@ setMoveProductMode("before");
     fontSize: 12,
     display: "flex",
     gap: 16,
-    flexWrap: "wrap",
-  }}
+    flexWrap: "wrap"}}
 >
   <div>
     Precio normal: {editFoundProduct.regularPrice || "(vacío)"}
@@ -2874,8 +2764,7 @@ setMoveProductMode("before");
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -2913,8 +2802,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -2952,8 +2840,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -2991,8 +2878,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3031,8 +2917,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3070,8 +2955,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3108,8 +2992,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3144,8 +3027,7 @@ onMouseLeave={(e) => {
       cursor: "pointer",
       fontSize: 14,
       fontWeight: 700,
-      transition: "all 0.2s ease",
-    }}
+      transition: "all 0.2s ease"}}
     onMouseEnter={(e) => {
       const el = e.currentTarget;
       el.style.transform = "translateY(-1px)";
@@ -3180,8 +3062,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3215,8 +3096,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3248,8 +3128,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3281,8 +3160,7 @@ onMouseLeave={(e) => {
       background: "#020617",
       display: "flex",
       flexDirection: "column",
-      gap: 8,
-    }}
+      gap: 8}}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
       Precio en efectivo
@@ -3302,8 +3180,7 @@ onMouseLeave={(e) => {
         borderRadius: 10,
         padding: "10px 12px",
         outline: "none",
-        fontSize: 14,
-      }}
+        fontSize: 14}}
     />
   </div>
 )}
@@ -3318,8 +3195,7 @@ onMouseLeave={(e) => {
       padding: 12,
       borderRadius: 12,
       border: "1px solid #334155",
-      background: "#020617",
-    }}
+      background: "#020617"}}
   >
     <div
   style={{
@@ -3329,8 +3205,7 @@ onMouseLeave={(e) => {
     alignItems: "center",
     marginBottom: 4,
     color: "#cbd5e1",
-    fontSize: 13,
-  }}
+    fontSize: 13}}
 >
   <div></div>
   <div></div>
@@ -3360,8 +3235,7 @@ onMouseLeave={(e) => {
                 padding: "10px 12px",
                 borderRadius: 10,
                 border: "1px solid #334155",
-                background: "#0f172a",
-              }}
+                background: "#0f172a"}}
             >
               <div style={{ color: "#e5e7eb", fontSize: 14 }}>
                 {variationLabel}
@@ -3385,13 +3259,11 @@ onMouseLeave={(e) => {
                         stock_touched: true,
                         manage_stock_checked: true,
                         stock_status:
-                          Number(value) > 0 ? "instock" : "outofstock",
-                      };
+                          Number(value) > 0 ? "instock" : "outofstock"};
 
                       return {
                         ...prev,
-                        variations: nextVariations,
-                      };
+                        variations: nextVariations};
                     });
                   }}
                   placeholder="Stock"
@@ -3403,8 +3275,7 @@ onMouseLeave={(e) => {
                     borderRadius: 10,
                     padding: "8px 10px",
                     outline: "none",
-                    fontSize: 14,
-                  }}
+                    fontSize: 14}}
                 />
               ) : (
                 <select
@@ -3420,13 +3291,11 @@ onMouseLeave={(e) => {
                         ...nextVariations[index],
                         stock_status: value,
                         status_touched: true,
-                        manage_stock_checked: false,
-                      };
+                        manage_stock_checked: false};
 
                       return {
                         ...prev,
-                        variations: nextVariations,
-                      };
+                        variations: nextVariations};
                     });
                   }}
                   style={{
@@ -3437,8 +3306,7 @@ onMouseLeave={(e) => {
                     borderRadius: 10,
                     padding: "8px 10px",
                     outline: "none",
-                    fontSize: 14,
-                  }}
+                    fontSize: 14}}
                 >
                   <option value="instock">Disponible</option>
                   <option value="outofstock">Agotado</option>
@@ -3464,20 +3332,17 @@ onMouseLeave={(e) => {
           ? nextVariations[index].stock_quantity ?? ""
           : "",
         stock_status:
-          nextVariations[index].stock_status || "instock",
-      };
+          nextVariations[index].stock_status || "instock"};
 
       return {
         ...prev,
-        variations: nextVariations,
-      };
+        variations: nextVariations};
     });
   }}
   style={{
     width: 16,
     height: 16,
-    cursor: "pointer",
-  }}
+    cursor: "pointer"}}
 />
             </div>
           );
@@ -3498,8 +3363,7 @@ onMouseLeave={(e) => {
           borderRadius: 10,
           padding: "10px 12px",
           outline: "none",
-          fontSize: 14,
-        }}
+          fontSize: 14}}
       />
     )}
 
@@ -3564,10 +3428,8 @@ onMouseLeave={(e) => {
               ? "instock"
               : "outofstock"
             : variation.stock_status || "instock",
-          manage_stock: Boolean(variation.manage_stock_checked),
-        }))
-      : undefined,
-});
+          manage_stock: Boolean(variation.manage_stock_checked)}))
+      : undefined});
 
 setLoading(false);
 
@@ -3594,8 +3456,7 @@ setTimeout(async () => {
     const res = await fetch(`${API}/run-agent`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: form,
-    });
+      body: form});
 
     const refreshed = await res.json();
 
@@ -3634,8 +3495,7 @@ setTimeout(async () => {
       padding: 12,
       borderRadius: 12,
       border: "1px solid #334155",
-      background: "#020617",
-    }}
+      background: "#020617"}}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
@@ -3649,8 +3509,7 @@ setTimeout(async () => {
       display: "flex",
       flexDirection: "column",
       gap: 10,
-      marginBottom: 12,
-    }}
+      marginBottom: 12}}
   >
     <div style={{ color: "#94a3b8", fontSize: 13 }}>
       Fotos asignadas por variante
@@ -3676,8 +3535,7 @@ setTimeout(async () => {
               borderRadius: 12,
               border: checked ? "1px solid #2563eb" : "1px solid #334155",
               background: checked ? "rgba(37,99,235,0.18)" : "#0f172a",
-              cursor: "pointer",
-            }}
+              cursor: "pointer"}}
           >
             <input
               type="checkbox"
@@ -3694,8 +3552,7 @@ setTimeout(async () => {
                   height: 64,
                   objectFit: "cover",
                   borderRadius: 8,
-                  border: "1px solid #334155",
-                }}
+                  border: "1px solid #334155"}}
               />
             ) : (
               <div
@@ -3709,8 +3566,7 @@ setTimeout(async () => {
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#64748b",
-                  fontSize: 12,
-                }}
+                  fontSize: 12}}
               >
                 Sin foto
               </div>
@@ -3771,8 +3627,7 @@ setTimeout(async () => {
             prev
               ? {
                   ...prev,
-                  images: currentImages,
-                }
+                  images: currentImages}
               : prev
           );
 
@@ -3785,8 +3640,7 @@ setTimeout(async () => {
             const response = await sendEditPayload({
               action: "ordenar_fotos_producto",
               productId: editFoundProduct.id,
-              orderedImageIds: currentImages.map((item) => item.id),
-            });
+              orderedImageIds: currentImages.map((item) => item.id)});
 
             pushAssistantInfo(
               response?.reply || "Fotos reordenadas correctamente."
@@ -3815,8 +3669,7 @@ setTimeout(async () => {
           cursor: "grab",
           opacity: draggedProductImageIndex === index ? 0.65 : 1,
           boxShadow:
-            dragOverProductImageIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
-        }}
+            dragOverProductImageIndex === index ? "0 0 0 2px #3b82f6 inset" : "none"}}
       >
         <img
           src={img.src}
@@ -3826,8 +3679,7 @@ setTimeout(async () => {
             height: 100,
             objectFit: "cover",
             borderRadius: 8,
-            border: "1px solid #334155",
-          }}
+            border: "1px solid #334155"}}
         />
 
         <div style={{ color: "#94a3b8", fontSize: 12 }}>
@@ -3845,8 +3697,7 @@ setTimeout(async () => {
               const response = await sendEditPayload({
                 action: "eliminar_fotos_producto",
                 productId: editFoundProduct.id,
-                imageIds: [img.id],
-              });
+                imageIds: [img.id]});
 
               pushAssistantInfo(
                 response?.reply || "Foto eliminada correctamente."
@@ -3856,8 +3707,7 @@ setTimeout(async () => {
                 prev
                   ? {
                       ...prev,
-                      images: (prev.images || []).filter((item) => item.id !== img.id),
-                    }
+                      images: (prev.images || []).filter((item) => item.id !== img.id)}
                   : prev
               );
             } catch (error: any) {
@@ -3877,8 +3727,7 @@ setTimeout(async () => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -3913,8 +3762,7 @@ onMouseLeave={(e) => {
       const response = await sendEditPayloadWithFiles(
         {
           action: "agregar_fotos_producto",
-          productId: editFoundProduct.id,
-        },
+          productId: editFoundProduct.id},
         selectedFiles
       );
 
@@ -3935,8 +3783,7 @@ if (value) {
   const refreshRes = await fetch(`${API}/run-agent`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
+    body: form});
 
   const refreshed = await refreshRes.json();
 
@@ -3972,8 +3819,7 @@ if (fileInputRef.current) {
       gap: 10,
       marginTop: 12,
       paddingTop: 12,
-      borderTop: "1px solid #334155",
-    }}
+      borderTop: "1px solid #334155"}}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
       Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
@@ -4005,8 +3851,7 @@ if (fileInputRef.current) {
               productId: editFoundProduct.id,
               selectedCombinations: selectedEditCombinations.map((combo) =>
                 Object.values(combo)
-              ),
-            },
+              )},
             [selectedFiles[0]]
           );
 
@@ -4053,8 +3898,7 @@ if (fileInputRef.current) {
             productId: editFoundProduct.id,
             selectedCombinations: selectedEditCombinations.map((combo) =>
               Object.values(combo)
-            ),
-          });
+            )});
 
           pushAssistantInfo(
             response?.reply || "Foto eliminada de las variantes."
@@ -4080,8 +3924,7 @@ if (fileInputRef.current) {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -4114,8 +3957,7 @@ onMouseLeave={(e) => {
       background: "#020617",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
-    }}
+      gap: 10}}
   >
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>Marcá las categorías para este producto.</div>
     {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
@@ -4137,8 +3979,7 @@ onMouseLeave={(e) => {
               background: checked ? "#2563eb" : "#020617",
               color: "white",
               fontSize: 13,
-              cursor: "pointer",
-            }}
+              cursor: "pointer"}}
           >
             <input
               type="checkbox"
@@ -4169,8 +4010,7 @@ onMouseLeave={(e) => {
           background: "#020617",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
-        }}
+          gap: 10}}
       >
         <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   {editActionType === "cambiar_precio" && "Escribí el nuevo precio. Opcional: filtrá por atributos globales."}
@@ -4199,8 +4039,7 @@ onMouseLeave={(e) => {
       padding: "10px 12px",
       outline: "none",
       fontSize: 14,
-      lineHeight: 1.5,
-    }}
+      lineHeight: 1.5}}
   />
 ) : editActionType === "quitar_precio_rebajado" ? (
   <div
@@ -4210,8 +4049,7 @@ onMouseLeave={(e) => {
       padding: "10px 12px",
       border: "1px solid #334155",
       borderRadius: 10,
-      background: "#020617",
-    }}
+      background: "#020617"}}
   >
     Este producto tiene precio rebajado cargado. Tocá “Guardar cambio” para quitarlo.
   </div>
@@ -4223,8 +4061,7 @@ onMouseLeave={(e) => {
       padding: "10px 12px",
       border: "1px solid #334155",
       borderRadius: 10,
-      background: "#020617",
-    }}
+      background: "#020617"}}
   >
     Tocá “Guardar cambio” para actualizar las categorías marcadas.
   </div>
@@ -4237,8 +4074,7 @@ onMouseLeave={(e) => {
         style={{
           ...quickActionSecondaryStyle,
           background: moveProductMode === "before" ? "#2563eb" : "#111827",
-          border: moveProductMode === "before" ? "1px solid #2563eb" : "1px solid #243041",
-        }}
+          border: moveProductMode === "before" ? "1px solid #2563eb" : "1px solid #243041"}}
       >
         Antes de
       </button>
@@ -4249,8 +4085,7 @@ onMouseLeave={(e) => {
         style={{
           ...quickActionSecondaryStyle,
           background: moveProductMode === "after" ? "#2563eb" : "#111827",
-          border: moveProductMode === "after" ? "1px solid #2563eb" : "1px solid #243041",
-        }}
+          border: moveProductMode === "after" ? "1px solid #2563eb" : "1px solid #243041"}}
       >
         Después de
       </button>
@@ -4269,8 +4104,7 @@ onMouseLeave={(e) => {
         borderRadius: 10,
         padding: "10px 12px",
         outline: "none",
-        fontSize: 14,
-      }}
+        fontSize: 14}}
     />
 
     <button
@@ -4296,8 +4130,7 @@ onMouseLeave={(e) => {
           const res = await fetch(`${API}/run-agent`, {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            body: form,
-          });
+            body: form});
 
           const data = await res.json();
 
@@ -4349,8 +4182,7 @@ onMouseLeave={(e) => {
   cursor: "pointer",
   fontSize: 14,
   fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -4375,8 +4207,7 @@ onMouseLeave={(e) => {
           borderRadius: 12,
           padding: "10px 12px",
           color: "#e5e7eb",
-          fontSize: 14,
-        }}
+          fontSize: 14}}
       >
         Referencia: {moveTargetProduct.name}
         {moveTargetProduct.sku ? ` (SKU: ${moveTargetProduct.sku})` : ""}
@@ -4397,8 +4228,7 @@ onMouseLeave={(e) => {
       borderRadius: 10,
       padding: "10px 12px",
       outline: "none",
-      fontSize: 14,
-    }}
+      fontSize: 14}}
   />
 )}
 
@@ -4425,8 +4255,7 @@ onMouseLeave={(e) => {
               background: checked ? "#2563eb" : "#020617",
               color: "white",
               fontSize: 13,
-              cursor: "pointer",
-            }}
+              cursor: "pointer"}}
           >
             <input
               type="checkbox"
@@ -4482,8 +4311,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
   ? {
       action: "cambiar_categorias",
       productId: editFoundProduct.id,
-      categoryIds: editSelectedCategoryIds,
-    }
+      categoryIds: editSelectedCategoryIds}
   : editActionType === "cambiar_precio"
   ? {
       action: "cambiar_precio",
@@ -4491,8 +4319,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
       regularPrice: editValue.trim(),
       selectedCombinations: selectedEditCombinations.map((combo) =>
         Object.values(combo)
-      ),
-    }
+      )}
     : editActionType === "agregar_precio_rebajado"
     ? {
         action: "agregar_precio_rebajado",
@@ -4500,8 +4327,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
-        ),
-      }
+        )}
     : editActionType === "cambiar_precio_rebajado"
     ? {
         action: "cambiar_precio_rebajado",
@@ -4509,16 +4335,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
-        ),
-      }
+        )}
     : editActionType === "quitar_precio_rebajado"
     ? {
         action: "quitar_precio_rebajado",
         productId: editFoundProduct.id,
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
-        ),
-      }
+        )}
       : editActionType === "cambiar_precio_efectivo"
 ? {
     action: "cambiar_precio_efectivo",
@@ -4526,20 +4350,17 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     cashPriceGeneral: editValue.trim(),
     selectedCombinations: selectedEditCombinations.map((combo) =>
       Object.values(combo)
-    ),
-  }
+    )}
     : editActionType === "mover_producto_fecha"
     ? {
         action: "mover_producto_fecha",
         productId: editFoundProduct.id,
         targetProductId: moveTargetProduct?.id,
-        position: moveProductMode,
-      }
+        position: moveProductMode}
     : {
         action: "cambiar_descripcion",
         productId: editFoundProduct.id,
-        description: editValue.trim(),
-      };
+        description: editValue.trim()};
 
       
 
@@ -4583,8 +4404,7 @@ setTimeout(async () => {
       headers: token
         ? { Authorization: `Bearer ${token}` }
         : undefined,
-      body: form,
-    });
+      body: form});
 
     const refreshed = await res.json();
 
@@ -4635,8 +4455,7 @@ setMoveProductMode("before");
       background: "#0f172a",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
-    }}
+      gap: 10}}
   >
     <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
       Eliminar producto
@@ -4649,8 +4468,7 @@ setMoveProductMode("before");
           alignItems: "center",
           gap: 8,
           color: "#e5e7eb",
-          fontSize: 14,
-        }}
+          fontSize: 14}}
       >
         <input
           type="radio"
@@ -4670,8 +4488,7 @@ setMoveProductMode("before");
           alignItems: "center",
           gap: 8,
           color: "#e5e7eb",
-          fontSize: 14,
-        }}
+          fontSize: 14}}
       >
         <input
           type="radio"
@@ -4707,8 +4524,7 @@ setMoveProductMode("before");
       justifyContent: "space-between",
       alignItems: "flex-start",
       gap: 12,
-      flexWrap: "wrap",
-    }}
+      flexWrap: "wrap"}}
   >
     <div>
       <div style={{ color: "#93c5fd", fontSize: 12, marginBottom: 4 }}>
@@ -4728,8 +4544,7 @@ setMoveProductMode("before");
           display: "flex",
           gap: 8,
           flexWrap: "wrap",
-          marginTop: 10,
-        }}
+          marginTop: 10}}
       >
         {CREATE_STEPS_VISIBLE.map((step, index) => {
           const isCurrent = index === createStepIndex;
@@ -4753,8 +4568,7 @@ setMoveProductMode("before");
                   ? "1px solid #2563eb"
                   : isDone
                   ? "1px solid rgba(34,197,94,0.45)"
-                  : "1px solid #334155",
-              }}
+                  : "1px solid #334155"}}
             >
               {step.title}
             </div>
@@ -4780,8 +4594,7 @@ setMoveProductMode("before");
         style={{
           ...wizardSecondaryButtonStyle,
           opacity: createStepIndex === 0 ? 0.55 : 1,
-          cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
-        }}
+          cursor: createStepIndex === 0 ? "not-allowed" : "pointer"}}
       >
         Anterior
       </button>
@@ -4814,8 +4627,7 @@ setMoveProductMode("before");
                 justifyContent: "space-between",
                 alignItems: "center",
                 gap: 12,
-                flexWrap: "wrap",
-              }}
+                flexWrap: "wrap"}}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <button
@@ -4829,8 +4641,7 @@ setMoveProductMode("before");
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
@@ -4888,8 +4699,7 @@ onMouseLeave={(e) => {
   cursor: loading ? "not-allowed" : "pointer",
   fontSize: 15,
   fontWeight: 600,
-  transition: "all 0.2s ease",
-}}
+  transition: "all 0.2s ease"}}
 onMouseEnter={(e) => {
   if (loading) return;
   const el = e.currentTarget;
@@ -4923,8 +4733,7 @@ const quickActionPrimaryStyle: React.CSSProperties = {
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
-  fontWeight: 700,
-};
+  fontWeight: 700};
 
 const quickActionSecondaryStyle: React.CSSProperties = {
   border: "1px solid #2b3950",
@@ -4934,8 +4743,7 @@ const quickActionSecondaryStyle: React.CSSProperties = {
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
-  transition: "all 0.2s ease",
-};
+  transition: "all 0.2s ease"};
 
 const wizardPrimaryButtonStyle: React.CSSProperties = {
   border: "none",
@@ -4945,8 +4753,7 @@ const wizardPrimaryButtonStyle: React.CSSProperties = {
   padding: "10px 14px",
   cursor: "pointer",
   fontSize: 14,
-  fontWeight: 700,
-};
+  fontWeight: 700};
 
 const wizardSecondaryButtonStyle: React.CSSProperties = {
   border: "1px solid #334155",
@@ -4955,6 +4762,4 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   borderRadius: 12,
   padding: "10px 14px",
   cursor: "pointer",
-  fontSize: 14,
-};
-
+  fontSize: 14};
