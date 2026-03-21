@@ -7,26 +7,6 @@ type Message = {
   text: string;
 };
 
-function normalizeMessageText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value == null) return "";
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function normalizeStoredMessages(value: unknown): Message[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item: any) => ({
-      role: item?.role === "user" ? ("user" as const) : ("assistant" as const),
-      text: normalizeMessageText(item?.text),
-    }))
-    .filter((item) => item.text.trim().length > 0);
-}
-
 
 type CategoryItem = {
   id: number;
@@ -48,6 +28,7 @@ type CreateProductForm = {
   stockGeneral: string;
   descripcionCorta: string;
   categoria: string;
+  subcategoria: string;
 };
 
 type EditFoundProduct = {
@@ -99,7 +80,8 @@ type CreateStepKey =
   | "precioEfectivo"
   | "stock"
   | "descripcionCorta"
-  | "categoria";
+  | "categoria"
+  | "subcategoria";
 
 const CREATE_STEPS: {
   key: CreateStepKey;
@@ -176,6 +158,13 @@ const CREATE_STEPS: {
     placeholder: "Ej: Remeras",
   },
   {
+    key: "subcategoria",
+    title: "Subcategoría",
+    helper: "Si tiene subcategoría, escribila. Si no tiene, dejalo vacío.",
+    placeholder: "Ej: Manga corta",
+    optional: true,
+  },
+  {
     key: "fotos",
     title: "Fotos",
     helper: "Por último, agregá las fotos del producto. La primera queda como principal.",
@@ -195,6 +184,7 @@ const initialCreateForm: CreateProductForm = {
   stockGeneral: "",
   descripcionCorta: "",
   categoria: "",
+  subcategoria: "",
 };
 
 function normalizeCommaField(value: string) {
@@ -461,6 +451,7 @@ function buildCreateProductMessage(
   const cleanCashPrice = cleanMoney(form.precioEfectivo);
   const shortDescription = form.descripcionCorta.trim();
   const category = form.categoria.trim();
+  const subcategory = form.subcategoria.trim();
   const categoryIds = Array.from(
     new Set(
       (Array.isArray(selectedCategoryIds) ? selectedCategoryIds : [])
@@ -555,6 +546,7 @@ function buildCreateProductMessage(
       lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
     } else {
       lines.push(`categoria: ${category}`);
+      if (subcategory) lines.push(`subcategoria: ${subcategory}`);
     }
     return lines.join("\n");
   }
@@ -582,6 +574,7 @@ if (categoryIds.length > 0) {
   lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
 } else {
   lines.push(`categoria: ${category}`);
+  if (subcategory) lines.push(`subcategoria: ${subcategory}`);
 }
 
 
@@ -603,57 +596,17 @@ function getButtonClass(
   return classes.join(" ");
 }
 
-function extractErrorMessage(payload: any): string {
-  if (!payload) return "";
-
-  if (typeof payload === "string") {
-    const clean = payload.trim();
-    return clean && clean !== "[object Object]" ? clean : "";
-  }
-
-  if (typeof payload?.error === "string" && payload.error.trim()) {
-    return payload.error.trim();
-  }
-
-  if (typeof payload?.message === "string" && payload.message.trim()) {
-    return payload.message.trim();
-  }
-
-  if (typeof payload?.detail === "string" && payload.detail.trim()) {
-    return payload.detail.trim();
-  }
-
-  if (payload?.detail && typeof payload.detail === "object") {
-    if (typeof payload.detail?.message === "string" && payload.detail.message.trim()) {
-      return payload.detail.message.trim();
-    }
-
-    if (typeof payload.detail?.error === "string" && payload.detail.error.trim()) {
-      return payload.detail.error.trim();
-    }
-
-    if (typeof payload.detail?.code === "string" && payload.detail.code.trim()) {
-      return payload.detail.code.trim();
-    }
-  }
-
-  try {
-    const serialized = JSON.stringify(payload);
-    return serialized === "{}" ? "" : serialized;
-  } catch {
-    return "";
-  }
-}
-
 async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
-
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
     const res = await fetch(url, {
       ...options,
       signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     const contentType = res.headers.get("content-type") || "";
     const rawText = await res.text();
@@ -668,7 +621,10 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
       }
 
       throw new Error(
-        extractErrorMessage(parsed) || `HTTP_${res.status}`
+        parsed?.detail ||
+          parsed?.error ||
+          parsed?.message ||
+          `HTTP_${res.status}`
       );
     }
 
@@ -709,8 +665,6 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
     }
 
     throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -725,11 +679,6 @@ export default function ChatWindow() {
   const [storeUrl, setStoreUrl] = useState("");
   const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-const removeSelectedFile = (indexToRemove: number) => {
-  setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
-};
-
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
@@ -754,7 +703,6 @@ const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateFor
 const [editValue, setEditValue] = useState("");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
-const [selectedProductImageId, setSelectedProductImageId] = useState<number | null>(null);
 const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias">("");
 const [categoryOptions, setCategoryOptions] = useState<CategoryItem[]>([]);
 const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -799,7 +747,6 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 const currentCreateStep =
   activeAction === "create" ? CREATE_STEPS_VISIBLE[createStepIndex] : null;
   const isCreateStepPhotos = currentCreateStep?.key === "fotos";
-  const canUsePhotoUploader = activeAction !== "create" || isCreateStepPhotos;
 
 const hasColors = (createForm.colores || "")
   .split(",")
@@ -1486,7 +1433,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   resetSkuValidationState();
 
   pushAssistantInfo(
-    "Vamos a crear un producto paso por paso. Orden: nombre, SKU, colores, talles, precio, precio rebajado, precio en efectivo, stock, descripción corta, categoría y por último fotos."
+    "Vamos a crear un producto paso por paso. Orden: fotos, nombre, SKU, colores, talles, precio, precio rebajado, precio en efectivo, stock, descripción corta, categoría y subcategoría."
   );
 }
 
@@ -1591,6 +1538,8 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
           return { ...prev, descripcionCorta: rawValue };
         case "categoria":
           return { ...prev, categoria: rawValue };
+        case "subcategoria":
+          return { ...prev, subcategoria: rawValue };
         default:
           return prev;
       }
@@ -1608,28 +1557,28 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
     }
 
       setText(
-        step.key === "nombre"
-          ? createForm.nombre
-          : step.key === "sku"
-            ? createForm.sku
-            : step.key === "colores"
-              ? createForm.colores
-              : step.key === "talles"
-                ? createForm.talles
-                : step.key === "precio"
-                  ? createForm.precio
-                  : step.key === "precioRebajado"
-                    ? createForm.precioRebajado
-                    : step.key === "precioEfectivo"
-                      ? createForm.precioEfectivo
-                      : step.key === "stock"
-                        ? ""
-                        : step.key === "descripcionCorta"
-                          ? createForm.descripcionCorta
-                          : step.key === "categoria"
-                            ? createForm.categoria
-                            : ""
-      );
+  step.key === "nombre"
+    ? createForm.nombre
+    : step.key === "sku"
+      ? createForm.sku
+      : step.key === "colores"
+        ? createForm.colores
+        : step.key === "talles"
+          ? createForm.talles
+          : step.key === "precio"
+            ? createForm.precio
+            : step.key === "precioRebajado"
+              ? createForm.precioRebajado
+              : step.key === "precioEfectivo"
+                ? createForm.precioEfectivo
+                : step.key === "stock"
+                  ? ""
+                  : step.key === "descripcionCorta"
+                    ? createForm.descripcionCorta
+                    : step.key === "categoria"
+                      ? createForm.categoria
+                      : createForm.subcategoria
+);
   }
 
 async function nextCreateStep() {
@@ -1701,6 +1650,7 @@ async function nextCreateStep() {
       ...(currentCreateStep?.key === "precioEfectivo" ? { precioEfectivo: text.trim() } : {}),
       ...(currentCreateStep?.key === "descripcionCorta" ? { descripcionCorta: text.trim() } : {}),
       ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {}),
+      ...(currentCreateStep?.key === "subcategoria" ? { subcategoria: text.trim() } : {}),
     };
 
     const missingRequired: string[] = [];
@@ -1787,7 +1737,7 @@ setStoreName(`${prettyName} (${domain})`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          setMessages(normalizeStoredMessages(parsed));
+          setMessages(parsed);
         } else {
           setMessages([]);
         }
@@ -1809,7 +1759,7 @@ setStoreName(`${prettyName} (${domain})`);
 
   useEffect(() => {
     if (
-      (activeAction === "create" && currentCreateStep?.key === "categoria") ||
+      (activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) ||
       activeAction === "edit"
     ) {
       if (categoryOptions.length === 0 && !categoriesLoading) {
@@ -2180,17 +2130,14 @@ onMouseLeave={(e) => {
       <div
         ref={composerAreaRef}
         onDragOver={(e) => {
-          if (!canUsePhotoUploader) return;
           e.preventDefault();
           setIsDragging(true);
         }}
         onDragLeave={(e) => {
-          if (!canUsePhotoUploader) return;
           e.preventDefault();
           setIsDragging(false);
         }}
         onDrop={(e) => {
-          if (!canUsePhotoUploader) return;
           e.preventDefault();
           setIsDragging(false);
 
@@ -2208,7 +2155,7 @@ onMouseLeave={(e) => {
           background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
         }}
       >
-        {canUsePhotoUploader && selectedFiles.length > 0 && activeAction !== "create" && !(activeAction === "edit" && editSection === "fotos") && (
+        {selectedFiles.length > 0 && (
   <>
     <div
       style={{
@@ -2396,163 +2343,9 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
             }}
           >
             {isCreateStepPhotos ? (
-  <>
-    <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
-      Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
-    </div>
-
-    
-              draggable
-              onDragStart={() => {
-                setDraggedFileIndex(index);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverFileIndex(index);
-              }}
-              onDragLeave={() => {
-                setDragOverFileIndex((prev) => (prev === index ? null : prev));
-              }}
-              onDrop={() => {
-                if (draggedFileIndex === null) return;
-                moveSelectedFile(draggedFileIndex, index);
-                setDraggedFileIndex(null);
-                setDragOverFileIndex(null);
-              }}
-              onDragEnd={() => {
-                setDraggedFileIndex(null);
-                setDragOverFileIndex(null);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 10px",
-                borderRadius: 999,
-                background: "#111827",
-                border: "1px solid #243041",
-                fontSize: 13,
-                color: "#d1d5db",
-                cursor: "grab",
-                opacity: draggedFileIndex === index ? 0.65 : 1,
-                boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <img
-                  src={URL.createObjectURL(file)}
-                  alt={file.name}
-                  draggable={false}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                    border: "1px solid #334155",
-                    display: "block",
-                    pointerEvents: "none",
-                    userSelect: "none",
-                  }}
-                />
-
-                <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
-              </div>
-
-              <select
-                value={imageColorMap[getFileKey(file)] || ""}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const key = getFileKey(file);
-                  const value = e.target.value;
-
-                  setImageColorMap((prev) => ({
-                    ...prev,
-                    [key]: value,
-                  }));
-                }}
-                style={{
-                  marginLeft: 10,
-                  background: "#020617",
-                  color: "#fff",
-                  border: "1px solid #334155",
-                  borderRadius: 8,
-                  padding: "4px 6px",
-                  fontSize: 12,
-                }}
-              >
-                <option value="">Sin color</option>
-                {(createForm.colores || "")
-                  .split(",")
-                  .map((c) => c.trim())
-                  .filter(Boolean)
-                  .map((color) => {
-                    const currentFileKey = getFileKey(file);
-                    const currentSelectedColor = imageColorMap[currentFileKey] || "";
-
-                    const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
-                      ([fileKey, selectedColor]) =>
-                        fileKey !== currentFileKey && selectedColor === color
-                    );
-
-                    return (
-                      <option
-                        key={color}
-                        value={color}
-                        disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
-                      >
-                        {color}
-                      </option>
-                    );
-                  })}
-              </select>
-
-              <button
-                type="button"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => {
-                  const removedFile = selectedFiles[index];
-                  const removedKey = getFileKey(removedFile);
-
-                  const nextFiles = selectedFiles.filter((_, i) => i !== index);
-                  setSelectedFiles(nextFiles);
-
-                  setImageColorMap((prev) => {
-                    const next = { ...prev };
-                    delete next[removedKey];
-                    return next;
-                  });
-
-                  if (nextFiles.length === 0 && fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "#93c5fd",
-                  cursor: "pointer",
-                  padding: 0,
-                  fontSize: 13,
-                }}
-              >
-                quitar
-              </button>
-            </div>
-          ))}
-        </div>
-      </>
-    ) : (
-      <div style={{ color: "#64748b", fontSize: 13, marginBottom: 10 }}>
-        Todavía no agregaste fotos.
-      </div>
-    )}
-  </>
+  <div style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.6, marginBottom: 10 }}>
+    Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
+  </div>
 ) : (
   <>
     {currentCreateStep?.key === "stock" && (
@@ -2871,7 +2664,7 @@ Stock general
     }}
   />
 )}
-{(activeAction === "create" && currentCreateStep?.key === "categoria") && (
+{(activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) && (
   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
       También podés marcar categorías existentes:
@@ -3844,328 +3637,6 @@ setTimeout(async () => {
       background: "#020617",
     }}
   >
-
-{selectedFiles.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginBottom: 12,
-      padding: 12,
-      borderRadius: 12,
-      border: "1px solid #334155",
-      background: "#0b1220",
-    }}
-  >
-    <div style={{ color: "#94a3b8", fontSize: 13 }}>
-      Foto cargada para asignar a variantes
-    </div>
-
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-      }}
-    >
-      {selectedFiles.map((file, index) => (
-        <div
-          key={getFileKey(file)}
-          draggable
-          onDragStart={() => {
-            setDraggedFileIndex(index);
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOverFileIndex(index);
-          }}
-          onDragLeave={() => {
-            setDragOverFileIndex((prev) => (prev === index ? null : prev));
-          }}
-          onDrop={() => {
-            if (draggedFileIndex === null) return;
-            moveSelectedFile(draggedFileIndex, index);
-            setDraggedFileIndex(null);
-            setDragOverFileIndex(null);
-          }}
-          onDragEnd={() => {
-            setDraggedFileIndex(null);
-            setDragOverFileIndex(null);
-          }}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 10px",
-            borderRadius: 999,
-            background: "#111827",
-            border: "1px solid #243041",
-            fontSize: 13,
-            color: "#d1d5db",
-            cursor: "grab",
-            opacity: draggedFileIndex === index ? 0.65 : 1,
-            boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <img
-              src={URL.createObjectURL(file)}
-              alt={file.name}
-              draggable={false}
-              style={{
-                width: 44,
-                height: 44,
-                objectFit: "cover",
-                borderRadius: 8,
-                border: "1px solid #334155",
-                display: "block",
-                pointerEvents: "none",
-                userSelect: "none",
-              }}
-            />
-            <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
-          </div>
-
-          <select
-            value={imageColorMap[getFileKey(file)] || ""}
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const key = getFileKey(file);
-              const value = e.target.value;
-
-              setImageColorMap((prev) => ({
-                ...prev,
-                [key]: value,
-              }));
-            }}
-            style={{
-              marginLeft: 10,
-              background: "#020617",
-              color: "#fff",
-              border: "1px solid #334155",
-              borderRadius: 8,
-              padding: "4px 6px",
-              fontSize: 12,
-            }}
-          >
-            <option value="">Sin color</option>
-            {(createForm.colores || "")
-              .split(",")
-              .map((c) => c.trim())
-              .filter(Boolean)
-              .map((color) => {
-                const currentFileKey = getFileKey(file);
-                const currentSelectedColor = imageColorMap[currentFileKey] || "";
-
-                const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
-                  ([fileKey, selectedColor]) =>
-                    fileKey !== currentFileKey && selectedColor === color
-                );
-
-                return (
-                  <option
-                    key={color}
-                    value={color}
-                    disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
-                  >
-                    {color}
-                  </option>
-                );
-              })}
-          </select>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeSelectedFile(index);
-            }}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#93c5fd",
-              cursor: "pointer",
-              fontSize: 12,
-              padding: 0,
-            }}
-          >
-            quitar
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
-{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginBottom: 12,
-      padding: 12,
-      borderRadius: 12,
-      border: "1px solid #334155",
-      background: "#0b1220",
-    }}
-  >
-    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Seleccioná las variantes y después asignales o quitáles la foto.
-    </div>
-
-    <div style={{ color: "#94a3b8", fontSize: 12 }}>
-      Seleccionadas: {selectedEditCombinations.length}
-    </div>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id || selectedFiles.length === 0) {
-          pushAssistantInfo("Seleccioná una foto primero.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-{selectedFiles.length > 0 ? (
-      <>
-        <div
-          style={{
-            color: "#94a3b8",
-            fontSize: 13,
-            marginBottom: 6,
-          }}
-        >
-          Arrastrá las fotos para ordenar. La primera será la principal.
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          {selectedFiles.map((file, index) => (
-            <div
-              key={getFileKey(file)}
-
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayloadWithFiles(
-            {
-              action: "cambiar_fotos_variantes",
-              productId: editFoundProduct.id,
-              selectedCombinations: selectedEditCombinations.map((combo) =>
-                Object.values(combo)
-              ),
-            },
-            [selectedFiles[0]]
-          );
-
-          pushAssistantInfo(
-            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-          setSelectedFiles([]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        } catch (error: any) {
-          pushAssistantInfo(error?.message || "Error.");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      Asignar foto a variantes
-    </button>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayload({
-            action: "quitar_fotos_variantes",
-            productId: editFoundProduct.id,
-            selectedCombinations: selectedEditCombinations.map((combo) =>
-              Object.values(combo)
-            ),
-          });
-
-          pushAssistantInfo(
-            response?.reply || "Foto eliminada de las variantes."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-        } catch (error: any) {
-          pushAssistantInfo(
-            error?.message || "No pude quitar la foto."
-          );
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={{
-        border: "1px solid #2563eb",
-        background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-        color: "white",
-        borderRadius: 14,
-        padding: "10px 14px",
-        cursor: "pointer",
-        fontSize: 14,
-        fontWeight: 700,
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget;
-        el.style.transform = "translateY(-1px)";
-        el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
-        el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget;
-        el.style.transform = "translateY(0)";
-        el.style.boxShadow = "none";
-        el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
-      }}
-    >
-      Quitar foto de variantes
-    </button>
-  </div>
-)}
-
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
 </div>
@@ -4273,7 +3744,6 @@ setTimeout(async () => {
       <div
         key={img.id}
         draggable
-        onClick={() => setSelectedProductImageId(img.id)}
         onDragStart={() => {
           setDraggedProductImageIndex(index);
         }}
@@ -4494,7 +3964,141 @@ if (fileInputRef.current) {
   Agregar fotos
 </button>
 
+{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 12,
+      paddingTop: 12,
+      borderTop: "1px solid #334155",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
+    </div>
 
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+      Seleccionadas: {selectedEditCombinations.length}
+    </div>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id || selectedFiles.length === 0) {
+          pushAssistantInfo("Seleccioná una foto primero.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayloadWithFiles(
+            {
+              action: "cambiar_fotos_variantes",
+              productId: editFoundProduct.id,
+              selectedCombinations: selectedEditCombinations.map((combo) =>
+                Object.values(combo)
+              ),
+            },
+            [selectedFiles[0]]
+          );
+
+          pushAssistantInfo(
+            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "Error.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Asignar foto a variantes
+    </button>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) {
+          pushAssistantInfo("Falta producto.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayload({
+            action: "quitar_fotos_variantes",
+            productId: editFoundProduct.id,
+            selectedCombinations: selectedEditCombinations.map((combo) =>
+              Object.values(combo)
+            ),
+          });
+
+          pushAssistantInfo(
+            response?.reply || "Foto eliminada de las variantes."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude quitar la foto."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
+    >
+      Quitar foto de variantes
+    </button>
+  </div>
+)}
 
   </div>
 )}
@@ -5119,93 +4723,12 @@ setMoveProductMode("before");
         {currentCreateStep.helper}
       </div>
 
-      <div
+            <div
         style={{
           display: "flex",
           gap: 8,
           flexWrap: "wrap",
           marginTop: 10,
-          marginBottom: 10,
-        }}
-      >
-        <button
-          type="button"
-          onClick={cancelCreateProduct}
-          style={wizardSecondaryButtonStyle}
-        >
-          Cancelar
-        </button>
-
-        <button
-          type="button"
-          onClick={previousCreateStep}
-          disabled={createStepIndex === 0}
-          style={{
-            ...wizardSecondaryButtonStyle,
-            opacity: createStepIndex === 0 ? 0.55 : 1,
-            cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
-          }}
-        >
-          Anterior
-        </button>
-
-        {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
-          <button
-            type="button"
-            onClick={nextCreateStep}
-            style={wizardPrimaryButtonStyle}
-          >
-            Siguiente
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submitCreateProduct}
-            style={wizardPrimaryButtonStyle}
-          >
-            Crear producto
-          </button>
-        )}
-
-        {isCreateStepPhotos && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: "1px solid #2b3950",
-              background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
-              color: "#e5e7eb",
-              borderRadius: 14,
-              padding: "10px 14px",
-              cursor: "pointer",
-              fontSize: 14,
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(-1px)";
-              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
-              el.style.borderColor = "#3b82f6";
-              el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(0)";
-              el.style.boxShadow = "none";
-              el.style.borderColor = "#2b3950";
-              el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
-            }}
-          >
-            + Agregar fotos
-          </button>
-        )}
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
         }}
       >
         {CREATE_STEPS_VISIBLE.map((step, index) => {
@@ -5240,6 +4763,47 @@ setMoveProductMode("before");
       </div>
 
     </div>
+
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={cancelCreateProduct}
+        style={wizardSecondaryButtonStyle}
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        onClick={previousCreateStep}
+        disabled={createStepIndex === 0}
+        style={{
+          ...wizardSecondaryButtonStyle,
+          opacity: createStepIndex === 0 ? 0.55 : 1,
+          cursor: createStepIndex === 0 ? "not-allowed" : "pointer",
+        }}
+      >
+        Anterior
+      </button>
+
+      {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
+        <button
+          type="button"
+          onClick={nextCreateStep}
+          style={wizardPrimaryButtonStyle}
+        >
+          Siguiente
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={submitCreateProduct}
+          style={wizardPrimaryButtonStyle}
+        >
+          Crear producto
+        </button>
+      )}
+    </div>
   </div>
 )}
 
@@ -5254,11 +4818,10 @@ setMoveProductMode("before");
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                {canUsePhotoUploader && !isCreateStepPhotos && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
   border: "1px solid #2b3950",
   background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
   color: "#e5e7eb",
@@ -5282,16 +4845,13 @@ onMouseLeave={(e) => {
   el.style.borderColor = "#2b3950";
   el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
 }}
-                  >
-                    + Agregar fotos
-                  </button>
-                )}
+                >
+                  + Agregar fotos
+                </button>
 
                 <span style={{ color: "#94a3b8", fontSize: 13 }}>
                   {activeAction === "create"
-                    ? isCreateStepPhotos
-                      ? `Creando producto · Paso ${createStepIndex + 1} de ${CREATE_STEPS_VISIBLE.length}`
-                      : "Completá este paso y tocá Siguiente"
+                    ? `Creando producto · Paso ${createStepIndex + 1} de ${CREATE_STEPS_VISIBLE.length}`
                     : "Arrastrá fotos acá · Enter envía · Shift + Enter baja de línea"}
 
                 </span>
@@ -5397,3 +4957,4 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: 14,
 };
+
