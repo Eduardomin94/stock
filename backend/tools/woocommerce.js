@@ -313,22 +313,86 @@ async function updateProduct(baseUrl, consumerKey, consumerSecret, productId, pa
   return response.data;
 }
 
-async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
-  const response = await axios.post(
-  `${normalizeBaseUrl(baseUrl)}/products`,
-  payload,
-  {
-    params: {
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret
-    },
-    headers: {
-      "Content-Type": "application/json"
-    }
-  }
-);
+function buildKnownWooError(message, extra = {}) {
+  const error = new Error(message);
+  if (extra.status) error.status = Number(extra.status);
+  if (extra.code) error.code = String(extra.code);
+  if (extra.detail !== undefined) error.detail = extra.detail;
+  if (extra.product !== undefined) error.product = extra.product;
+  return error;
+}
 
-  return response.data;
+function isDuplicateSkuWooError(error) {
+  const responseData = error?.response?.data || {};
+  const message = String(responseData?.message || error?.message || "").toLowerCase();
+  const code = String(responseData?.code || error?.code || "").toLowerCase();
+
+  return (
+    code.includes("woocommerce_rest_product_not_created") &&
+    message.includes("sku") &&
+    (
+      message.includes("already present") ||
+      message.includes("already exists") ||
+      message.includes("ya existe") ||
+      message.includes("duplic")
+    )
+  );
+}
+
+async function ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku) {
+  const cleanSku = String(sku || "").trim();
+  if (!cleanSku) return;
+
+  const found = await findProductBySku({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    sku: cleanSku,
+  });
+
+  if (found?.exists) {
+    throw buildKnownWooError(`El SKU "${cleanSku}" ya existe. Elegí otro.`, {
+      status: 400,
+      code: "duplicate_sku",
+      product: found.product || null,
+    });
+  }
+}
+
+async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
+  try {
+    const response = await axios.post(
+      `${normalizeBaseUrl(baseUrl)}/products`,
+      payload,
+      {
+        params: {
+          consumer_key: consumerKey,
+          consumer_secret: consumerSecret
+        },
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    if (isDuplicateSkuWooError(error)) {
+      const duplicateSku = String(payload?.sku || "").trim();
+      throw buildKnownWooError(
+        duplicateSku
+          ? `El SKU "${duplicateSku}" ya existe. Elegí otro.`
+          : "WooCommerce rechazó la creación porque el SKU ya existe.",
+        {
+          status: 400,
+          code: "duplicate_sku",
+          detail: error?.response?.data || null,
+        }
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function findProductBySku({
@@ -924,6 +988,8 @@ export async function createSimpleProduct({
     stockQuantity !== null &&
     stockQuantity !== undefined &&
     String(stockQuantity).trim() !== "";
+
+  await ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku);
 
   const cleanCashPrice = String(cashPrice || "").trim();
 
@@ -2534,6 +2600,8 @@ export async function createVariableProduct({
   const orderedImages = Array.isArray(images)
     ? [...images].sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
     : [];
+
+  await ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku);
 
   const productPayload = {
     name: String(name).trim(),

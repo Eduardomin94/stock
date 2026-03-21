@@ -3023,9 +3023,18 @@ Instrucciones:
     });
   } catch (error) {
     console.error("Error en /run-agent:", error?.response?.data || error);
-    res.status(500).json({
-      error: "Error al ejecutar el agente",
-      detail: error?.response?.data || error.message,
+
+    const status = Number(error?.status || error?.response?.status || 500);
+    const responseDetail = error?.detail ?? error?.response?.data ?? error?.message;
+
+    res.status(status).json({
+      error:
+        status === 400
+          ? error?.message || "Solicitud inválida"
+          : "Error al ejecutar el agente",
+      code: error?.code || error?.response?.data?.code || null,
+      detail: responseDetail,
+      product: error?.product || null,
     });
   }
 });
