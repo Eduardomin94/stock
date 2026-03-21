@@ -2989,13 +2989,7 @@ Stock general
     <button
       type="button"
       onClick={async () => {
-        const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as any).id === "number"
-    ? (editFoundProduct as any).id
-    : null;
+        const editProductId = (editFoundProduct && typeof editFoundProduct.id === "number") ? editFoundProduct.id : null;
 
         if (!editProductId || selectedFiles.length === 0) {
           pushAssistantInfo("Seleccioná una foto primero.");
@@ -3025,7 +3019,12 @@ Stock general
             response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
           );
 
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          if (!editFoundProduct) {
+          pushAssistantInfo("No se encontró el producto para recargar.");
+          return;
+        }
+
+        const fullProduct = await loadEditProductDetails(editFoundProduct);
           setEditFoundProduct(fullProduct);
           setSelectedEditCombinations([]);
           setSelectedFiles([]);
@@ -3071,7 +3070,12 @@ Stock general
             response?.reply || "Foto eliminada de las variantes."
           );
 
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          if (!editFoundProduct) {
+          pushAssistantInfo("No se encontró el producto para recargar.");
+          return;
+        }
+
+        const fullProduct = await loadEditProductDetails(editFoundProduct);
           setEditFoundProduct(fullProduct);
           setSelectedEditCombinations([]);
         } catch (error: any) {
@@ -4259,13 +4263,7 @@ onMouseLeave={(e) => {
     <button
   type="button"
   onClick={async () => {
-    const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as any).id === "number"
-    ? (editFoundProduct as any).id
-    : null;
+    const editProductId = (editFoundProduct && typeof editFoundProduct.id === "number") ? editFoundProduct.id : null;
 
         if (!editProductId || selectedFiles.length === 0) {
       pushAssistantInfo("Agregá al menos una foto.");
