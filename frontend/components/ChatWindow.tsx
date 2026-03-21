@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Message = {
   role: "user" | "assistant";
@@ -757,20 +757,7 @@ function getVariationCombination(
     image: { id: number; src: string } | null;
   }
 ) {
-  
-  useLayoutEffect(() => {
-    if (!loading) return;
-
-    const el = chatScrollRef.current;
-    if (!el) return;
-
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: "auto",
-    });
-  }, [loading]);
-
-return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
+  return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
     const attrName = String(attr?.name || "").trim();
     const attrOption = String(attr?.option || "").trim();
 
@@ -1348,6 +1335,17 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
     });
   }
 
+  function revealChat() {
+    chatScrollRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+
+    setTimeout(() => {
+      scrollChatToBottom();
+    }, 120);
+  }
+
   function scrollToComposer(focus = false) {
     composerAreaRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -1667,7 +1665,7 @@ setStoreName(`${prettyName} (${domain})`);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      scrollChatToBottom();
+      revealChat();
     }, 120);
 
     return () => clearTimeout(timer);
@@ -1692,6 +1690,16 @@ setStoreName(`${prettyName} (${domain})`);
 
     return () => clearTimeout(timer);
   }, [editActionType]);
+
+  useEffect(() => {
+    if (!loading) return;
+
+    const timer = setTimeout(() => {
+      revealChat();
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
 
   return (
