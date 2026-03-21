@@ -4133,6 +4133,8 @@ if (
 
 const response = await sendEditPayload(payload);
 
+setLoading(false);
+
 pushAssistantInfo(
   response?.reply || "Producto actualizado correctamente."
 );
