@@ -1270,29 +1270,6 @@ if (looksLikeEditProductActionCommand(message)) {
     });
   }
 
-  // ✅ AGREGAR PRECIO EFECTIVO
-  if (action === "cambiar_precio_efectivo") {
-  const cashPriceGeneral = String(payload?.cashPriceGeneral ?? "")
-    .replace(/[^\d]/g, "");
-
-  if (!cashPriceGeneral) {
-    return res.status(400).json({
-      error: "Falta cashPriceGeneral.",
-    });
-  }
-
-  const result = await updateProductCashPrice({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    cashPriceGeneral,
-    selectedCombinations: payload?.selectedCombinations || [],
-  });
-
-  return res.json(result);
-}
-
 
   // ✅ AGREGAR / CAMBIAR PRECIO REBAJADO
   if (action === "agregar_precio_rebajado" || action === "cambiar_precio_rebajado") {
@@ -1329,46 +1306,82 @@ if (looksLikeEditProductActionCommand(message)) {
   }
 
   if (action === "cambiar_precio_efectivo") {
-  if (!cashPrice) {
-    return res.status(400).json({
-      error: "Falta cashPrice.",
+    const cashPriceGeneral = String(payload?.cashPriceGeneral ?? "").replace(/[^\d]/g, "");
+
+    if (!cashPriceGeneral) {
+      return res.status(400).json({
+        error: "Falta cashPriceGeneral.",
+      });
+    }
+
+    result = await updateProductCashPrice({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      cashPriceGeneral,
+      selectedCombinations: Array.isArray(payload?.selectedCombinations)
+        ? payload.selectedCombinations
+        : [],
     });
   }
-
-  result = await updateProductCashPrice({
-    baseUrl,
-    consumerKey,
-    consumerSecret,
-    productId,
-    cashPrice,
-  });
-}
 
   // ✅ CAMBIAR STOCK
     if (action === "cambiar_stock") {
       if (Array.isArray(payload?.variations) && payload.variations.length > 0) {
-  for (const v of payload.variations) {
-    await axios.put(
-      `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}/variations/${v.id}`,
-      {
-        stock_quantity: v.manage_stock ? v.stock_quantity : null,
-        stock_status: v.stock_status,
-        manage_stock: v.manage_stock,
-      },
-      {
-        params: {
-          consumer_key: consumerKey,
-          consumer_secret: consumerSecret,
-        },
-      }
-    );
-  }
+        const stockResults = [];
 
-  return res.json({
-    reply: "Stock de variaciones actualizado correctamente.",
-  });
-}
-    result = await updateStockAdvanced({
+        for (const v of payload.variations) {
+          const updatedVariationResponse = await axios.put(
+            `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}/variations/${v.id}`,
+            {
+              stock_quantity: v.manage_stock ? v.stock_quantity : null,
+              stock_status: v.stock_status,
+              manage_stock: v.manage_stock,
+            },
+            {
+              params: {
+                consumer_key: consumerKey,
+                consumer_secret: consumerSecret,
+              },
+            }
+          );
+
+          const updatedVariation = updatedVariationResponse.data || {};
+          stockResults.push({
+            variation_id: updatedVariation.id || v.id,
+            attributes_text: Array.isArray(updatedVariation?.attributes)
+              ? updatedVariation.attributes
+                  .map((attr) => `${String(attr?.name || "").trim()}: ${String(attr?.option || "").trim()}`)
+                  .join(" | ")
+              : `Variación #${updatedVariation.id || v.id}`,
+            manage_stock: updatedVariation.manage_stock ?? Boolean(v.manage_stock),
+            stock_quantity: updatedVariation.stock_quantity ?? null,
+            stock_status: updatedVariation.stock_status || String(v.stock_status || "instock"),
+          });
+        }
+
+        const productResponse = await axios.get(
+          `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
+          {
+            params: {
+              consumer_key: consumerKey,
+              consumer_secret: consumerSecret,
+            },
+          }
+        );
+
+        result = {
+          ok: true,
+          action: "update_stock_advanced",
+          scope: "variations",
+          product_id: productId,
+          name: productResponse?.data?.name || "",
+          updated_count: stockResults.length,
+          results: stockResults,
+        };
+      } else {
+        result = await updateStockAdvanced({
       baseUrl,
       consumerKey,
       consumerSecret,
@@ -1380,7 +1393,8 @@ if (looksLikeEditProductActionCommand(message)) {
         ? payload.selectedCombinations
         : [],
     });
-  }
+      }
+    }
   
      // ✅ AGREGAR FOTOS AL PRODUCTO
 if (action === "agregar_fotos_producto") {
@@ -1689,22 +1703,42 @@ if (result) {
     }
   }
     if (action === "cambiar_precio_efectivo") {
-    reply =
-      result.type === "variable"
-        ? `Precio en efectivo cambiado a ${cashPrice} en ${result.name}. También se actualizó en ${result.updated_variations} variaciones.`
-        : `Precio en efectivo cambiado a ${cashPrice} en ${result.name}.`;
-  }
+      if (result.type === "variable") {
+        reply =
+          result.updated_variations === 1
+            ? `Precio en efectivo cambiado a ${result.cash_price_general || cashPrice} en esta variación de ${result.name}:
+${variationLines}`
+            : `Precio en efectivo cambiado a ${result.cash_price_general || cashPrice} en estas ${result.updated_variations} variaciones de ${result.name}:
+${variationLines}`;
+      } else {
+        reply = `Precio en efectivo cambiado a ${result.cash_price_general || cashPrice} en ${result.name}.`;
+      }
+    }
 
     if (action === "cambiar_stock") {
-    if (result.scope === "variations") {
-      reply =
-        result.updated_count === 1
-          ? `Stock actualizado en 1 variación de ${result.name}.`
-          : `Stock actualizado en ${result.updated_count} variaciones de ${result.name}.`;
-    } else {
-      reply = `Stock actualizado correctamente en ${result.name}.`;
+      if (result.scope === "variations") {
+        const stockLines = Array.isArray(result.results)
+          ? result.results
+              .map((item) => {
+                const stockText = item.manage_stock
+                  ? `stock: ${item.stock_quantity ?? 0}`
+                  : `estado: ${item.stock_status || "instock"}`;
+
+                return `- ${item.attributes_text || `Variación #${item.variation_id}`} (${stockText})`;
+              })
+              .join("\n")
+          : "";
+
+        reply =
+          result.updated_count === 1
+            ? `Stock actualizado en 1 variación de ${result.name}:
+${stockLines}`
+            : `Stock actualizado en ${result.updated_count} variaciones de ${result.name}:
+${stockLines}`;
+      } else {
+        reply = `Stock actualizado correctamente en ${result.name}.`;
+      }
     }
-  }
 
     if (action === "agregar_fotos_producto") {
     reply = `Fotos agregadas correctamente en ${result.name}.`;

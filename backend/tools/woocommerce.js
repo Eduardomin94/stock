@@ -1152,6 +1152,7 @@ export async function updateProductCashPrice({
   consumerSecret,
   productId,
   cashPriceGeneral,
+  selectedCombinations = [],
 }) {
   if (!baseUrl) throw new Error("Falta baseUrl");
   if (!consumerKey) throw new Error("Falta consumerKey");
@@ -1188,6 +1189,7 @@ const cleanCashPrice = String(cashPriceGeneral || "").trim();
   );
 
   let updatedVariations = 0;
+  let updatedVariationDetails = [];
 
   if (productType === "variable") {
     const variations = await fetchAllVariations(
@@ -1197,13 +1199,61 @@ const cleanCashPrice = String(cashPriceGeneral || "").trim();
       productId
     );
 
-    for (const variation of variations) {
+    const normalizedSelectedCombinations = (Array.isArray(selectedCombinations)
+      ? selectedCombinations
+      : [])
+      .map((item) => {
+        if (Array.isArray(item)) {
+          return item.map((value) => normalizeText(String(value).replace(/^0+/, "")));
+        }
+
+        const normalizedItem = {};
+
+        for (const [key, value] of Object.entries(item || {})) {
+          const cleanKey = normalizeText(key);
+          const cleanValue = normalizeText(String(value).replace(/^0+/, ""));
+
+          if (cleanKey && cleanValue) {
+            normalizedItem[cleanKey] = cleanValue;
+          }
+        }
+
+        return normalizedItem;
+      })
+      .filter((item) =>
+        Array.isArray(item) ? item.length > 0 : Object.keys(item).length > 0
+      );
+
+    const variationsToUpdate =
+      normalizedSelectedCombinations.length === 0
+        ? variations
+        : variations.filter((variation) => {
+            const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+
+            return normalizedSelectedCombinations.some((combo) => {
+              if (Array.isArray(combo)) {
+                const values = attrs.map((attr) =>
+                  normalizeText(String(attr?.option || "").replace(/^0+/, ""))
+                );
+
+                return combo.every((value) => values.includes(value));
+              }
+
+              return Object.entries(combo).every(([comboName, comboValue]) =>
+                attrs.some(
+                  (attr) =>
+                    normalizeText(attr?.name || "") === comboName &&
+                    normalizeText(String(attr?.option || "").replace(/^0+/, "")) === comboValue
+                )
+              );
+            });
+          });
+
+    for (const variation of variationsToUpdate) {
       await axios.put(
         `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variation.id}`,
         {
-          meta_data: [
-            { key: "_precio_efectivo", value: cleanCashPrice },
-          ],
+          meta_data: [{ key: "_precio_efectivo", value: cleanCashPrice }],
         },
         buildWooConfig(consumerKey, consumerSecret, {
           headers: {
@@ -1213,6 +1263,20 @@ const cleanCashPrice = String(cashPriceGeneral || "").trim();
       );
 
       updatedVariations += 1;
+      updatedVariationDetails.push({
+        id: variation.id,
+        attributes: Array.isArray(variation.attributes)
+          ? variation.attributes.map((attr) => ({
+              name: String(attr?.name || "").trim(),
+              option: String(attr?.option || "").trim(),
+            }))
+          : [],
+        attributes_text: Array.isArray(variation.attributes)
+          ? variation.attributes
+              .map((attr) => `${String(attr?.name || "").trim()}: ${String(attr?.option || "").trim()}`)
+              .join(" | ")
+          : "",
+      });
     }
   }
 
@@ -1224,6 +1288,7 @@ const cleanCashPrice = String(cashPriceGeneral || "").trim();
     type: productType || "",
     cash_price_general: cleanCashPrice,
     updated_variations: updatedVariations,
+    updated_variation_details: updatedVariationDetails,
   };
 }
 
