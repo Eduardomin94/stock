@@ -8,6 +8,23 @@ type Message = {
 };
 
 // === JOB QUEUE HELPERS ===
+
+
+function traducirEstado(status: string) {
+  switch (status) {
+    case "processing":
+      return "En proceso";
+    case "completed":
+      return "Completado";
+    case "failed":
+      return "Fallido";
+    case "pending":
+      return "Pendiente";
+    default:
+      return status;
+  }
+}
+
 type Job = {
   id: string;
   title: string;
@@ -5086,7 +5103,7 @@ onMouseLeave={(e) => {
                 }}
               >
                 <div style={{ fontWeight: 600 }}>{j.title}</div>
-                <div style={{ color: "#94a3b8", marginTop: 4 }}>{j.status}</div>
+                <div style={{ color: "#94a3b8", marginTop: 4 }}>{<span style={{ color: j.status==="processing"?"#facc15": j.status==="completed"?"#22c55e": j.status==="failed"?"#ef4444":"#94a3b8", fontWeight:500 }}>{traducirEstado(j.status)}</span>}</div>
               </div>
             ))
           )}
