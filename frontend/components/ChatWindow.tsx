@@ -3132,19 +3132,6 @@ onMouseLeave={(e) => {
           key={candidate.id}
           type="button"
           onClick={async () => {
-const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as { id?: unknown }).id === "number"
-    ? (editFoundProduct as { id: number }).id
-    : null;
-
-        if (!editProductId) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
   try {
     setLoading(true);
 
@@ -4224,19 +4211,6 @@ setTimeout(async () => {
         <button
           type="button"
           onClick={async () => {
-const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as { id?: unknown }).id === "number"
-    ? (editFoundProduct as { id: number }).id
-    : null;
-
-        if (!editProductId) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
             if (!editProductId) return;
 
             try {
