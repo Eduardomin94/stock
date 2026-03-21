@@ -4901,7 +4901,16 @@ setMoveProductMode("before");
           onClick={cancelCreateProduct}
           style={wizardSecondaryButtonStyle}
         >
-          Cancelar
+          
+<div className="mb-3">
+  <button
+    onClick={handleAddPhotos}
+    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition"
+  >
+    + Agregar fotos
+  </button>
+</div>
+Cancelar
         </button>
 
         <button
@@ -4964,7 +4973,6 @@ setMoveProductMode("before");
               el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
             }}
           >
-            + Agregar fotos
           </button>
         )}
       </div>
@@ -5051,7 +5059,6 @@ onMouseLeave={(e) => {
   el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
 }}
                   >
-                    + Agregar fotos
                   </button>
                 )}
 
