@@ -4885,6 +4885,21 @@ setMoveProductMode("before");
 
       <div style={{ color: "#cbd5e1", fontSize: 13, marginTop: 4 }}>
         {currentCreateStep.helper}
+
+{currentCreateStep.key === "fotos" && (
+  <div style={{ marginTop: 12, marginBottom: 10 }}>
+    <button
+      type="button"
+      onClick={() => {
+        fileInputRef.current?.click();
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      + Agregar fotos
+    </button>
+  </div>
+)}
+
       </div>
 
       <div
@@ -4902,17 +4917,7 @@ setMoveProductMode("before");
           style={wizardSecondaryButtonStyle}
         >
           
-<div className="mb-3">
-  <button
-    onClick={() => {
-  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-  input?.click();
-}}
-    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition"
-  >
-    + Agregar fotos
-  </button>
-</div>
+
 Cancelar
         </button>
 
