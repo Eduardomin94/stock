@@ -2305,21 +2305,25 @@ const selectedCategoryIds = String(categoryIdsRaw || "")
 const attributesRaw = extractBlock(message, "atributos", [
   "stock",
   "categoria",
+  "categorias_ids",
   "subcategoria",
   "descripcion",
   "descripcion_corta",
   "precio",
   "precio_rebajado",
+  "precio_efectivo",
   "variaciones",
 ]);
-
 const variationsRaw = extractBlock(message, "variaciones", [
   "stock",
   "categoria",
+  "categorias_ids",
   "subcategoria",
   "descripcion",
   "descripcion_corta",
+  "precio",
   "precio_rebajado",
+  "precio_efectivo",
 ]);
 
 const attributes = parseVariableAttributesText(attributesRaw);
