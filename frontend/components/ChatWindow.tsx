@@ -3660,141 +3660,6 @@ setTimeout(async () => {
       Marcá las variantes para asignarles una foto nueva o para quitarles la foto actual.
     </div>
 
-<div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginTop: 12,
-      paddingTop: 12,
-      borderTop: "1px solid #334155",
-    }}
-  >
-    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
-    </div>
-
-    <div style={{ color: "#94a3b8", fontSize: 12 }}>
-      Seleccionadas: {selectedEditCombinations.length}
-    </div>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id || selectedFiles.length === 0) {
-          pushAssistantInfo("Seleccioná una foto primero.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayloadWithFiles(
-            {
-              action: "cambiar_fotos_variantes",
-              productId: editFoundProduct.id,
-              selectedCombinations: selectedEditCombinations.map((combo) =>
-                Object.values(combo)
-              ),
-            },
-            [selectedFiles[0]]
-          );
-
-          pushAssistantInfo(
-            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-          setSelectedFiles([]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        } catch (error: any) {
-          pushAssistantInfo(error?.message || "Error.");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      Asignar foto a variantes
-    </button>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (!editFoundProduct?.id) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayload({
-            action: "quitar_fotos_variantes",
-            productId: editFoundProduct.id,
-            selectedCombinations: selectedEditCombinations.map((combo) =>
-              Object.values(combo)
-            ),
-          });
-
-          pushAssistantInfo(
-            response?.reply || "Foto eliminada de las variantes."
-          );
-
-          const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-        } catch (error: any) {
-          pushAssistantInfo(
-            error?.message || "No pude quitar la foto."
-          );
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={{
-  border: "1px solid #2563eb",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-  color: "white",
-  borderRadius: 14,
-  padding: "10px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
-onMouseEnter={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
-  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
-}}
-onMouseLeave={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(0)";
-  el.style.boxShadow = "none";
-  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
-}}
-    >
-      Quitar foto de variantes
-    </button>
-  </div>
-)}
-
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {editFoundProduct.variations.map((variation) => {
         const combo = getVariationCombination(variation);
@@ -4100,7 +3965,140 @@ if (fileInputRef.current) {
 </button>
 
 {Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
-  
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 12,
+      paddingTop: 12,
+      borderTop: "1px solid #334155",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
+    </div>
+
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+      Seleccionadas: {selectedEditCombinations.length}
+    </div>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id || selectedFiles.length === 0) {
+          pushAssistantInfo("Seleccioná una foto primero.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayloadWithFiles(
+            {
+              action: "cambiar_fotos_variantes",
+              productId: editFoundProduct.id,
+              selectedCombinations: selectedEditCombinations.map((combo) =>
+                Object.values(combo)
+              ),
+            },
+            [selectedFiles[0]]
+          );
+
+          pushAssistantInfo(
+            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "Error.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Asignar foto a variantes
+    </button>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) {
+          pushAssistantInfo("Falta producto.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayload({
+            action: "quitar_fotos_variantes",
+            productId: editFoundProduct.id,
+            selectedCombinations: selectedEditCombinations.map((combo) =>
+              Object.values(combo)
+            ),
+          });
+
+          pushAssistantInfo(
+            response?.reply || "Foto eliminada de las variantes."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude quitar la foto."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
+    >
+      Quitar foto de variantes
+    </button>
+  </div>
+)}
 
   </div>
 )}
