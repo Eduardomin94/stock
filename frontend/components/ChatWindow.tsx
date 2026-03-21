@@ -4951,38 +4951,6 @@ Cancelar
             Crear producto
           </button>
         )}
-
-        {isCreateStepPhotos && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: "1px solid #2b3950",
-              background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
-              color: "#e5e7eb",
-              borderRadius: 14,
-              padding: "10px 14px",
-              cursor: "pointer",
-              fontSize: 14,
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(-1px)";
-              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
-              el.style.borderColor = "#3b82f6";
-              el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(0)";
-              el.style.boxShadow = "none";
-              el.style.borderColor = "#2b3950";
-              el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
-            }}
-          >
-          </button>
-        )}
       </div>
 
       <div
