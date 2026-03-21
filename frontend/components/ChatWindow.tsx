@@ -3073,7 +3073,7 @@ Stock general
 
           const response = await sendEditPayload({
             action: "quitar_fotos_variantes",
-            productId: editProductId,
+            productId: (editFoundProduct as { id: number }).id,
             selectedCombinations: selectedEditCombinations.map((combo) =>
               Object.values(combo)
             ),
