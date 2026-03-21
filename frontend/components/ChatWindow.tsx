@@ -1896,7 +1896,7 @@ setStoreName(`${prettyName} (${domain})`);
         minHeight: 620,
         display: "flex",
         flexDirection: "column",
-        0,0,0.35)",
+        0,,
         overflow: "hidden",
       }}
     >
@@ -1952,7 +1952,7 @@ setStoreName(`${prettyName} (${domain})`);
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+  el.style.boxShadow = "0 10px 25px rgba(0,0,;
   el.style.borderColor = "#3b82f6";
   el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
 }}
@@ -1990,7 +1990,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -2034,7 +2034,7 @@ onMouseLeave={(e) => {
   onMouseEnter={(e) => {
     const el = e.currentTarget;
     el.style.transform = "translateY(-1px)";
-    el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+    el.style.boxShadow = "0 10px 25px rgba(0,0,;
     el.style.borderColor = "#3b82f6";
     el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
   }}
@@ -2083,7 +2083,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -2200,7 +2200,7 @@ onMouseLeave={(e) => {
         style={{
           borderTop: "1px solid #182235",
           padding: 16,
-          background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
+          background: isDragging ? "rgba(37,99,23 : "rgba(3,7,1,
         }}
       >
         {canUsePhotoUploader && selectedFiles.length > 0 && activeAction !== "create" && (
@@ -3103,7 +3103,7 @@ setMoveProductMode("before");
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3142,7 +3142,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3181,7 +3181,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3220,7 +3220,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3260,7 +3260,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3299,7 +3299,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3337,7 +3337,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3373,7 +3373,7 @@ onMouseLeave={(e) => {
     onMouseEnter={(e) => {
       const el = e.currentTarget;
       el.style.transform = "translateY(-1px)";
-      el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+      el.style.boxShadow = "0 12px 30px rgba(37,99,23;
       el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
     }}
     onMouseLeave={(e) => {
@@ -3409,7 +3409,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3444,7 +3444,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3477,7 +3477,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -3899,7 +3899,7 @@ setTimeout(async () => {
               padding: 10,
               borderRadius: 12,
               border: checked ? "1px solid #2563eb" : "1px solid #334155",
-              background: checked ? "rgba(37,99,235,0.18)" : "#0f172a",
+              background: checked ? "rgba(37,99,23 : "#0f172a",
               cursor: "pointer",
             }}
           >
@@ -4107,7 +4107,7 @@ setTimeout(async () => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -4310,7 +4310,7 @@ if (fileInputRef.current) {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -4579,7 +4579,7 @@ onMouseLeave={(e) => {
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
@@ -4927,7 +4927,7 @@ setMoveProductMode("before");
       padding: 12,
       borderRadius: 14,
       border: "1px solid #1d4ed8",
-      background: "rgba(37,99,235,0.10)",
+      background: "rgba(37,99,23,
       display: "flex",
       justifyContent: "space-between",
       alignItems: "flex-start",
@@ -5013,7 +5013,7 @@ setMoveProductMode("before");
             onMouseEnter={(e) => {
               const el = e.currentTarget;
               el.style.transform = "translateY(-1px)";
-              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+              el.style.boxShadow = "0 10px 25px rgba(0,0,;
               el.style.borderColor = "#3b82f6";
               el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
             }}
@@ -5052,13 +5052,13 @@ setMoveProductMode("before");
                 background: isCurrent
                   ? "#2563eb"
                   : isDone
-                  ? "rgba(34,197,94,0.15)"
+                  ? "rgba(34,197,9
                   : "#0f172a",
                 color: isCurrent ? "#ffffff" : isDone ? "#86efac" : "#94a3b8",
                 border: isCurrent
                   ? "1px solid #2563eb"
                   : isDone
-                  ? "1px solid rgba(34,197,94,0.45)"
+                  ? "1px solid rgba(34,197,9
                   : "1px solid #334155",
               }}
             >
@@ -5100,7 +5100,7 @@ setMoveProductMode("before");
 onMouseEnter={(e) => {
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+  el.style.boxShadow = "0 10px 25px rgba(0,0,;
   el.style.borderColor = "#3b82f6";
   el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
 }}
@@ -5163,7 +5163,7 @@ onMouseEnter={(e) => {
   if (loading) return;
   const el = e.currentTarget;
   el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,23;
   el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
 }}
 onMouseLeave={(e) => {
