@@ -195,7 +195,7 @@ function getFileKey(file: File) {
 
 
 function getVariationKey(color: string, size: string) {
-  return `${String(color || "").trim()}__${String(size || "").trim()}`;
+  return `${String(color || "").trim(); focusInput(); }}__${String(size || "").trim(); focusInput(); }}`;
 }
 
 function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProduct {
@@ -653,6 +653,20 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+function focusInput() {
+  if (!inputRef.current) return;
+
+  inputRef.current.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  setTimeout(() => {
+    inputRef.current?.focus();
+  }, 200);
+}
+
+
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
     const userRaw = localStorage.getItem("user");
@@ -791,7 +805,7 @@ function getVariationCombination(
 
       filesToSend.forEach((file) => {
   form.append("images", file);
-  form.append(`imageColor_${getFileKey(file)}`, imageColorMap[getFileKey(file)] || "");
+  form.append(`imageColor_${getFileKey(file); focusInput(); }}`, imageColorMap[getFileKey(file)] || "");
 });
 
       const token = localStorage.getItem("token") || "";
@@ -1049,10 +1063,10 @@ setMoveProductMode("before");
 
     const message =
       deleteMode === "sku"
-        ? `eliminar producto\nsku: ${lines.join(", ")}`
+        ? `eliminar producto\nsku: ${lines.join(", "); focusInput(); }}`
         : lines.length === 1
           ? `eliminar producto\nnombre: ${lines[0]}`
-          : `eliminar producto\nnombre:\n${lines.join("\n")}`;
+          : `eliminar producto\nnombre:\n${lines.join("\n"); focusInput(); }}`;
 
     await sendToAgent(message, filesOverride);
     setText("");
@@ -1202,7 +1216,7 @@ function resetSkuValidationState() {
 async function sendEditPayload(payload: any) {
   const form = new FormData();
   form.append("agentId", agentId);
-  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
+  form.append("message", `__edit_product_action__:${JSON.stringify(payload); focusInput(); }}`);
 
   const token = localStorage.getItem("token") || "";
 
@@ -1226,7 +1240,7 @@ async function sendEditPayload(payload: any) {
 async function sendEditPayloadWithFiles(payload: any, files: File[]) {
   const form = new FormData();
   form.append("agentId", agentId);
-  form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
+  form.append("message", `__edit_product_action__:${JSON.stringify(payload); focusInput(); }}`);
 
   files.forEach((file) => {
     form.append("images", file);
@@ -1483,7 +1497,7 @@ async function nextCreateStep() {
     if (!finalForm.categoria.trim()) missingRequired.push("Categoría");
 
     if (missingRequired.length > 0) {
-      pushAssistantInfo(`Faltan estos datos para crear el producto: ${missingRequired.join(", ")}.`);
+      pushAssistantInfo(`Faltan estos datos para crear el producto: ${missingRequired.join(", "); focusInput(); }}.`);
       return;
     }
 
@@ -1606,7 +1620,6 @@ setStoreName(`${prettyName} (${domain})`);
 
   return (
     <div
-      className="chat-window-saas"
       style={{
         border: "1px solid #182235",
         borderRadius: 20,
@@ -1837,7 +1850,7 @@ onMouseLeave={(e) => {
   >
     Elegí una acción para empezar.
   </div>
-)}
+); focusInput(); }}
 
 {messages.length === 0 && activeAction !== null && (
   <div
@@ -1849,7 +1862,7 @@ onMouseLeave={(e) => {
   >
     Ya podés empezar.
   </div>
-)}
+); focusInput(); }}
 
 
         {messages.map((message, index) => (
@@ -1869,7 +1882,7 @@ onMouseLeave={(e) => {
           >
             {message.text}
           </div>
-        ))}
+        )); focusInput(); }}
 
         {loading && (
           <div
@@ -1885,7 +1898,7 @@ onMouseLeave={(e) => {
           >
             Pensando...
           </div>
-        )}
+        ); focusInput(); }}
       </div>
 
       {activeAction && (
@@ -1938,7 +1951,7 @@ onMouseLeave={(e) => {
     >
             {selectedFiles.map((file, index) => (
               <div
-  key={getFileKey(file)}
+  key={getFileKey(file); focusInput(); }}
   draggable
   onDragStart={() => {
   setDraggedFileIndex(index);
@@ -1983,7 +1996,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   }}
 >
   <img
-  src={URL.createObjectURL(file)}
+  src={URL.createObjectURL(file); focusInput(); }}
   alt={file.name}
   draggable={false}
   style={{
@@ -2003,7 +2016,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
 
                <select
   value={imageColorMap[getFileKey(file)] || ""}
-    onMouseDown={(e) => e.stopPropagation()}
+    onMouseDown={(e) => e.stopPropagation(); focusInput(); }}
   onChange={(e) => {
     const key = getFileKey(file);
     const value = e.target.value;
@@ -2046,12 +2059,12 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
           {color}
         </option>
       );
-    })}
+    }); focusInput(); }}
 </select>
 
                 <button
                   type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation(); focusInput(); }}
                   onClick={() => {
   const removedFile = selectedFiles[index];
   const removedKey = getFileKey(removedFile);
@@ -2081,10 +2094,10 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
                   quitar
                 </button>
               </div>
-            ))}
+            )); focusInput(); }}
           </div>
   </>
-)}
+); focusInput(); }}
 
         <div
           style={{
@@ -2120,7 +2133,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
         fontSize: 14,
       }}
     >
-      <input
+      <input ref={inputRef}
         type="radio"
         name="stockMode"
         checked={createForm.stockMode === "none"}
@@ -2184,10 +2197,10 @@ Stock general
     />
     Stock por variación
   </label>
-)}
+); focusInput(); }}
 
   </div>
-)}
+); focusInput(); }}
 
 {currentCreateStep?.key === "stock" && createForm.stockMode === "same" && (
   <div style={{ marginBottom: 10 }}>
@@ -2214,7 +2227,7 @@ Stock general
       }}
     />
   </div>
-)}
+); focusInput(); }}
 
        {currentCreateStep?.key === "stock" ? (
   <>
@@ -2365,16 +2378,16 @@ Stock general
   }
 
   return null;
-})()}
+})(); focusInput(); }}
 
         {(createForm.colores || "").split(",").map((c) => c.trim()).filter(Boolean).length === 0 &&
  (createForm.talles || "").split(",").map((t) => t.trim()).filter(Boolean).length === 0 && (
   <div style={{ color: "#94a3b8", fontSize: 13 }}>
     Para cargar stock por variación primero completá colores o talles.
   </div>
-)}
+); focusInput(); }}
       </div>
-    )}
+    ); focusInput(); }}
   </>
 ) : (
   <textarea
@@ -2423,7 +2436,7 @@ Stock general
       marginBottom: 10,
     }}
   />
-)}
+); focusInput(); }}
 {currentCreateStep?.key === "sku" && skuStatusMessage && (
   <div
     style={{
@@ -2439,9 +2452,9 @@ Stock general
   >
     {skuChecking ? "Validando SKU..." : skuStatusMessage}
   </div>
-)}
+); focusInput(); }}
   </>
-)}
+); focusInput(); }}
 {activeAction === "edit" && !editFoundProduct && editCandidates.length > 0 && (
   <div
     style={{
@@ -2511,10 +2524,10 @@ setMoveProductMode("before");
             SKU: {candidate.sku || "(sin SKU)"} · Tipo: {candidate.type || "-"}
           </div>
         </button>
-      ))}
+      )); focusInput(); }}
     </div>
   </div>
-)}
+); focusInput(); }}
 
 {activeAction === "edit" && editFoundProduct && (
   <div
@@ -2556,7 +2569,7 @@ setMoveProductMode("before");
   <div>
     Precio en efectivo: {editFoundProduct.cashPriceGeneral || "(vacío)"}
   </div>
-)}
+); focusInput(); }}
 </div>
 
 
@@ -2829,7 +2842,7 @@ onMouseLeave={(e) => {
   >
     Cambiar precio en efectivo
   </button>
-)}
+); focusInput(); }}
 
     {!hasEditSalePrice ? (
   <button
@@ -2934,9 +2947,9 @@ onMouseLeave={(e) => {
       Quitar precio rebajado
     </button>
   </>
-)}
+); focusInput(); }}
   </div>
-)}
+); focusInput(); }}
 
 {editActionType === "cambiar_precio_efectivo" && (
   <div
@@ -2960,7 +2973,7 @@ onMouseLeave={(e) => {
       type="number"
       min="0"
       value={editValue}
-      onChange={(e) => setEditValue(e.target.value)}
+      onChange={(e) => setEditValue(e.target.value); focusInput(); }}
       placeholder="Ej: 11900"
       style={{
         width: "100%",
@@ -2974,7 +2987,7 @@ onMouseLeave={(e) => {
       }}
     />
   </div>
-)}
+); focusInput(); }}
 
 {editSection === "stock" && (
   <div
@@ -3111,7 +3124,7 @@ onMouseLeave={(e) => {
                   <option value="instock">Disponible</option>
                   <option value="outofstock">Agotado</option>
                 </select>
-              )}
+              ); focusInput(); }}
 
               <input
   type="checkbox"
@@ -3149,14 +3162,14 @@ onMouseLeave={(e) => {
 />
             </div>
           );
-        })}
+        }); focusInput(); }}
       </div>
     ) : (
       <input
         type="number"
         min="0"
         value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
+        onChange={(e) => setEditValue(e.target.value); focusInput(); }}
         placeholder="Ej: 5"
         style={{
           width: "100%",
@@ -3169,7 +3182,7 @@ onMouseLeave={(e) => {
           fontSize: 14,
         }}
       />
-    )}
+    ); focusInput(); }}
 
     <button
       type="button"
@@ -3290,7 +3303,7 @@ setTimeout(async () => {
       Guardar stock
     </button>
   </div>
-)}
+); focusInput(); }}
 
 {editSection === "fotos" && (
   <div
@@ -3350,7 +3363,7 @@ setTimeout(async () => {
             <input
               type="checkbox"
               checked={checked}
-              onChange={() => toggleCombination(combo)}
+              onChange={() => toggleCombination(combo); focusInput(); }}
             />
 
             {variation.image?.src ? (
@@ -3382,7 +3395,7 @@ setTimeout(async () => {
               >
                 Sin foto
               </div>
-            )}
+            ); focusInput(); }}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ color: "#e5e7eb", fontSize: 13, fontWeight: 600 }}>
@@ -3395,16 +3408,16 @@ setTimeout(async () => {
             </div>
           </label>
         );
-      })}
+      }); focusInput(); }}
     </div>
   </div>
-)}
+); focusInput(); }}
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length === 0 && (
   <div style={{ color: "#94a3b8", fontSize: 13 }}>
     Este producto no tiene fotos cargadas.
   </div>
-)}
+); focusInput(); }}
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length > 0 && (
   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
@@ -3563,9 +3576,9 @@ onMouseLeave={(e) => {
           Eliminar
         </button>
       </div>
-    ))}
+    )); focusInput(); }}
   </div>
-)}
+); focusInput(); }}
 
     <button
   type="button"
@@ -3766,10 +3779,10 @@ onMouseLeave={(e) => {
       Quitar foto de variantes
     </button>
   </div>
-)}
+); focusInput(); }}
 
   </div>
-)}
+); focusInput(); }}
 
     {editActionType && (
       <div
@@ -3797,7 +3810,7 @@ onMouseLeave={(e) => {
 {editActionType === "cambiar_descripcion" ? (
   <textarea
     value={editValue}
-    onChange={(e) => setEditValue(e.target.value)}
+    onChange={(e) => setEditValue(e.target.value); focusInput(); }}
     placeholder="Nueva descripción"
     rows={4}
     style={{
@@ -3831,7 +3844,7 @@ onMouseLeave={(e) => {
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
       <button
         type="button"
-        onClick={() => setMoveProductMode("before")}
+        onClick={() => setMoveProductMode("before"); focusInput(); }}
         style={{
           ...quickActionSecondaryStyle,
           background: moveProductMode === "before" ? "#2563eb" : "#111827",
@@ -3843,7 +3856,7 @@ onMouseLeave={(e) => {
 
       <button
         type="button"
-        onClick={() => setMoveProductMode("after")}
+        onClick={() => setMoveProductMode("after"); focusInput(); }}
         style={{
           ...quickActionSecondaryStyle,
           background: moveProductMode === "after" ? "#2563eb" : "#111827",
@@ -3857,7 +3870,7 @@ onMouseLeave={(e) => {
     <input
       type="text"
       value={moveTargetSearch}
-      onChange={(e) => setMoveTargetSearch(e.target.value)}
+      onChange={(e) => setMoveTargetSearch(e.target.value); focusInput(); }}
       placeholder="Nombre o SKU del producto de referencia"
       style={{
         width: "100%",
@@ -3979,13 +3992,13 @@ onMouseLeave={(e) => {
         Referencia: {moveTargetProduct.name}
         {moveTargetProduct.sku ? ` (SKU: ${moveTargetProduct.sku})` : ""}
       </div>
-    )}
+    ); focusInput(); }}
   </div>
 ) : (
   <input
     type="number"
     value={editValue}
-    onChange={(e) => setEditValue(e.target.value)}
+    onChange={(e) => setEditValue(e.target.value); focusInput(); }}
     placeholder="Ej: 25000"
     style={{
       width: "100%",
@@ -3998,7 +4011,7 @@ onMouseLeave={(e) => {
       fontSize: 14,
     }}
   />
-)}
+); focusInput(); }}
 
 {editActionType !== "mover_producto_fecha" && (
   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
@@ -4029,20 +4042,20 @@ onMouseLeave={(e) => {
             <input
               type="checkbox"
               checked={checked}
-              onChange={() => toggleCombination(combo)}
+              onChange={() => toggleCombination(combo); focusInput(); }}
             />
 
             <span>
               {Object.entries(combo)
                 .map(([_, v]) => `${v}`)
-                .join(" / ")}
+                .join(" / "); focusInput(); }}
             </span>
           </label>
         );
-      })}
+      }); focusInput(); }}
     </div>
   </div>
-)}
+); focusInput(); }}
 
         <button
           type="button"
@@ -4207,9 +4220,9 @@ setMoveProductMode("before");
           Guardar cambio
         </button>
       </div>
-    )}
+    ); focusInput(); }}
   </div>
-)}
+); focusInput(); }}
 {activeAction === "delete" && (
   <div
     style={{
@@ -4278,7 +4291,7 @@ setMoveProductMode("before");
         : "Escribí uno o varios nombres, uno por línea."}
     </div>
   </div>
-)}
+); focusInput(); }}
 
 {activeAction === "create" && currentCreateStep && (
   <div
@@ -4345,7 +4358,7 @@ setMoveProductMode("before");
               {step.title}
             </div>
           );
-        })}
+        }); focusInput(); }}
       </div>
 
     </div>
@@ -4388,10 +4401,10 @@ setMoveProductMode("before");
         >
           Crear producto
         </button>
-      )}
+      ); focusInput(); }}
     </div>
   </div>
-)}
+); focusInput(); }}
 
 
               <div
@@ -4406,7 +4419,7 @@ setMoveProductMode("before");
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => fileInputRef.current?.click(); focusInput(); }}
                   style={{
   border: "1px solid #2b3950",
   background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
@@ -4461,7 +4474,7 @@ onMouseLeave={(e) => {
 
           {activeAction !== "create" && (
             <button
-              onClick={() => handleSend()}
+              onClick={() => handleSend(); focusInput(); }}
               disabled={loading}
               style={{
   border: "1px solid #2563eb",
@@ -4493,56 +4506,10 @@ onMouseLeave={(e) => {
             >
               Enviar
             </button>
-          )}
+          ); focusInput(); }}
         </div>
       </div>
-      )}
-
-      <style jsx global>{`
-        .chat-window-saas button {
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-          will-change: transform, box-shadow, filter;
-        }
-
-        .chat-window-saas button:not(:disabled) {
-          transition:
-            transform 0.16s ease,
-            box-shadow 0.22s ease,
-            filter 0.22s ease,
-            opacity 0.22s ease;
-        }
-
-        @media (hover: hover) and (pointer: fine) {
-          .chat-window-saas button:not(:disabled):hover {
-            transform: translateY(-1px) scale(1.01);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-            filter: brightness(1.05);
-          }
-        }
-
-        .chat-window-saas button:not(:disabled):active {
-          transform: translateY(1px) scale(0.985);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-          filter: brightness(0.97);
-        }
-
-        .chat-window-saas button:disabled {
-          transform: none !important;
-          box-shadow: none !important;
-          filter: none !important;
-        }
-
-        @media (hover: none) {
-          .chat-window-saas button:not(:disabled) {
-            transition:
-              transform 0.12s ease,
-              box-shadow 0.16s ease,
-              filter 0.16s ease,
-              opacity 0.16s ease;
-          }
-        }
-      `}</style>
+      ); focusInput(); }}
     </div>
   );
 }
