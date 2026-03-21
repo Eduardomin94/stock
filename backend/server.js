@@ -36,7 +36,7 @@ async function ensureDatabase() {
 }
 console.log("OPENAI_API_KEY cargada:", process.env.OPENAI_API_KEY ? "SI" : "NO");
 const app = express();
-
+app.set("trust proxy", true);
 
 app.use(cors({
   origin: [

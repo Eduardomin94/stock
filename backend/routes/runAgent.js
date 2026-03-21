@@ -428,6 +428,27 @@ function extractOrderedImages(files = [], body = {}) {
 }
 
 
+function resolvePublicBaseUrl(req) {
+  const explicitBaseUrl = String(process.env.PUBLIC_API_BASE_URL || "").trim();
+
+  if (explicitBaseUrl) {
+    return explicitBaseUrl.replace(/\/+$/, "");
+  }
+
+  const forwardedProto = String(req.get("x-forwarded-proto") || req.protocol || "https")
+    .split(",")[0]
+    .trim();
+  const forwardedHost = String(req.get("x-forwarded-host") || req.get("host") || "")
+    .split(",")[0]
+    .trim();
+
+  if (!forwardedHost) {
+    return "";
+  }
+
+  return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+}
+
 async function saveImagesAndBuildUrls(files = [], body = {}, req) {
   const orderedImages = extractOrderedImages(files, body);
   const uploadsDir = path.join(__dirname, "../uploads");
@@ -437,6 +458,7 @@ async function saveImagesAndBuildUrls(files = [], body = {}, req) {
   }
 
   const savedImages = [];
+  const publicBaseUrl = resolvePublicBaseUrl(req);
 
   for (const image of orderedImages) {
     const originalName = String(image.file.originalname || "image");
@@ -446,7 +468,7 @@ async function saveImagesAndBuildUrls(files = [], body = {}, req) {
 
     fs.writeFileSync(finalPath, image.file.buffer);
 
-    const url = `${req.protocol}://${req.get("host")}/uploads/${finalName}`;
+    const url = `${publicBaseUrl}/uploads/${finalName}`;
 
     savedImages.push({
       src: url,
