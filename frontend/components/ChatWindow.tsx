@@ -4,7 +4,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type Message = {
   role: "user" | "assistant";
-  text: string;
+  
+// === JOB QUEUE HELPERS ===
+type Job = {
+  id: string;
+  title: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  createdAt?: string;
+};
+
+async function enqueueJob(body: any) {
+  const res = await fetch("/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+async function fetchJobs(): Promise<Job[]> {
+  const res = await fetch("/jobs");
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data?.jobs || []);
+}
+text: string;
 };
 
 
@@ -669,6 +692,9 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
 }
 
 export default function ChatWindow() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [showJobs, setShowJobs] = useState(false);
+
   const agentId = "woocommerce-assistant";
   const agentName = "Asistente WooCommerce";
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1343,7 +1369,7 @@ async function sendEditPayload(payload: any) {
   return data;
 }
 
-async function sendEditPayloadWithFiles(payload: any, files: File[]) {
+async function enqueueJob({ action: 'edit_with_files', payload: payload: any, files: File[]) {
   const form = new FormData();
   form.append("agentId", agentId);
   form.append("message", `__edit_product_action__:${JSON.stringify(payload)}`);
@@ -1689,7 +1715,21 @@ useEffect(() => {
           : undefined,
       });
 
-      const data = await res.json();
+      
+
+  useEffect(() => {
+    let t: any;
+    const load = async () => {
+      try {
+        const j = await fetchJobs();
+        setJobs(j);
+      } catch {}
+      t = setTimeout(load, 3000);
+    };
+    load();
+    return () => clearTimeout(t);
+  }, []);
+const data = await res.json();
       console.log("ME RESPONSE", data);
       setUserMe(data || null);
 
@@ -3694,7 +3734,7 @@ setTimeout(async () => {
         try {
           setLoading(true);
 
-          const response = await sendEditPayloadWithFiles(
+          const response = await enqueueJob({ action: 'edit_with_files', payload: 
             {
               action: "cambiar_fotos_variantes",
               productId: editFoundProduct.id,
@@ -4044,7 +4084,7 @@ onMouseLeave={(e) => {
     try {
       setLoading(true);
 
-      const response = await sendEditPayloadWithFiles(
+      const response = await enqueueJob({ action: 'edit_with_files', payload: 
         {
           action: "agregar_fotos_producto",
           productId: editFoundProduct.id,
@@ -4971,3 +5011,34 @@ const wizardSecondaryButtonStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
+
+
+      {/* === JOB DRAWER === */}
+      <button
+        style={{ position: "fixed", right: 20, bottom: 20, zIndex: 50 }}
+        onClick={() => setShowJobs(!showJobs)}
+      >
+        Procesos
+      </button>
+
+      {showJobs && (
+        <div style={{
+          position: "fixed",
+          right: 0,
+          top: 0,
+          height: "100%",
+          width: 320,
+          background: "#111",
+          color: "#fff",
+          padding: 12,
+          overflowY: "auto",
+          zIndex: 49
+        }}>
+          <h3>Historial</h3>
+          {jobs.map((j) => (
+            <div key={j.id} style={{ marginBottom: 10, fontSize: 14 }}>
+              {j.title} — {j.status}
+            </div>
+          ))}
+        </div>
+      )}
