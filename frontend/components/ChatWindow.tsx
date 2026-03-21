@@ -8,23 +8,6 @@ type Message = {
 };
 
 // === JOB QUEUE HELPERS ===
-
-
-function traducirEstado(status: string) {
-  switch (status) {
-    case "processing":
-      return "En proceso";
-    case "completed":
-      return "Completado";
-    case "failed":
-      return "Fallido";
-    case "pending":
-      return "Pendiente";
-    default:
-      return status;
-  }
-}
-
 type Job = {
   id: string;
   title: string;
@@ -105,6 +88,44 @@ manage_stock_checked?: boolean;
 }[];
   attributes?: { id?: number; name: string; options: string[] }[];
 };
+
+function traducirEstado(status: string) {
+  switch (status) {
+    case "pending":
+      return "Pendiente";
+    case "processing":
+      return "En proceso";
+    case "completed":
+      return "Completado";
+    case "failed":
+      return "Fallido";
+    default:
+      return status;
+  }
+}
+
+function getEstadoBadgeStyle(status: string): React.CSSProperties {
+  const base: React.CSSProperties = {
+    display: "inline-block",
+    marginTop: 6,
+    padding: "2px 8px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    border: "1px solid transparent",
+  };
+
+  switch (status) {
+    case "processing":
+      return { ...base, color: "#facc15", background: "rgba(250, 204, 21, 0.12)", borderColor: "rgba(250, 204, 21, 0.3)" };
+    case "completed":
+      return { ...base, color: "#22c55e", background: "rgba(34, 197, 94, 0.12)", borderColor: "rgba(34, 197, 94, 0.3)" };
+    case "failed":
+      return { ...base, color: "#ef4444", background: "rgba(239, 68, 68, 0.12)", borderColor: "rgba(239, 68, 68, 0.3)" };
+    default:
+      return { ...base, color: "#cbd5e1", background: "rgba(148, 163, 184, 0.12)", borderColor: "rgba(148, 163, 184, 0.25)" };
+  }
+}
 
 type EditActionType =
   | ""
@@ -5103,7 +5124,7 @@ onMouseLeave={(e) => {
                 }}
               >
                 <div style={{ fontWeight: 600 }}>{j.title}</div>
-                <div style={{ color: "#94a3b8", marginTop: 4 }}>{<span style={{ color: j.status==="processing"?"#facc15": j.status==="completed"?"#22c55e": j.status==="failed"?"#ef4444":"#94a3b8", fontWeight:500 }}>{traducirEstado(j.status)}</span>}</div>
+                <div style={getEstadoBadgeStyle(j.status)}>{traducirEstado(j.status)}</div>
               </div>
             ))
           )}
