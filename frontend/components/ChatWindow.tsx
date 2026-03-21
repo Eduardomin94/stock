@@ -3051,7 +3051,14 @@ Stock general
     <button
       type="button"
       onClick={async () => {
-        if (!editFoundProduct?.id) {
+        if (
+  !(
+    typeof editFoundProduct === "object" &&
+    editFoundProduct !== null &&
+    "id" in editFoundProduct &&
+    typeof (editFoundProduct as { id?: unknown }).id === "number"
+  )
+) {
           pushAssistantInfo("Falta producto.");
           return;
         }
@@ -3872,7 +3879,7 @@ onMouseLeave={(e) => {
     <button
       type="button"
       onClick={async () => {
-        if (!editFoundProduct?.id) return;
+        if (!editProductId) return;
 
         const hasVariations =
           Array.isArray(editFoundProduct?.variations) &&
@@ -4125,7 +4132,7 @@ setTimeout(async () => {
           if (
             draggedProductImageIndex === null ||
             draggedProductImageIndex === index ||
-            !editFoundProduct?.id
+            !editProductId
           ) {
             return;
           }
@@ -4204,7 +4211,7 @@ setTimeout(async () => {
         <button
           type="button"
           onClick={async () => {
-            if (!editFoundProduct?.id) return;
+            if (!editProductId) return;
 
             try {
               setLoading(true);
@@ -4563,7 +4570,7 @@ if (fileInputRef.current) {
           if (data?.product) {
             const found = normalizeEditFoundProduct(data.product, data.variationSample);
 
-            if (Number(found.id) === Number(editFoundProduct?.id)) {
+            if (Number(found.id) === Number(editProductId)) {
               pushAssistantInfo("Elegí otro producto distinto como referencia.");
               return;
             }
@@ -4576,7 +4583,7 @@ if (fileInputRef.current) {
           if (Array.isArray(data?.products) && data.products.length === 1) {
             const found = normalizeEditFoundProduct(data.products[0], data.variationSample);
 
-            if (Number(found.id) === Number(editFoundProduct?.id)) {
+            if (Number(found.id) === Number(editProductId)) {
               pushAssistantInfo("Elegí otro producto distinto como referencia.");
               return;
             }
@@ -4702,7 +4709,7 @@ onMouseLeave={(e) => {
         <button
           type="button"
           onClick={async () => {
-  if (!editFoundProduct?.id || !editActionType) {
+  if (!editProductId || !editActionType) {
   pushAssistantInfo("Falta elegir una acción.");
   return;
 }
