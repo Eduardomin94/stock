@@ -652,6 +652,46 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
   
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const editActionInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    scrollChatToBottom();
+  }, 120);
+
+  return () => clearTimeout(timer);
+}, [messages, loading]);
+
+useEffect(() => {
+  if (!activeAction) return;
+
+  const timer = setTimeout(() => {
+    scrollToComposer({ focus: true });
+  }, 120);
+
+  return () => clearTimeout(timer);
+}, [activeAction, createStepIndex, deleteMode]);
+
+useEffect(() => {
+  if (!editActionType) return;
+  if (
+    editActionType === "quitar_precio_rebajado" ||
+    editActionType === "cambiar_fotos_variantes" ||
+    editActionType === "quitar_fotos_variantes"
+  ) {
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    scrollToEditActionInput({ focus: true });
+  }, 120);
+
+  return () => clearTimeout(timer);
+}, [editActionType]);
 
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -689,6 +729,41 @@ const hasSizes = (createForm.talles || "")
   .map((t) => t.trim())
   .filter(Boolean).length > 0;
   const isVariableProductDraft = hasColors || hasSizes;
+
+
+
+function scrollToElement(
+  element: HTMLElement | null,
+  options?: { focus?: boolean }
+) {
+  if (!element) return;
+
+  element.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  if (options?.focus) {
+    setTimeout(() => {
+      element.focus();
+    }, 180);
+  }
+}
+
+function scrollToComposer(options?: { focus?: boolean }) {
+  scrollToElement(composerRef.current, options);
+}
+
+function scrollToEditActionInput(options?: { focus?: boolean }) {
+  scrollToElement(editActionInputRef.current, options);
+}
+
+function scrollChatToBottom() {
+  messagesEndRef.current?.scrollIntoView({
+    behavior: "smooth",
+    block: "end",
+  });
+}
 
 const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
 const editAttributes = editFoundProduct?.attributes || [];
@@ -1885,6 +1960,7 @@ onMouseLeave={(e) => {
             Pensando...
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {activeAction && (
@@ -2377,6 +2453,7 @@ Stock general
   </>
 ) : (
   <textarea
+  ref={composerRef}
   value={text}
   onChange={(e) => {
     const value = e.target.value;
@@ -2638,7 +2715,7 @@ onMouseLeave={(e) => {
     Fotos
   </button>
 
-  <button className="btn-saas"
+  <button
     type="button"
     onClick={() => {
       setEditSection("stock");
@@ -3170,7 +3247,7 @@ onMouseLeave={(e) => {
       />
     )}
 
-    <button className="btn-saas"
+    <button
       type="button"
       onClick={async () => {
         if (!editFoundProduct?.id) return;
@@ -3795,6 +3872,7 @@ onMouseLeave={(e) => {
 
 {editActionType === "cambiar_descripcion" ? (
   <textarea
+    ref={editActionInputRef}
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
     placeholder="Nueva descripción"
@@ -3854,6 +3932,7 @@ onMouseLeave={(e) => {
     </div>
 
     <input
+      ref={editActionInputRef}
       type="text"
       value={moveTargetSearch}
       onChange={(e) => setMoveTargetSearch(e.target.value)}
