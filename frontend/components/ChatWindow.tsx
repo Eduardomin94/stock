@@ -3861,75 +3861,176 @@ setTimeout(async () => {
       background: "#020617",
     }}
   >
-    {selectedFiles.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 10,
-      alignItems: "center",
-    }}
-  >
-    {selectedFiles.map((file, index) => (
-      <div
-        key={getFileKey(file)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 10px",
-          borderRadius: 999,
-          background: "#111827",
-          border: "1px solid #243041",
-          fontSize: 13,
-          color: "#d1d5db",
-        }}
-      >
-        <img
-          src={URL.createObjectURL(file)}
-          alt={file.name}
+
+    {canUsePhotoUploader && selectedFiles.length > 0 && (
+      <>
+        <div
           style={{
-            width: 44,
-            height: 44,
-            objectFit: "cover",
-            borderRadius: 8,
-            border: "1px solid #334155",
-            display: "block",
-          }}
-        />
-        <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
-        <button
-          type="button"
-          onClick={() => {
-            const removedFile = selectedFiles[index];
-            const removedKey = getFileKey(removedFile);
-            const nextFiles = selectedFiles.filter((_, i) => i !== index);
-            setSelectedFiles(nextFiles);
-            setImageColorMap((prev) => {
-              const next = { ...prev };
-              delete next[removedKey];
-              return next;
-            });
-            if (nextFiles.length === 0 && fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
-          }}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: "#93c5fd",
-            cursor: "pointer",
-            padding: 0,
+            color: "#94a3b8",
             fontSize: 13,
+            marginBottom: 6,
           }}
         >
-          quitar
-        </button>
-      </div>
-    ))}
-  </div>
-)}
+          Arrastrá las fotos para ordenar. La primera será la principal.
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          {selectedFiles.map((file, index) => (
+            <div
+              key={getFileKey(file)}
+              draggable
+              onDragStart={() => {
+                setDraggedFileIndex(index);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverFileIndex(index);
+              }}
+              onDragLeave={() => {
+                setDragOverFileIndex((prev) => (prev === index ? null : prev));
+              }}
+              onDrop={() => {
+                if (draggedFileIndex === null) return;
+                moveSelectedFile(draggedFileIndex, index);
+                setDraggedFileIndex(null);
+                setDragOverFileIndex(null);
+              }}
+              onDragEnd={() => {
+                setDraggedFileIndex(null);
+                setDragOverFileIndex(null);
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 10px",
+                borderRadius: 999,
+                background: "#111827",
+                border: "1px solid #243041",
+                fontSize: 13,
+                color: "#d1d5db",
+                cursor: "grab",
+                opacity: draggedFileIndex === index ? 0.65 : 1,
+                boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  draggable={false}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    display: "block",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                />
+
+                <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
+              </div>
+
+              <select
+                value={imageColorMap[getFileKey(file)] || ""}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const key = getFileKey(file);
+                  const value = e.target.value;
+
+                  setImageColorMap((prev) => ({
+                    ...prev,
+                    [key]: value,
+                  }));
+                }}
+                style={{
+                  marginLeft: 10,
+                  background: "#020617",
+                  color: "#fff",
+                  border: "1px solid #334155",
+                  borderRadius: 8,
+                  padding: "4px 6px",
+                  fontSize: 12,
+                }}
+              >
+                <option value="">Sin color</option>
+                {(createForm.colores || "")
+                  .split(",")
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+                  .map((color) => {
+                    const currentFileKey = getFileKey(file);
+                    const currentSelectedColor = imageColorMap[currentFileKey] || "";
+
+                    const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
+                      ([fileKey, selectedColor]) =>
+                        fileKey !== currentFileKey && selectedColor === color
+                    );
+
+                    return (
+                      <option
+                        key={color}
+                        value={color}
+                        disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
+                      >
+                        {color}
+                      </option>
+                    );
+                  })}
+              </select>
+
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  const removedFile = selectedFiles[index];
+                  const removedKey = getFileKey(removedFile);
+
+                  const nextFiles = selectedFiles.filter((_, i) => i !== index);
+                  setSelectedFiles(nextFiles);
+
+                  setImageColorMap((prev) => {
+                    const next = { ...prev };
+                    delete next[removedKey];
+                    return next;
+                  });
+
+                  if (nextFiles.length === 0 && fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#93c5fd",
+                  cursor: "pointer",
+                  padding: 0,
+                  fontSize: 13,
+                }}
+              >
+                quitar
+              </button>
+            </div>
+          ))}
+        </div>
+      </>
+    )}
 
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
