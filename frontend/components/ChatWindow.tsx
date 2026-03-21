@@ -749,6 +749,7 @@ const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateFor
 const [editValue, setEditValue] = useState("");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
+const [selectedProductImageId, setSelectedProductImageId] = useState<number | null>(null);
 const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias">("");
 const [categoryOptions, setCategoryOptions] = useState<CategoryItem[]>([]);
 const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -3967,6 +3968,7 @@ setTimeout(async () => {
       <div
         key={img.id}
         draggable
+        onClick={() => setSelectedProductImageId(img.id)}
         onDragStart={() => {
           setDraggedProductImageIndex(index);
         }}
@@ -4027,6 +4029,9 @@ setTimeout(async () => {
           setDragOverProductImageIndex(null);
         }}
         style={{
+          border: selectedProductImageId === img.id ? "2px solid #3b82f6" : "1px solid transparent",
+boxShadow: selectedProductImageId === img.id ? "0 0 0 2px rgba(59,130,246,0.25)" : "none",
+cursor: "pointer",
           border: "1px solid #334155",
           borderRadius: 12,
           padding: 8,
