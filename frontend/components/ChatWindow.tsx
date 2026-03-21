@@ -603,6 +603,48 @@ function getButtonClass(
   return classes.join(" ");
 }
 
+function extractErrorMessage(payload: any): string {
+  if (!payload) return "";
+
+  if (typeof payload === "string") {
+    const clean = payload.trim();
+    return clean && clean !== "[object Object]" ? clean : "";
+  }
+
+  if (typeof payload?.error === "string" && payload.error.trim()) {
+    return payload.error.trim();
+  }
+
+  if (typeof payload?.message === "string" && payload.message.trim()) {
+    return payload.message.trim();
+  }
+
+  if (typeof payload?.detail === "string" && payload.detail.trim()) {
+    return payload.detail.trim();
+  }
+
+  if (payload?.detail && typeof payload.detail === "object") {
+    if (typeof payload.detail?.message === "string" && payload.detail.message.trim()) {
+      return payload.detail.message.trim();
+    }
+
+    if (typeof payload.detail?.error === "string" && payload.detail.error.trim()) {
+      return payload.detail.error.trim();
+    }
+
+    if (typeof payload.detail?.code === "string" && payload.detail.code.trim()) {
+      return payload.detail.code.trim();
+    }
+  }
+
+  try {
+    const serialized = JSON.stringify(payload);
+    return serialized === "{}" ? "" : serialized;
+  } catch {
+    return "";
+  }
+}
+
 async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
   try {
     const controller = new AbortController();
@@ -628,10 +670,7 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
       }
 
       throw new Error(
-        parsed?.detail ||
-          parsed?.error ||
-          parsed?.message ||
-          `HTTP_${res.status}`
+        extractErrorMessage(parsed) || `HTTP_${res.status}`
       );
     }
 

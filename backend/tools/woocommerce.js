@@ -339,6 +339,74 @@ function isDuplicateSkuWooError(error) {
   );
 }
 
+async function findTrashedProductBySku({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  sku,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!sku) throw new Error("Falta sku");
+
+  const cleanSku = String(sku).trim();
+  const normalizedSku = normalizeText(cleanSku);
+  const foundMap = new Map();
+
+  const directResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        sku: cleanSku,
+        status: "trash",
+        per_page: 100,
+      },
+    })
+  );
+
+  const directProducts = Array.isArray(directResponse.data) ? directResponse.data : [];
+  for (const product of directProducts) {
+    if (product?.id) foundMap.set(product.id, product);
+  }
+
+  const searchTerms = [
+    cleanSku,
+    ...cleanSku.split(/\s+/).map((x) => x.trim()).filter(Boolean),
+  ];
+
+  for (const term of searchTerms) {
+    const searchResponse = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          search: term,
+          status: "trash",
+          per_page: 100,
+        },
+      })
+    );
+
+    const searchProducts = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+    for (const product of searchProducts) {
+      if (product?.id) foundMap.set(product.id, product);
+    }
+
+    if (foundMap.size >= 50) break;
+  }
+
+  const allProducts = Array.from(foundMap.values());
+  const exact = allProducts.find(
+    (product) => normalizeText(product?.sku || "") === normalizedSku
+  );
+
+  return {
+    ok: true,
+    exists: Boolean(exact),
+    product: exact ? mapProductForEdit(exact) : null,
+  };
+}
+
 async function ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku) {
   const cleanSku = String(sku || "").trim();
   if (!cleanSku) return;
@@ -351,11 +419,32 @@ async function ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku) {
   });
 
   if (found?.exists) {
-    throw buildKnownWooError(`El SKU "${cleanSku}" ya existe. Elegí otro.`, {
-      status: 400,
-      code: "duplicate_sku",
-      product: found.product || null,
-    });
+    throw buildKnownWooError(
+      `El SKU "${cleanSku}" ya existe. También puede haber un producto con ese SKU en la papelera. Revisalo en WooCommerce > Productos > Papelera.`,
+      {
+        status: 400,
+        code: "duplicate_sku",
+        product: found.product || null,
+      }
+    );
+  }
+
+  const trashed = await findTrashedProductBySku({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    sku: cleanSku,
+  });
+
+  if (trashed?.exists) {
+    throw buildKnownWooError(
+      `El SKU "${cleanSku}" está usado por un producto en la papelera. Revisalo en WooCommerce > Productos > Papelera.`,
+      {
+        status: 400,
+        code: "duplicate_sku_in_trash",
+        product: trashed.product || null,
+      }
+    );
   }
 }
 
@@ -381,8 +470,8 @@ async function createProduct(baseUrl, consumerKey, consumerSecret, payload) {
       const duplicateSku = String(payload?.sku || "").trim();
       throw buildKnownWooError(
         duplicateSku
-          ? `El SKU "${duplicateSku}" ya existe. Elegí otro.`
-          : "WooCommerce rechazó la creación porque el SKU ya existe.",
+          ? `El SKU "${duplicateSku}" ya existe. Revisá también si hay un producto con ese SKU en la papelera de WooCommerce.`
+          : "WooCommerce rechazó la creación porque el SKU ya existe. Revisá también la papelera de WooCommerce.",
         {
           status: 400,
           code: "duplicate_sku",
