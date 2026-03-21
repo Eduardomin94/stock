@@ -1329,15 +1329,62 @@ if (looksLikeEditProductActionCommand(message)) {
   // ✅ CAMBIAR STOCK
     if (action === "cambiar_stock") {
       if (Array.isArray(payload?.variations) && payload.variations.length > 0) {
+        const baseApiUrl = `${String(baseUrl || "").replace(/\/+$/, "")}`;
+        const currentVariationsResponse = await axios.get(
+          `${baseApiUrl}/products/${productId}/variations`,
+          {
+            params: {
+              consumer_key: consumerKey,
+              consumer_secret: consumerSecret,
+              per_page: 100,
+            },
+          }
+        );
+
+        const currentVariations = Array.isArray(currentVariationsResponse?.data)
+          ? currentVariationsResponse.data
+          : [];
+        const currentVariationsMap = new Map(
+          currentVariations.map((item) => [Number(item?.id), item])
+        );
+
         const stockResults = [];
 
         for (const v of payload.variations) {
+          const currentVariation = currentVariationsMap.get(Number(v?.id));
+          if (!currentVariation) {
+            continue;
+          }
+
+          const nextManageStock = Boolean(v.manage_stock);
+          const nextStockQuantity = nextManageStock
+            ? Number(v.stock_quantity || 0)
+            : null;
+          const nextStockStatus = nextManageStock
+            ? "instock"
+            : String(v.stock_status || "instock");
+
+          const currentManageStock = Boolean(currentVariation.manage_stock);
+          const currentStockQuantity = currentVariation.stock_quantity == null
+            ? null
+            : Number(currentVariation.stock_quantity);
+          const currentStockStatus = String(currentVariation.stock_status || "instock");
+
+          const changed =
+            currentManageStock !== nextManageStock ||
+            currentStockQuantity !== nextStockQuantity ||
+            currentStockStatus !== nextStockStatus;
+
+          if (!changed) {
+            continue;
+          }
+
           const updatedVariationResponse = await axios.put(
-            `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}/variations/${v.id}`,
+            `${baseApiUrl}/products/${productId}/variations/${v.id}`,
             {
-              stock_quantity: v.manage_stock ? v.stock_quantity : null,
-              stock_status: v.stock_status,
-              manage_stock: v.manage_stock,
+              stock_quantity: nextManageStock ? nextStockQuantity : null,
+              stock_status: nextStockStatus,
+              manage_stock: nextManageStock,
             },
             {
               params: {
@@ -1355,14 +1402,14 @@ if (looksLikeEditProductActionCommand(message)) {
                   .map((attr) => `${String(attr?.name || "").trim()}: ${String(attr?.option || "").trim()}`)
                   .join(" | ")
               : `Variación #${updatedVariation.id || v.id}`,
-            manage_stock: updatedVariation.manage_stock ?? Boolean(v.manage_stock),
+            manage_stock: updatedVariation.manage_stock ?? nextManageStock,
             stock_quantity: updatedVariation.stock_quantity ?? null,
-            stock_status: updatedVariation.stock_status || String(v.stock_status || "instock"),
+            stock_status: updatedVariation.stock_status || nextStockStatus,
           });
         }
 
         const productResponse = await axios.get(
-          `${String(baseUrl || "").replace(/\/+$/, "")}/products/${productId}`,
+          `${baseApiUrl}/products/${productId}`,
           {
             params: {
               consumer_key: consumerKey,
@@ -1382,20 +1429,20 @@ if (looksLikeEditProductActionCommand(message)) {
         };
       } else {
         result = await updateStockAdvanced({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      manageStock: Boolean(payload?.manageStock),
-      stockQuantity: payload?.stockQuantity,
-      stockStatus: String(payload?.stockStatus || "instock"),
-      selectedCombinations: Array.isArray(payload?.selectedCombinations)
-        ? payload.selectedCombinations
-        : [],
-    });
+          baseUrl,
+          consumerKey,
+          consumerSecret,
+          productId,
+          manageStock: Boolean(payload?.manageStock),
+          stockQuantity: payload?.stockQuantity,
+          stockStatus: String(payload?.stockStatus || "instock"),
+          selectedCombinations: Array.isArray(payload?.selectedCombinations)
+            ? payload.selectedCombinations
+            : [],
+        });
       }
     }
-  
+
      // ✅ AGREGAR FOTOS AL PRODUCTO
 if (action === "agregar_fotos_producto") {
   const files = Array.isArray(req.files) ? req.files : [];
@@ -1714,7 +1761,6 @@ ${variationLines}`;
         reply = `Precio en efectivo cambiado a ${result.cash_price_general || cashPrice} en ${result.name}.`;
       }
     }
-
     if (action === "cambiar_stock") {
       if (result.scope === "variations") {
         const translateStockStatus = (status) => {
@@ -1727,12 +1773,9 @@ ${variationLines}`;
           ? result.results
               .map((item) => {
                 const label = item.attributes_text || `Variación #${item.variation_id}`;
-
-                if (item.manage_stock) {
-                  return `- ${label}: ${item.stock_quantity ?? 0} unidades`;
-                }
-
-                return `- ${label}: ${translateStockStatus(item.stock_status)}`;
+                return item.manage_stock
+                  ? `- ${label}: ${item.stock_quantity ?? 0} unidades`
+                  : `- ${label}: ${translateStockStatus(item.stock_status)}`;
               })
               .join("\n")
           : "";
@@ -1742,10 +1785,8 @@ ${variationLines}`;
         } else {
           reply =
             result.updated_count === 1
-              ? `Se actualizó 1 variación de ${result.name}:
-${stockLines}`
-              : `Se actualizaron ${result.updated_count} variaciones de ${result.name}:
-${stockLines}`;
+              ? `Se actualizó 1 variación de ${result.name}:\n${stockLines}`
+              : `Se actualizaron ${result.updated_count} variaciones de ${result.name}:\n${stockLines}`;
         }
       } else {
         reply = `Stock actualizado correctamente en ${result.name}.`;
