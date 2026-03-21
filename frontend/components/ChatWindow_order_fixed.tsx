@@ -2401,29 +2401,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
       Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
     </div>
 
-    {selectedFiles.length > 0 ? (
-      <>
-        <div
-          style={{
-            color: "#94a3b8",
-            fontSize: 13,
-            marginBottom: 6,
-          }}
-        >
-          Arrastrá las fotos para ordenar. La primera será la principal.
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          {selectedFiles.map((file, index) => (
-            <div
-              key={getFileKey(file)}
+    
               draggable
               onDragStart={() => {
                 setDraggedFileIndex(index);
@@ -4058,6 +4036,30 @@ setTimeout(async () => {
         if (selectedEditCombinations.length === 0) {
           pushAssistantInfo("Seleccioná variantes.");
           return;
+{selectedFiles.length > 0 ? (
+      <>
+        <div
+          style={{
+            color: "#94a3b8",
+            fontSize: 13,
+            marginBottom: 6,
+          }}
+        >
+          Arrastrá las fotos para ordenar. La primera será la principal.
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          {selectedFiles.map((file, index) => (
+            <div
+              key={getFileKey(file)}
+
         }
 
         try {
