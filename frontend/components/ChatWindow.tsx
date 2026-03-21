@@ -647,26 +647,32 @@ const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos"
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
 const [moveTargetSearch, setMoveTargetSearch] = useState("");
 const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
-const editActionInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+
+  
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editActionInputRef = useRef<HTMLElement | null>(null);
+
 
   useEffect(() => {
     if (!editActionType) return;
+    if (!editActionInputRef.current) return;
 
-    const timer = window.setTimeout(() => {
-      const el = editActionInputRef.current;
-      if (!el) return;
+    editActionInputRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
 
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    const timer = setTimeout(() => {
+      if (editActionInputRef.current instanceof HTMLInputElement) {
+        editActionInputRef.current.focus();
+      } else if (editActionInputRef.current instanceof HTMLTextAreaElement) {
+        editActionInputRef.current.focus();
+      }
+    }, 200);
 
-      el.focus();
-    }, 180);
-
-    return () => window.clearTimeout(timer);
+    return () => clearTimeout(timer);
   }, [editActionType]);
 
   const storageKey = useMemo(() => {
@@ -2972,6 +2978,9 @@ onMouseLeave={(e) => {
     </div>
 
     <input
+      ref={(el) => {
+        editActionInputRef.current = el;
+      }}
       type="number"
       min="0"
       value={editValue}
@@ -3168,6 +3177,9 @@ onMouseLeave={(e) => {
       </div>
     ) : (
       <input
+        ref={(el) => {
+          editActionInputRef.current = el;
+        }}
         type="number"
         min="0"
         value={editValue}
@@ -3811,7 +3823,9 @@ onMouseLeave={(e) => {
 
 {editActionType === "cambiar_descripcion" ? (
   <textarea
-    ref={editActionInputRef}
+    ref={(el) => {
+      editActionInputRef.current = el;
+    }}
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
     placeholder="Nueva descripción"
@@ -3871,7 +3885,9 @@ onMouseLeave={(e) => {
     </div>
 
     <input
-      ref={editActionInputRef}
+      ref={(el) => {
+        editActionInputRef.current = el;
+      }}
       type="text"
       value={moveTargetSearch}
       onChange={(e) => setMoveTargetSearch(e.target.value)}
@@ -4000,7 +4016,9 @@ onMouseLeave={(e) => {
   </div>
 ) : (
   <input
-    ref={editActionInputRef}
+    ref={(el) => {
+      editActionInputRef.current = el;
+    }}
     type="number"
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
