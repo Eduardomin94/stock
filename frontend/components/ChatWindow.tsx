@@ -725,6 +725,11 @@ export default function ChatWindow() {
   const [storeUrl, setStoreUrl] = useState("");
   const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+const removeSelectedFile = (indexToRemove: number) => {
+  setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+};
+
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
@@ -2203,7 +2208,7 @@ onMouseLeave={(e) => {
           background: isDragging ? "rgba(37,99,235,0.12)" : "rgba(3,7,18,0.55)",
         }}
       >
-        {canUsePhotoUploader && selectedFiles.length > 0 && activeAction !== "create" && (
+        {canUsePhotoUploader && selectedFiles.length > 0 && activeAction !== "create" && !(activeAction === "edit" && editSection === "fotos") && (
   <>
     <div
       style={{
@@ -2396,29 +2401,7 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
       Agregá las fotos con el botón o arrastralas acá. Cuando termines, tocá <b>Siguiente</b>.
     </div>
 
-    {selectedFiles.length > 0 ? (
-      <>
-        <div
-          style={{
-            color: "#94a3b8",
-            fontSize: 13,
-            marginBottom: 6,
-          }}
-        >
-          Arrastrá las fotos para ordenar. La primera será la principal.
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          {selectedFiles.map((file, index) => (
-            <div
-              key={getFileKey(file)}
+    
               draggable
               onDragStart={() => {
                 setDraggedFileIndex(index);
@@ -2976,155 +2959,6 @@ Stock general
     <div style={{ color: "#94a3b8", fontSize: 13 }}>
       Encontré estos productos parecidos:
     </div>
-
-
-    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-      Seleccioná las variantes desde la lista de arriba. Después podés asignarles una foto o quitárselas.
-    </div>
-
-    <div style={{ color: "#94a3b8", fontSize: 12 }}>
-      Seleccionadas: {selectedEditCombinations.length}
-    </div>
-
-    <button
-      type="button"
-      onClick={async () => {
-        const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as { id?: unknown }).id === "number"
-    ? (editFoundProduct as { id: number }).id
-    : null;
-
-        if (!editProductId || selectedFiles.length === 0) {
-          pushAssistantInfo("Seleccioná una foto primero.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayloadWithFiles(
-            {
-              action: "cambiar_fotos_variantes",
-              productId: editProductId,
-              selectedCombinations: selectedEditCombinations.map((combo) =>
-                Object.values(combo)
-              ),
-            },
-            [selectedFiles[0]]
-          );
-
-          pushAssistantInfo(
-            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
-          );
-
-          if (!editFoundProduct) {
-          pushAssistantInfo("No se encontró el producto para recargar.");
-          return;
-        }
-
-        const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-          setSelectedFiles([]);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        } catch (error: any) {
-          pushAssistantInfo(error?.message || "Error.");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      Asignar foto a variantes
-    </button>
-
-    <button
-      type="button"
-      onClick={async () => {
-        if (
-  !(
-    typeof editFoundProduct === "object" &&
-    editFoundProduct !== null &&
-    "id" in editFoundProduct &&
-    typeof (editFoundProduct as { id?: unknown }).id === "number"
-  )
-) {
-          pushAssistantInfo("Falta producto.");
-          return;
-        }
-
-        if (selectedEditCombinations.length === 0) {
-          pushAssistantInfo("Seleccioná variantes.");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          const response = await sendEditPayload({
-            action: "quitar_fotos_variantes",
-            productId: (editFoundProduct as { id: number }).id,
-            selectedCombinations: selectedEditCombinations.map((combo) =>
-              Object.values(combo)
-            ),
-          });
-
-          pushAssistantInfo(
-            response?.reply || "Foto eliminada de las variantes."
-          );
-
-          if (!editFoundProduct) {
-          pushAssistantInfo("No se encontró el producto para recargar.");
-          return;
-        }
-
-        const fullProduct = await loadEditProductDetails(editFoundProduct);
-          setEditFoundProduct(fullProduct);
-          setSelectedEditCombinations([]);
-        } catch (error: any) {
-          pushAssistantInfo(
-            error?.message || "No pude quitar la foto."
-          );
-        } finally {
-          setLoading(false);
-        }
-      }}
-      style={{
-  border: "1px solid #2563eb",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-  color: "white",
-  borderRadius: 14,
-  padding: "10px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 700,
-  transition: "all 0.2s ease",
-}}
-onMouseEnter={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(-1px)";
-  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
-  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
-}}
-onMouseLeave={(e) => {
-  const el = e.currentTarget;
-  el.style.transform = "translateY(0)";
-  el.style.boxShadow = "none";
-  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
-}}
-    >
-      Quitar foto de variantes
-    </button>
 
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {editCandidates.map((candidate) => (
@@ -3879,15 +3713,7 @@ onMouseLeave={(e) => {
     <button
       type="button"
       onClick={async () => {
-        const editProductId =
-          typeof editFoundProduct === "object" &&
-          editFoundProduct !== null &&
-          "id" in editFoundProduct &&
-          typeof (editFoundProduct as { id?: unknown }).id === "number"
-            ? (editFoundProduct as { id: number }).id
-            : null;
-
-        if (!editProductId) return;
+        if (!editFoundProduct?.id) return;
 
         const hasVariations =
           Array.isArray(editFoundProduct?.variations) &&
@@ -3918,7 +3744,7 @@ onMouseLeave={(e) => {
 
           const response = await sendEditPayload({
   action: "cambiar_stock",
-  productId: editProductId,
+  productId: editFoundProduct.id,
   manageStock: true,
   stockQuantity:
     Array.isArray(editFoundProduct?.variations) &&
@@ -4018,6 +3844,328 @@ setTimeout(async () => {
       background: "#020617",
     }}
   >
+
+{selectedFiles.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#0b1220",
+    }}
+  >
+    <div style={{ color: "#94a3b8", fontSize: 13 }}>
+      Foto cargada para asignar a variantes
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+      }}
+    >
+      {selectedFiles.map((file, index) => (
+        <div
+          key={getFileKey(file)}
+          draggable
+          onDragStart={() => {
+            setDraggedFileIndex(index);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverFileIndex(index);
+          }}
+          onDragLeave={() => {
+            setDragOverFileIndex((prev) => (prev === index ? null : prev));
+          }}
+          onDrop={() => {
+            if (draggedFileIndex === null) return;
+            moveSelectedFile(draggedFileIndex, index);
+            setDraggedFileIndex(null);
+            setDragOverFileIndex(null);
+          }}
+          onDragEnd={() => {
+            setDraggedFileIndex(null);
+            setDragOverFileIndex(null);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 10px",
+            borderRadius: 999,
+            background: "#111827",
+            border: "1px solid #243041",
+            fontSize: 13,
+            color: "#d1d5db",
+            cursor: "grab",
+            opacity: draggedFileIndex === index ? 0.65 : 1,
+            boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <img
+              src={URL.createObjectURL(file)}
+              alt={file.name}
+              draggable={false}
+              style={{
+                width: 44,
+                height: 44,
+                objectFit: "cover",
+                borderRadius: 8,
+                border: "1px solid #334155",
+                display: "block",
+                pointerEvents: "none",
+                userSelect: "none",
+              }}
+            />
+            <span>{index === 0 ? "Principal" : `Foto ${index + 1}`}</span>
+          </div>
+
+          <select
+            value={imageColorMap[getFileKey(file)] || ""}
+            onMouseDown={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const key = getFileKey(file);
+              const value = e.target.value;
+
+              setImageColorMap((prev) => ({
+                ...prev,
+                [key]: value,
+              }));
+            }}
+            style={{
+              marginLeft: 10,
+              background: "#020617",
+              color: "#fff",
+              border: "1px solid #334155",
+              borderRadius: 8,
+              padding: "4px 6px",
+              fontSize: 12,
+            }}
+          >
+            <option value="">Sin color</option>
+            {(createForm.colores || "")
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean)
+              .map((color) => {
+                const currentFileKey = getFileKey(file);
+                const currentSelectedColor = imageColorMap[currentFileKey] || "";
+
+                const colorAlreadyUsedInAnotherImage = Object.entries(imageColorMap).some(
+                  ([fileKey, selectedColor]) =>
+                    fileKey !== currentFileKey && selectedColor === color
+                );
+
+                return (
+                  <option
+                    key={color}
+                    value={color}
+                    disabled={colorAlreadyUsedInAnotherImage && currentSelectedColor !== color}
+                  >
+                    {color}
+                  </option>
+                );
+              })}
+          </select>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeSelectedFile(index);
+            }}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#93c5fd",
+              cursor: "pointer",
+              fontSize: 12,
+              padding: 0,
+            }}
+          >
+            quitar
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginBottom: 12,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#0b1220",
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+      Seleccioná las variantes y después asignales o quitáles la foto.
+    </div>
+
+    <div style={{ color: "#94a3b8", fontSize: 12 }}>
+      Seleccionadas: {selectedEditCombinations.length}
+    </div>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id || selectedFiles.length === 0) {
+          pushAssistantInfo("Seleccioná una foto primero.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+{selectedFiles.length > 0 ? (
+      <>
+        <div
+          style={{
+            color: "#94a3b8",
+            fontSize: 13,
+            marginBottom: 6,
+          }}
+        >
+          Arrastrá las fotos para ordenar. La primera será la principal.
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 12,
+          }}
+        >
+          {selectedFiles.map((file, index) => (
+            <div
+              key={getFileKey(file)}
+
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayloadWithFiles(
+            {
+              action: "cambiar_fotos_variantes",
+              productId: editFoundProduct.id,
+              selectedCombinations: selectedEditCombinations.map((combo) =>
+                Object.values(combo)
+              ),
+            },
+            [selectedFiles[0]]
+          );
+
+          pushAssistantInfo(
+            response?.reply || "Foto asignada correctamente a las variantes seleccionadas."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+          setSelectedFiles([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error: any) {
+          pushAssistantInfo(error?.message || "Error.");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Asignar foto a variantes
+    </button>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editFoundProduct?.id) {
+          pushAssistantInfo("Falta producto.");
+          return;
+        }
+
+        if (selectedEditCombinations.length === 0) {
+          pushAssistantInfo("Seleccioná variantes.");
+          return;
+        }
+
+        try {
+          setLoading(true);
+
+          const response = await sendEditPayload({
+            action: "quitar_fotos_variantes",
+            productId: editFoundProduct.id,
+            selectedCombinations: selectedEditCombinations.map((combo) =>
+              Object.values(combo)
+            ),
+          });
+
+          pushAssistantInfo(
+            response?.reply || "Foto eliminada de las variantes."
+          );
+
+          const fullProduct = await loadEditProductDetails(editFoundProduct);
+          setEditFoundProduct(fullProduct);
+          setSelectedEditCombinations([]);
+        } catch (error: any) {
+          pushAssistantInfo(
+            error?.message || "No pude quitar la foto."
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      style={{
+        border: "1px solid #2563eb",
+        background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+        color: "white",
+        borderRadius: 14,
+        padding: "10px 14px",
+        cursor: "pointer",
+        fontSize: 14,
+        fontWeight: 700,
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "translateY(-1px)";
+        el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+        el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "translateY(0)";
+        el.style.boxShadow = "none";
+        el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+      }}
+    >
+      Quitar foto de variantes
+    </button>
+  </div>
+)}
+
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
 </div>
@@ -4136,19 +4284,12 @@ setTimeout(async () => {
         onDragLeave={() => {
           setDragOverProductImageIndex((prev) => (prev === index ? null : prev));
         }}
-        onDrop={async () => {        const editProductId =
-          typeof editFoundProduct === "object" &&
-          editFoundProduct !== null &&
-          "id" in editFoundProduct &&
-          typeof (editFoundProduct as { id?: unknown }).id === "number"
-            ? (editFoundProduct as { id: number }).id
-            : null;
-
-        if (
-          draggedProductImageIndex === null ||
-          draggedProductImageIndex === index ||
-          !editProductId
-        ) {
+        onDrop={async () => {
+          if (
+            draggedProductImageIndex === null ||
+            draggedProductImageIndex === index ||
+            !editFoundProduct?.id
+          ) {
             return;
           }
 
@@ -4173,7 +4314,7 @@ setTimeout(async () => {
 
             const response = await sendEditPayload({
               action: "ordenar_fotos_producto",
-              productId: editProductId,
+              productId: editFoundProduct.id,
               orderedImageIds: currentImages.map((item) => item.id),
             });
 
@@ -4226,14 +4367,14 @@ setTimeout(async () => {
         <button
           type="button"
           onClick={async () => {
-            if (!editProductId) return;
+            if (!editFoundProduct?.id) return;
 
             try {
               setLoading(true);
 
               const response = await sendEditPayload({
                 action: "eliminar_fotos_producto",
-                productId: editProductId,
+                productId: editFoundProduct.id,
                 imageIds: [img.id],
               });
 
@@ -4291,15 +4432,7 @@ onMouseLeave={(e) => {
     <button
   type="button"
   onClick={async () => {
-    const editProductId =
-  typeof editFoundProduct === "object" &&
-  editFoundProduct !== null &&
-  "id" in editFoundProduct &&
-  typeof (editFoundProduct as { id?: unknown }).id === "number"
-    ? (editFoundProduct as { id: number }).id
-    : null;
-
-        if (!editProductId || selectedFiles.length === 0) {
+    if (!editFoundProduct?.id || selectedFiles.length === 0) {
       pushAssistantInfo("Agregá al menos una foto.");
       return;
     }
@@ -4310,7 +4443,7 @@ onMouseLeave={(e) => {
       const response = await sendEditPayloadWithFiles(
         {
           action: "agregar_fotos_producto",
-          productId: editProductId,
+          productId: editFoundProduct.id,
         },
         selectedFiles
       );
@@ -4361,19 +4494,7 @@ if (fileInputRef.current) {
   Agregar fotos
 </button>
 
-{Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginTop: 12,
-      paddingTop: 12,
-      borderTop: "1px solid #334155",
-    }}
-  >
-  </div>
-)}
+
 
   </div>
 )}
@@ -4585,7 +4706,7 @@ if (fileInputRef.current) {
           if (data?.product) {
             const found = normalizeEditFoundProduct(data.product, data.variationSample);
 
-            if (Number(found.id) === Number(editProductId)) {
+            if (Number(found.id) === Number(editFoundProduct?.id)) {
               pushAssistantInfo("Elegí otro producto distinto como referencia.");
               return;
             }
@@ -4598,7 +4719,7 @@ if (fileInputRef.current) {
           if (Array.isArray(data?.products) && data.products.length === 1) {
             const found = normalizeEditFoundProduct(data.products[0], data.variationSample);
 
-            if (Number(found.id) === Number(editProductId)) {
+            if (Number(found.id) === Number(editFoundProduct?.id)) {
               pushAssistantInfo("Elegí otro producto distinto como referencia.");
               return;
             }
@@ -4724,7 +4845,7 @@ onMouseLeave={(e) => {
         <button
           type="button"
           onClick={async () => {
-  if (!editProductId || !editActionType) {
+  if (!editFoundProduct?.id || !editActionType) {
   pushAssistantInfo("Falta elegir una acción.");
   return;
 }
@@ -4756,13 +4877,13 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
   editActionType === "cambiar_categorias"
   ? {
       action: "cambiar_categorias",
-      productId: editProductId,
+      productId: editFoundProduct.id,
       categoryIds: editSelectedCategoryIds,
     }
   : editActionType === "cambiar_precio"
   ? {
       action: "cambiar_precio",
-      productId: editProductId,
+      productId: editFoundProduct.id,
       regularPrice: editValue.trim(),
       selectedCombinations: selectedEditCombinations.map((combo) =>
         Object.values(combo)
@@ -4771,7 +4892,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     : editActionType === "agregar_precio_rebajado"
     ? {
         action: "agregar_precio_rebajado",
-        productId: editProductId,
+        productId: editFoundProduct.id,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4780,7 +4901,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     : editActionType === "cambiar_precio_rebajado"
     ? {
         action: "cambiar_precio_rebajado",
-        productId: editProductId,
+        productId: editFoundProduct.id,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4789,7 +4910,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     : editActionType === "quitar_precio_rebajado"
     ? {
         action: "quitar_precio_rebajado",
-        productId: editProductId,
+        productId: editFoundProduct.id,
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
         ),
@@ -4797,7 +4918,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
       : editActionType === "cambiar_precio_efectivo"
 ? {
     action: "cambiar_precio_efectivo",
-    productId: editProductId,
+    productId: editFoundProduct.id,
     cashPriceGeneral: editValue.trim(),
     selectedCombinations: selectedEditCombinations.map((combo) =>
       Object.values(combo)
@@ -4806,13 +4927,13 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     : editActionType === "mover_producto_fecha"
     ? {
         action: "mover_producto_fecha",
-        productId: editProductId,
+        productId: editFoundProduct.id,
         targetProductId: moveTargetProduct?.id,
         position: moveProductMode,
       }
     : {
         action: "cambiar_descripcion",
-        productId: editProductId,
+        productId: editFoundProduct.id,
         description: editValue.trim(),
       };
 
