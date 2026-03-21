@@ -4904,7 +4904,10 @@ setMoveProductMode("before");
           
 <div className="mb-3">
   <button
-    onClick={handleAddPhotos}
+    onClick={() => {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  input?.click();
+}}
     className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition"
   >
     + Agregar fotos
