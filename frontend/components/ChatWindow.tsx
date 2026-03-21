@@ -8,6 +8,27 @@ type Message = {
 };
 
 
+function normalizeMessageText(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeStoredMessages(value: unknown): Message[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item: any) => ({
+      role: item?.role === "user" ? "user" : "assistant",
+      text: normalizeMessageText(item?.text),
+    }))
+    .filter((item) => item.text.trim().length > 0);
+}
+
+
 type CategoryItem = {
   id: number;
   name: string;
@@ -1721,11 +1742,7 @@ setStoreName(`${prettyName} (${domain})`);
 
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setMessages(parsed);
-        } else {
-          setMessages([]);
-        }
+        setMessages(normalizeStoredMessages(parsed));
       } else {
         setMessages([]);
       }
@@ -2090,7 +2107,7 @@ onMouseLeave={(e) => {
               border: message.role === "user" ? "none" : "1px solid #1f2937",
             }}
           >
-            {message.text}
+            {normalizeMessageText(message.text)}
           </div>
         ))}
 
@@ -4885,21 +4902,6 @@ setMoveProductMode("before");
 
       <div style={{ color: "#cbd5e1", fontSize: 13, marginTop: 4 }}>
         {currentCreateStep.helper}
-
-{currentCreateStep.key === "fotos" && (
-  <div style={{ marginTop: 12, marginBottom: 10 }}>
-    <button
-      type="button"
-      onClick={() => {
-        fileInputRef.current?.click();
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      + Agregar fotos
-    </button>
-  </div>
-)}
-
       </div>
 
       <div
@@ -4916,9 +4918,7 @@ setMoveProductMode("before");
           onClick={cancelCreateProduct}
           style={wizardSecondaryButtonStyle}
         >
-          
-
-Cancelar
+          Cancelar
         </button>
 
         <button
@@ -4949,6 +4949,39 @@ Cancelar
             style={wizardPrimaryButtonStyle}
           >
             Crear producto
+          </button>
+        )}
+
+        {isCreateStepPhotos && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: "1px solid #2b3950",
+              background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+              color: "#e5e7eb",
+              borderRadius: 14,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontSize: 14,
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(-1px)";
+              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
+              el.style.borderColor = "#3b82f6";
+              el.style.background = "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(0)";
+              el.style.boxShadow = "none";
+              el.style.borderColor = "#2b3950";
+              el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+            }}
+          >
+            + Agregar fotos
           </button>
         )}
       </div>
@@ -5035,6 +5068,7 @@ onMouseLeave={(e) => {
   el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
 }}
                   >
+                    + Agregar fotos
                   </button>
                 )}
 
