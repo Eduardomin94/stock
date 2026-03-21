@@ -614,6 +614,7 @@ export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshingEditProduct, setRefreshingEditProduct] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeUrl, setStoreUrl] = useState("");
   const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean } | null>(null);
@@ -3202,70 +3203,79 @@ onMouseLeave={(e) => {
           setLoading(true);
 
           const response = await sendEditPayload({
-            action: "cambiar_stock",
-            productId: editFoundProduct.id,
-            manageStock: true,
-            stockQuantity:
-              Array.isArray(editFoundProduct?.variations) &&
-              editFoundProduct.variations.length > 0
-                ? undefined
-                : Number(editValue || 0),
-            selectedCombinations:
-              Array.isArray(editFoundProduct?.variations) &&
-              editFoundProduct.variations.length > 0
-                ? editFoundProduct.variations.map((variation) =>
-                    variation.attributes.map((attr) => attr.option)
-                  )
-                : selectedEditCombinations,
-            variations:
-              Array.isArray(editFoundProduct?.variations) &&
-              editFoundProduct.variations.length > 0
-                ? editFoundProduct.variations.map((variation) => ({
-                    id: variation.id,
-                    stock_quantity: variation.manage_stock_checked
-                      ? Number(variation.stock_quantity || 0)
-                      : undefined,
-                    stock_status: variation.manage_stock_checked
-                      ? Number(variation.stock_quantity || 0) > 0
-                        ? "instock"
-                        : "outofstock"
-                      : variation.stock_status || "instock",
-                    manage_stock: Boolean(variation.manage_stock_checked),
-                  }))
-                : undefined,
-          });
+  action: "cambiar_stock",
+  productId: editFoundProduct.id,
+  manageStock: true,
+  stockQuantity:
+    Array.isArray(editFoundProduct?.variations) &&
+    editFoundProduct.variations.length > 0
+      ? undefined
+      : Number(editValue || 0),
+  selectedCombinations:
+    Array.isArray(editFoundProduct?.variations) &&
+    editFoundProduct.variations.length > 0
+      ? editFoundProduct.variations.map((variation) =>
+          variation.attributes.map((attr) => attr.option)
+        )
+      : selectedEditCombinations,
+  variations:
+    Array.isArray(editFoundProduct?.variations) &&
+    editFoundProduct.variations.length > 0
+      ? editFoundProduct.variations.map((variation) => ({
+          id: variation.id,
+          stock_quantity: variation.manage_stock_checked
+            ? Number(variation.stock_quantity || 0)
+            : undefined,
+          stock_status: variation.manage_stock_checked
+            ? Number(variation.stock_quantity || 0) > 0
+              ? "instock"
+              : "outofstock"
+            : variation.stock_status || "instock",
+          manage_stock: Boolean(variation.manage_stock_checked),
+        }))
+      : undefined,
+});
 
-          pushAssistantInfo(
-            response?.reply || "Stock actualizado correctamente."
-          );
+setLoading(false);
 
-          setEditValue("");
+pushAssistantInfo(
+  response?.reply || "Stock actualizado correctamente."
+);
 
-          try {
-            const form = new FormData();
-            form.append("agentId", agentId);
+setEditValue("");
 
-            const mode = editFoundProduct?.sku ? "sku" : "nombre";
-            const value = editFoundProduct?.sku || editFoundProduct?.name;
+setRefreshingEditProduct(true);
 
-            form.append("message", `__search_edit_product__:${mode}|${value}`);
+setTimeout(async () => {
+  try {
+    const form = new FormData();
+    form.append("agentId", agentId);
 
-            const token = localStorage.getItem("token") || "";
+    const mode = editFoundProduct?.sku ? "sku" : "nombre";
+    const value = editFoundProduct?.sku || editFoundProduct?.name;
 
-            const res = await fetch(`${API}/run-agent`, {
-              method: "POST",
-              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-              body: form,
-            });
+    form.append("message", `__search_edit_product__:${mode}|${value}`);
 
-            const refreshed = await res.json();
+    const token = localStorage.getItem("token") || "";
 
-            if (refreshed?.product) {
-              setEditFoundProduct(
-                normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
-              );
-            }
-          } catch {}
+    const res = await fetch(`${API}/run-agent`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+
+    const refreshed = await res.json();
+
+    if (refreshed?.product) {
+      setEditFoundProduct(
+        normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
+      );
+    }
+  } catch {
+  } finally {
+    setRefreshingEditProduct(false);
+  }
+}, 0);
         } catch (error: any) {
           pushAssistantInfo(
             error?.message || "No pude cambiar el stock."
@@ -4139,35 +4149,41 @@ pushAssistantInfo(
   response?.reply || "Producto actualizado correctamente."
 );
 
-// 🔥 volver a buscar el producto actualizado
-try {
-  const form = new FormData();
-  form.append("agentId", agentId);
+setRefreshingEditProduct(true);
 
-  const mode = editFoundProduct?.sku ? "sku" : "nombre";
-  const value = editFoundProduct?.sku || editFoundProduct?.name;
+setTimeout(async () => {
+  try {
+    const form = new FormData();
+    form.append("agentId", agentId);
 
-  form.append("message", `__search_edit_product__:${mode}|${value}`);
+    const mode = editFoundProduct?.sku ? "sku" : "nombre";
+    const value = editFoundProduct?.sku || editFoundProduct?.name;
 
-  const token = localStorage.getItem("token") || "";
+    form.append("message", `__search_edit_product__:${mode}|${value}`);
 
-  const res = await fetch(`${API}/run-agent`, {
-    method: "POST",
-    headers: token
-      ? { Authorization: `Bearer ${token}` }
-      : undefined,
-    body: form,
-  });
+    const token = localStorage.getItem("token") || "";
 
-  const refreshed = await res.json();
+    const res = await fetch(`${API}/run-agent`, {
+      method: "POST",
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : undefined,
+      body: form,
+    });
 
-  if (refreshed?.product) {
-  setEditFoundProduct(
-    normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
-  );
-  setEditCandidates([]);
-}
-} catch {}
+    const refreshed = await res.json();
+
+    if (refreshed?.product) {
+      setEditFoundProduct(
+        normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
+      );
+      setEditCandidates([]);
+    }
+  } catch {
+  } finally {
+    setRefreshingEditProduct(false);
+  }
+}, 0);
 
 setEditValue("");
 setEditSection("");
