@@ -8,6 +8,14 @@ type Message = {
 };
 
 
+type CategoryItem = {
+  id: number;
+  name: string;
+  parent?: number;
+  slug?: string;
+  count?: number;
+};
+
 type CreateProductForm = {
   nombre: string;
   sku: string;
@@ -31,6 +39,7 @@ type EditFoundProduct = {
   regularPrice?: string;
   salePrice?: string;
   cashPriceGeneral?: string;
+  categories?: CategoryItem[];
   images?: { id: number; src: string }[];
   variations?: {
   id: number;
@@ -53,6 +62,7 @@ type EditActionType =
   | "quitar_precio_rebajado"
   | "cambiar_precio_efectivo"
   | "cambiar_descripcion"
+  | "cambiar_categorias"
   | "cambiar_fotos_variantes"
   | "quitar_fotos_variantes"
   | "mover_producto_fecha";
@@ -80,12 +90,6 @@ const CREATE_STEPS: {
   placeholder?: string;
   optional?: boolean;
 }[] = [
-  {
-    key: "fotos",
-    title: "Fotos",
-    helper: "Primero agregá las fotos del producto. La primera queda como principal.",
-    optional: true,
-  },
   {
     key: "nombre",
     title: "Nombre",
@@ -160,6 +164,12 @@ const CREATE_STEPS: {
     placeholder: "Ej: Manga corta",
     optional: true,
   },
+  {
+    key: "fotos",
+    title: "Fotos",
+    helper: "Por último, agregá las fotos del producto. La primera queda como principal.",
+    optional: true,
+  },
 ];
 
 const initialCreateForm: CreateProductForm = {
@@ -198,6 +208,33 @@ function getVariationKey(color: string, size: string) {
   return `${String(color || "").trim()}__${String(size || "").trim()}`;
 }
 
+function buildCategoryPathMap(categories: CategoryItem[]) {
+  const map = new Map<number, CategoryItem>();
+  categories.forEach((cat) => map.set(Number(cat.id), cat));
+
+  const pathMap = new Map<number, string>();
+
+  const getPath = (id: number): string => {
+    if (pathMap.has(id)) return pathMap.get(id) || "";
+
+    const current = map.get(id);
+    if (!current) return "";
+
+    if (!current.parent || !map.has(Number(current.parent))) {
+      pathMap.set(id, current.name);
+      return current.name;
+    }
+
+    const parentPath = getPath(Number(current.parent));
+    const next = parentPath ? `${parentPath} > ${current.name}` : current.name;
+    pathMap.set(id, next);
+    return next;
+  };
+
+  categories.forEach((cat) => getPath(Number(cat.id)));
+  return pathMap;
+}
+
 function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProduct {
   let regular = product?.regular_price;
   let sale = product?.sale_price;
@@ -215,6 +252,13 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
     regularPrice: String(regular || ""),
     salePrice: String(sale || ""),
     cashPriceGeneral: String(product?.cash_price_general || ""),
+    categories: Array.isArray(product?.categories)
+      ? product.categories.map((cat: any) => ({
+          id: Number(cat?.id || 0),
+          name: String(cat?.name || ""),
+          parent: Number(cat?.parent || 0),
+        }))
+      : [],
 
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
@@ -397,7 +441,8 @@ function translateAgentError(message: any) {
 
 function buildCreateProductMessage(
   form: CreateProductForm,
-  stockByVariationMap: Record<string, string>
+  stockByVariationMap: Record<string, string>,
+  selectedCategoryIds: number[] = []
 ) {
   const cleanColors = normalizeCommaField(form.colores);
   const cleanSizes = normalizeCommaField(form.talles);
@@ -407,6 +452,13 @@ function buildCreateProductMessage(
   const shortDescription = form.descripcionCorta.trim();
   const category = form.categoria.trim();
   const subcategory = form.subcategoria.trim();
+  const categoryIds = Array.from(
+    new Set(
+      (Array.isArray(selectedCategoryIds) ? selectedCategoryIds : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
   const name = form.nombre.trim();
   const sku = form.sku.trim();
 
@@ -490,8 +542,12 @@ function buildCreateProductMessage(
 }
 
     if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
-    lines.push(`categoria: ${category}`);
-    if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+    if (categoryIds.length > 0) {
+      lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
+    } else {
+      lines.push(`categoria: ${category}`);
+      if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+    }
     return lines.join("\n");
   }
 
@@ -514,8 +570,12 @@ if (form.stockMode === "none") {
 }
 
 if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
-lines.push(`categoria: ${category}`);
-if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+if (categoryIds.length > 0) {
+  lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
+} else {
+  lines.push(`categoria: ${category}`);
+  if (subcategory) lines.push(`subcategoria: ${subcategory}`);
+}
 
 
   return lines.join("\n");
@@ -643,7 +703,12 @@ const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateFor
 const [editValue, setEditValue] = useState("");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
-const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion">("");
+const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias">("");
+const [categoryOptions, setCategoryOptions] = useState<CategoryItem[]>([]);
+const [categoriesLoading, setCategoriesLoading] = useState(false);
+const [categoriesError, setCategoriesError] = useState("");
+const [createSelectedCategoryIds, setCreateSelectedCategoryIds] = useState<number[]>([]);
+const [editSelectedCategoryIds, setEditSelectedCategoryIds] = useState<number[]>([]);
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
 const [moveTargetSearch, setMoveTargetSearch] = useState("");
 const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
@@ -697,6 +762,39 @@ const hasSizes = (createForm.talles || "")
 const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim());
 const editAttributes = editFoundProduct?.attributes || [];
 const hasEditAttributes = editAttributes.length > 0;
+const categoryPathMap = useMemo(() => buildCategoryPathMap(categoryOptions), [categoryOptions]);
+
+async function loadCategories() {
+  if (categoriesLoading) return;
+
+  try {
+    setCategoriesLoading(true);
+    setCategoriesError("");
+
+    const form = new FormData();
+    form.append("agentId", agentId);
+    form.append("message", "__list_categories__");
+
+    const token = localStorage.getItem("token") || "";
+
+    const res = await fetch(`${API}/run-agent`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.detail || data?.error || data?.message || "No pude cargar las categorías.");
+    }
+
+    setCategoryOptions(Array.isArray(data?.categories) ? data.categories : []);
+  } catch (error: any) {
+    setCategoriesError(error?.message || "No pude cargar las categorías.");
+  } finally {
+    setCategoriesLoading(false);
+  }
+}
 
 const editAttributeCombinations = (() => {
   if (!hasEditAttributes) return [];
@@ -1400,6 +1498,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   setCreateForm(initialCreateForm);
   setText("");
   setStockByVariationMap({});
+  setCreateSelectedCategoryIds([]);
   resetSkuValidationState();
 }
 
@@ -1411,6 +1510,9 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
     const isOptional = Boolean(currentCreateStep.optional);
 
     if (!rawValue && !isOptional) {
+      if (currentCreateStep.key === "categoria" && createSelectedCategoryIds.length > 0) {
+        return true;
+      }
       return false;
     }
 
@@ -1555,14 +1657,14 @@ async function nextCreateStep() {
 
     if (!finalForm.nombre.trim()) missingRequired.push("Nombre");
     if (!cleanMoney(finalForm.precio)) missingRequired.push("Precio");
-    if (!finalForm.categoria.trim()) missingRequired.push("Categoría");
+    if (!finalForm.categoria.trim() && createSelectedCategoryIds.length === 0) missingRequired.push("Categoría");
 
     if (missingRequired.length > 0) {
       pushAssistantInfo(`Faltan estos datos para crear el producto: ${missingRequired.join(", ")}.`);
       return;
     }
 
-    const builtMessage = buildCreateProductMessage(finalForm, stockByVariationMap);
+    const builtMessage = buildCreateProductMessage(finalForm, stockByVariationMap, createSelectedCategoryIds);
 
     await sendToAgent(builtMessage, selectedFiles);
 
@@ -1571,6 +1673,7 @@ async function nextCreateStep() {
     setCreateForm(initialCreateForm);
     setText("");
     setStockByVariationMap({});
+    setCreateSelectedCategoryIds([]);
   }
 
 useEffect(() => {
@@ -1653,6 +1756,25 @@ setStoreName(`${prettyName} (${domain})`);
       localStorage.setItem(storageKey, JSON.stringify(messages));
     } catch {}
   }, [messages, storageKey]);
+
+  useEffect(() => {
+    if (
+      (activeAction === "create" && (currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria")) ||
+      activeAction === "edit"
+    ) {
+      if (categoryOptions.length === 0 && !categoriesLoading) {
+        loadCategories();
+      }
+    }
+  }, [activeAction, currentCreateStep?.key]);
+
+  useEffect(() => {
+    setEditSelectedCategoryIds(
+      Array.isArray(editFoundProduct?.categories)
+        ? editFoundProduct.categories.map((cat) => Number(cat.id)).filter((id) => Number.isFinite(id) && id > 0)
+        : []
+    );
+  }, [editFoundProduct]);
 
   useEffect(() => {
     if (activeAction !== "create" || !currentCreateStep) return;
@@ -2492,6 +2614,55 @@ Stock general
 )}
       </div>
     )}
+
+    {(currentCreateStep?.key === "categoria" || currentCreateStep?.key === "subcategoria") && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+          También podés marcar categorías existentes:
+        </div>
+
+        {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
+        {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
+
+        <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+          {categoryOptions.map((category) => {
+            const checked = createSelectedCategoryIds.includes(Number(category.id));
+            const label = categoryPathMap.get(Number(category.id)) || category.name;
+
+            return (
+              <label
+                key={category.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  background: checked ? "#2563eb" : "#020617",
+                  color: "white",
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    setCreateSelectedCategoryIds((prev) =>
+                      prev.includes(Number(category.id))
+                        ? prev.filter((id) => id !== Number(category.id))
+                        : [...prev, Number(category.id)]
+                    )
+                  }
+                />
+                <span>{label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    )}
   </>
 ) : (
   <textarea
@@ -2675,6 +2846,9 @@ setMoveProductMode("before");
     Precio en efectivo: {editFoundProduct.cashPriceGeneral || "(vacío)"}
   </div>
 )}
+<div>
+  Categorías: {Array.isArray(editFoundProduct.categories) && editFoundProduct.categories.length > 0 ? editFoundProduct.categories.map((cat) => cat.name).join(", ") : "(sin categorías)"}
+</div>
 </div>
 
 
@@ -2833,6 +3007,46 @@ onMouseLeave={(e) => {
 }}
   >
     Descripción
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      setEditSection("categorias");
+      setEditActionType("cambiar_categorias");
+      setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
+      if (categoryOptions.length === 0) loadCategories();
+    }}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
+  >
+    Categorías
   </button>
 
   <button
@@ -3889,7 +4103,63 @@ onMouseLeave={(e) => {
   </div>
 )}
 
-    {editActionType && (
+    {editSection === "categorias" && (
+  <div
+    style={{
+      width: "100%",
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#020617",
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+    }}
+  >
+    <div style={{ color: "#cbd5e1", fontSize: 13 }}>Marcá las categorías para este producto.</div>
+    {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
+    {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
+    <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+      {categoryOptions.map((category) => {
+        const checked = editSelectedCategoryIds.includes(Number(category.id));
+        const label = categoryPathMap.get(Number(category.id)) || category.name;
+        return (
+          <label
+            key={category.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: checked ? "#2563eb" : "#020617",
+              color: "white",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() =>
+                setEditSelectedCategoryIds((prev) =>
+                  prev.includes(Number(category.id))
+                    ? prev.filter((id) => id !== Number(category.id))
+                    : [...prev, Number(category.id)]
+                )
+              }
+            />
+            <span>{label}</span>
+          </label>
+        );
+      })}
+    </div>
+  </div>
+)}
+
+{editActionType && (
       <div
         style={{
           marginTop: 8,
@@ -3908,6 +4178,7 @@ onMouseLeave={(e) => {
   {editActionType === "cambiar_precio_rebajado" && "Escribí el nuevo precio rebajado."}
   {editActionType === "quitar_precio_rebajado" && "Confirmá que querés quitar el precio rebajado."}
   {editActionType === "cambiar_descripcion" && "Escribí la nueva descripción."}
+  {editActionType === "cambiar_categorias" && "Marcá las categorías y guardá."}
   {editActionType === "mover_producto_fecha" && "Elegí si querés poner este producto antes o después de otro producto."}
   {editActionType === "cambiar_precio_efectivo" && "Escribí el nuevo precio en efectivo."}
 </div>
@@ -3943,6 +4214,19 @@ onMouseLeave={(e) => {
     }}
   >
     Este producto tiene precio rebajado cargado. Tocá “Guardar cambio” para quitarlo.
+  </div>
+) : editActionType === "cambiar_categorias" ? (
+  <div
+    style={{
+      color: "#94a3b8",
+      fontSize: 14,
+      padding: "10px 12px",
+      border: "1px solid #334155",
+      borderRadius: 10,
+      background: "#020617",
+    }}
+  >
+    Tocá “Guardar cambio” para actualizar las categorías marcadas.
   </div>
 ) : editActionType === "mover_producto_fecha" ? (
   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -4173,6 +4457,7 @@ onMouseLeave={(e) => {
 if (
   editActionType !== "quitar_precio_rebajado" &&
   editActionType !== "mover_producto_fecha" &&
+  editActionType !== "cambiar_categorias" &&
   !editValue.trim()
 ) {
   pushAssistantInfo("Completá el valor antes de guardar.");
@@ -4184,11 +4469,22 @@ if (editActionType === "mover_producto_fecha" && !moveTargetProduct?.id) {
   return;
 }
 
+if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length === 0) {
+  pushAssistantInfo("Marcá al menos una categoría.");
+  return;
+}
+
   try {
     setLoading(true);
 
     const payload =
-  editActionType === "cambiar_precio"
+  editActionType === "cambiar_categorias"
+  ? {
+      action: "cambiar_categorias",
+      productId: editFoundProduct.id,
+      categoryIds: editSelectedCategoryIds,
+    }
+  : editActionType === "cambiar_precio"
   ? {
       action: "cambiar_precio",
       productId: editFoundProduct.id,

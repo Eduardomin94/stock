@@ -18,6 +18,7 @@ import {
   ensureCategoryPath,
   ensureGlobalAttributeWithTerms,
   suggestCategoriesByName,
+  listAllCategories,
   findProductBySku,
   findProductsByName,
   deleteProductById,
@@ -27,6 +28,7 @@ import {
   reorderProductImages,
   assignImageToSelectedVariations,
   removeImageFromSelectedVariations,
+  updateProductCategories,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1116,6 +1118,7 @@ return res.json({
   product: found.product
   ? {
       ...found.product,
+      categories: Array.isArray(found.product?.categories) ? found.product.categories : [],
       attributeOptions,
       images: productImages,
       variations: Array.isArray(variations) ? variations.map(mapVariationImagePreview) : [],
@@ -1166,6 +1169,7 @@ const enrichWithAttributeOptions = async (product) => {
 
   return {
     ...product,
+    categories: Array.isArray(productResponse.data?.categories) ? productResponse.data.categories : [],
     attributeOptions: extractGlobalAttributeOptions(productResponse.data || {}),
     images: Array.isArray(productResponse.data?.images) ? productResponse.data.images : [],
     variations: variations.map(mapVariationImagePreview),
@@ -1194,6 +1198,31 @@ return res.json({
   return res.status(400).json({
     error: "Modo de búsqueda inválido. Usá sku o nombre.",
   });
+}
+
+if (message === "__list_categories__") {
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    return res.status(500).json({
+      error: "Faltan credenciales de WooCommerce.",
+    });
+  }
+
+  try {
+    const result = await listAllCategories({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+    });
+
+    return res.json({
+      usedTool: true,
+      categories: result.categories || [],
+    });
+  } catch {
+    return res.status(500).json({
+      error: "No se pudieron obtener las categorías.",
+    });
+  }
 }
 
 if (message === "__get_store_info__") {
@@ -1302,6 +1331,28 @@ if (looksLikeEditProductActionCommand(message)) {
       salePrice: "",
       attributes: payload?.attributes || {},
       selectedCombinations: payload?.selectedCombinations || [],
+    });
+  }
+
+  if (action === "cambiar_categorias") {
+    const cleanCategoryIds = Array.isArray(payload?.categoryIds)
+      ? payload.categoryIds
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+
+    if (cleanCategoryIds.length === 0) {
+      return res.status(400).json({
+        error: "Faltan categoryIds.",
+      });
+    }
+
+    result = await updateProductCategories({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      categoryIds: cleanCategoryIds,
     });
   }
 
@@ -2083,6 +2134,11 @@ if (
 const sku = extractField(message, "sku");
 const regularPriceRaw = extractField(message, "precio");
 const subcategoryName = extractField(message, "subcategoria");
+const categoryIdsRaw = extractField(message, "categorias_ids");
+const selectedCategoryIds = String(categoryIdsRaw || "")
+  .split(",")
+  .map((item) => Number(String(item || "").trim()))
+  .filter((id) => Number.isFinite(id) && id > 0);
 const salePriceRaw = extractField(message, "precio_rebajado");
 const cashPriceRaw = extractField(message, "precio_efectivo");
 const stockQuantityRaw = extractField(message, "stock");
@@ -2109,7 +2165,7 @@ const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
   });
 }
 
-if (!categoryName) {
+if (!categoryName && selectedCategoryIds.length === 0) {
   savePendingDraft(resolvedAgentId, {
   type: "simple_product",
   name,
@@ -2164,7 +2220,9 @@ if (stockQuantityRaw && Number.isNaN(stockQuantity)) {
 
 let categories = [];
 
-if (categoryName) {
+if (selectedCategoryIds.length > 0) {
+  categories = selectedCategoryIds;
+} else if (categoryName) {
   const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,
@@ -2239,6 +2297,11 @@ const description = extractField(message, "descripcion");
 const shortDescription = extractField(message, "descripcion_corta");
 const categoryName = extractField(message, "categoria");
 const subcategoryName = extractField(message, "subcategoria");
+const categoryIdsRaw = extractField(message, "categorias_ids");
+const selectedCategoryIds = String(categoryIdsRaw || "")
+  .split(",")
+  .map((item) => Number(String(item || "").trim()))
+  .filter((id) => Number.isFinite(id) && id > 0);
 const attributesRaw = extractBlock(message, "atributos", [
   "stock",
   "categoria",
@@ -2418,7 +2481,9 @@ if (files.length > 0) {
 
   let categories = [];
 
-if (categoryName) {
+if (selectedCategoryIds.length > 0) {
+  categories = selectedCategoryIds;
+} else if (categoryName) {
   const categoryResult = await ensureCategoryPath({
     baseUrl,
     consumerKey,

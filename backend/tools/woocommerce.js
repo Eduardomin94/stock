@@ -117,6 +117,13 @@ function mapProductForEdit(product) {
     sale_price,
     price: product?.price || "",
     cash_price_general,
+    categories: Array.isArray(product?.categories)
+      ? product.categories.map((cat) => ({
+          id: Number(cat?.id || 0),
+          name: String(cat?.name || "").trim(),
+          parent: Number(cat?.parent || 0),
+        }))
+      : [],
   };
 }
 
@@ -692,6 +699,48 @@ async function createCategory(baseUrl, consumerKey, consumerSecret, name, parent
   return response.data;
 }
 
+export async function listAllCategories({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+
+  const categories = [];
+  let page = 1;
+
+  while (true) {
+    const response = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products/categories`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          per_page: 100,
+          page,
+          hide_empty: false,
+        },
+      })
+    );
+
+    const batch = Array.isArray(response.data) ? response.data : [];
+    categories.push(...batch);
+    if (batch.length < 100) break;
+    page += 1;
+  }
+
+  return {
+    ok: true,
+    categories: categories.map((cat) => ({
+      id: Number(cat?.id || 0),
+      name: String(cat?.name || "").trim(),
+      slug: String(cat?.slug || "").trim(),
+      parent: Number(cat?.parent || 0),
+      count: Number(cat?.count || 0),
+    })),
+  };
+}
+
 export async function ensureCategoryByName({
   baseUrl,
   consumerKey,
@@ -938,6 +987,50 @@ export async function createSimpleProduct({
     manage_stock: created.manage_stock ?? null,
     stock_quantity: created.stock_quantity ?? null,
     status: created.status ?? "",
+  };
+}
+
+export async function updateProductCategories({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  categoryIds = [],
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const cleanCategoryIds = Array.from(
+    new Set(
+      (Array.isArray(categoryIds) ? categoryIds : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
+
+  const updated = await updateProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      categories: cleanCategoryIds.map((id) => ({ id })),
+    }
+  );
+
+  return {
+    ok: true,
+    action: "update_product_categories",
+    product_id: updated?.id ?? Number(productId),
+    categories: Array.isArray(updated?.categories)
+      ? updated.categories.map((cat) => ({
+          id: Number(cat?.id || 0),
+          name: String(cat?.name || "").trim(),
+          parent: Number(cat?.parent || 0),
+        }))
+      : cleanCategoryIds.map((id) => ({ id, name: "", parent: 0 })),
   };
 }
 
