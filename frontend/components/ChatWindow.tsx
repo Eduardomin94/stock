@@ -757,7 +757,18 @@ function getVariationCombination(
     image: { id: number; src: string } | null;
   }
 ) {
-  return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
+  
+  useEffect(() => {
+    if (!loading) return;
+
+    const timer = setTimeout(() => {
+      scrollChatToBottom();
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) => {
     const attrName = String(attr?.name || "").trim();
     const attrOption = String(attr?.option || "").trim();
 
@@ -1655,7 +1666,7 @@ setStoreName(`${prettyName} (${domain})`);
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollChatToBottom();
-    }, 120);
+    }, 80);
 
     return () => clearTimeout(timer);
   }, [messages, loading]);
