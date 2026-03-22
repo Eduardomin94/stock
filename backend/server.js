@@ -55,6 +55,10 @@ app.get("/", (_req, res) => {
   res.send("Servidor de agentes funcionando");
 });
 
+app.get("/health", (_req, res) => {
+  res.status(200).send("ok");
+});
+
 
 app.use("/register", registerRoute);
 app.use("/login", loginRoute);
