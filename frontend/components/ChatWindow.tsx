@@ -27,7 +27,7 @@ async function enqueueJob(body: { agentId: string; message: string; files?: File
     form.append(`imageColor_${key}`, body.imageColorMap?.[key] || "");
   });
 
-  const res = await fetch(`${API}/jobs`, {
+  const res = await fetchWithRetry(`${API}/jobs`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: form,
@@ -37,7 +37,7 @@ async function enqueueJob(body: { agentId: string; message: string; files?: File
 
 async function fetchJobs(): Promise<Job[]> {
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
-  const res = await fetch(`${API}/jobs`, {
+  const res = await fetchWithRetry(`${API}/jobs`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   const data = await res.json();
@@ -662,15 +662,93 @@ function getButtonClass(
   return classes.join(" ");
 }
 
+async function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status?: number) {
+  return status === 502 || status === 503 || status === 504;
+}
+
+function shouldRetryRequestError(error: any) {
+  if (!error) return false;
+
+  if (error?.name === "AbortError" || error?.name === "TypeError") {
+    return true;
+  }
+
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    message.includes("fetch") ||
+    message.includes("network") ||
+    message.includes("failed") ||
+    message.includes("timeout") ||
+    message.includes("load failed")
+  );
+}
+
+async function fetchWithRetry(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  options?: {
+    retries?: number;
+    delayMs?: number;
+    timeoutMs?: number;
+  }
+): Promise<Response> {
+  const retries = options?.retries ?? 2;
+  const delayMs = options?.delayMs ?? 2000;
+  const timeoutMs = options?.timeoutMs ?? 20000;
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (isRetryableStatus(response.status) && attempt < retries) {
+        await delay(delayMs);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      clearTimeout(timeout);
+      lastError = error;
+
+      if (attempt >= retries || !shouldRetryRequestError(error)) {
+        throw error;
+      }
+
+      await delay(delayMs);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("REQUEST_FAILED");
+}
+
 async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
 
-    const res = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
+    const res = await fetchWithRetry(
+      url,
+      {
+        ...options,
+        signal: controller.signal,
+      },
+      { retries, delayMs: 1500, timeoutMs: 20000 }
+    );
 
     clearTimeout(timeout);
 
@@ -846,7 +924,7 @@ async function loadCategories() {
 
     const token = localStorage.getItem("token") || "";
 
-    const res = await fetch(`${API}/run-agent`, {
+    const res = await fetchWithRetry(`${API}/run-agent`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: form,
@@ -1458,7 +1536,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
 
   const token = localStorage.getItem("token") || "";
 
-  const res = await fetch(`${API}/run-agent`, {
+  const res = await fetchWithRetry(`${API}/run-agent`, {
     method: "POST",
     headers: token
       ? {
@@ -1754,7 +1832,7 @@ useEffect(() => {
     try {
       const token = localStorage.getItem("token") || "";
 
-      const res = await fetch(`${API}/me`, {
+      const res = await fetchWithRetry(`${API}/me`, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
@@ -3683,7 +3761,7 @@ setTimeout(async () => {
 
     const token = localStorage.getItem("token") || "";
 
-    const res = await fetch(`${API}/run-agent`, {
+    const res = await fetchWithRetry(`${API}/run-agent`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: form,
@@ -4163,7 +4241,7 @@ if (value && !response?.queued) {
 
   const token = localStorage.getItem("token") || "";
 
-  const refreshRes = await fetch(`${API}/run-agent`, {
+  const refreshRes = await fetchWithRetry(`${API}/run-agent`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: form,
@@ -4403,7 +4481,7 @@ if (fileInputRef.current) {
 
           const token = localStorage.getItem("token") || "";
 
-          const res = await fetch(`${API}/run-agent`, {
+          const res = await fetchWithRetry(`${API}/run-agent`, {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             body: form,
@@ -4689,7 +4767,7 @@ setTimeout(async () => {
 
     const token = localStorage.getItem("token") || "";
 
-    const res = await fetch(`${API}/run-agent`, {
+    const res = await fetchWithRetry(`${API}/run-agent`, {
       method: "POST",
       headers: token
         ? { Authorization: `Bearer ${token}` }
