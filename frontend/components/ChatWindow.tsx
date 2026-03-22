@@ -5201,16 +5201,37 @@ await fetchWithRetry(`${API}/jobs`, {
     }
   }}
   style={{
-    width: "100%",
-    marginBottom: 12,
-    border: "1px solid #7f1d1d",
-    background: "#991b1b",
-    color: "#fff",
-    borderRadius: 10,
-    padding: "10px 12px",
-    cursor: "pointer",
-    fontWeight: 600,
-  }}
+  width: "100%",
+  marginBottom: 12,
+  border: "1px solid #7f1d1d",
+  background: "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)",
+  color: "#fff",
+  borderRadius: 12,
+  padding: "10px 12px",
+  cursor: "pointer",
+  fontWeight: 600,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 10px 25px rgba(239,68,68,0.35)";
+  el.style.background = "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)";
+}}
+onMouseDown={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "scale(0.96)";
+}}
+onMouseUp={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+}}
 >
   🗑️ Borrar historial
 </button>
