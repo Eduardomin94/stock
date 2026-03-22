@@ -33,6 +33,21 @@ async function ensureDatabase() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS jobs_history (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      agent_id TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      title TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      result_message TEXT DEFAULT ''
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_jobs_history_user_created_at ON jobs_history (user_id, created_at DESC)`);
 }
 console.log("OPENAI_API_KEY cargada:", process.env.OPENAI_API_KEY ? "SI" : "NO");
 const app = express();

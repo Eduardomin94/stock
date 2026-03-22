@@ -3,10 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
+import { query, hasDatabase } from '../services/db.js';
 
 const router = express.Router();
 const TMP_DIR = path.join(os.tmpdir(), 'tonica-stock-jobs');
+const FALLBACK_FILE = path.join(process.cwd(), 'data', 'jobs-history.json');
 fs.mkdirSync(TMP_DIR, { recursive: true });
+fs.mkdirSync(path.dirname(FALLBACK_FILE), { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, TMP_DIR),
@@ -26,6 +30,23 @@ let isProcessing = false;
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function getUserIdFromReq(req) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return null;
+
+    const decoded = jwt.verify(
+      token,
+      process.env.AUTH_JWT_SECRET || 'dev_secret_change_this'
+    );
+
+    return String(decoded?.id || '').trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 function parseTitle(message = '') {
@@ -80,6 +101,129 @@ function publicJob(job) {
   };
 }
 
+function ensureFallbackFile() {
+  if (!fs.existsSync(FALLBACK_FILE)) {
+    fs.writeFileSync(FALLBACK_FILE, '[]', 'utf-8');
+  }
+}
+
+function readFallbackHistory() {
+  ensureFallbackFile();
+  try {
+    const raw = fs.readFileSync(FALLBACK_FILE, 'utf-8');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFallbackHistory(items) {
+  ensureFallbackFile();
+  fs.writeFileSync(FALLBACK_FILE, JSON.stringify(items, null, 2), 'utf-8');
+}
+
+async function persistJob(job) {
+  if (hasDatabase) {
+    await query(
+      `INSERT INTO jobs_history (
+        id, user_id, agent_id, message, title, status, created_at, updated_at, result_message
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        status = EXCLUDED.status,
+        updated_at = EXCLUDED.updated_at,
+        result_message = EXCLUDED.result_message`,
+      [
+        job.id,
+        job.userId || null,
+        job.agentId || '',
+        job.message || '',
+        job.title || '',
+        job.status || 'pending',
+        job.createdAt || nowIso(),
+        job.updatedAt || nowIso(),
+        job.resultMessage || '',
+      ]
+    );
+    return;
+  }
+
+  const history = readFallbackHistory();
+  const index = history.findIndex((item) => item.id === job.id);
+  const persisted = {
+    id: job.id,
+    userId: job.userId || null,
+    agentId: job.agentId || '',
+    message: job.message || '',
+    title: job.title || '',
+    status: job.status || 'pending',
+    createdAt: job.createdAt || nowIso(),
+    updatedAt: job.updatedAt || nowIso(),
+    resultMessage: job.resultMessage || '',
+  };
+
+  if (index >= 0) history[index] = persisted;
+  else history.push(persisted);
+
+  writeFallbackHistory(history);
+}
+
+async function listPersistedJobs(userId) {
+  if (hasDatabase) {
+    const result = userId
+      ? await query(
+          `SELECT id, title, status, created_at, updated_at, result_message
+           FROM jobs_history
+           WHERE user_id = $1
+           ORDER BY created_at DESC`,
+          [userId]
+        )
+      : await query(
+          `SELECT id, title, status, created_at, updated_at, result_message
+           FROM jobs_history
+           WHERE user_id IS NULL
+           ORDER BY created_at DESC`
+        );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resultMessage: row.result_message || '',
+    }));
+  }
+
+  return readFallbackHistory()
+    .filter((item) => (item.userId || null) === (userId || null))
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      resultMessage: item.resultMessage || '',
+    }));
+}
+
+async function clearPersistedJobs(userId) {
+  if (hasDatabase) {
+    if (userId) {
+      await query(`DELETE FROM jobs_history WHERE user_id = $1`, [userId]);
+    } else {
+      await query(`DELETE FROM jobs_history WHERE user_id IS NULL`);
+    }
+    return;
+  }
+
+  const filtered = readFallbackHistory().filter(
+    (item) => (item.userId || null) !== (userId || null)
+  );
+  writeFallbackHistory(filtered);
+}
+
 async function processNext() {
   if (isProcessing) return;
   const next = jobs.find((j) => j.status === 'pending');
@@ -88,6 +232,7 @@ async function processNext() {
   isProcessing = true;
   next.status = 'processing';
   next.updatedAt = nowIso();
+  await persistJob(next);
 
   try {
     const form = new FormData();
@@ -121,22 +266,62 @@ async function processNext() {
     next.resultMessage = String(data?.reply || 'Proceso completado.');
     next.title = next.title.replace(/ en proceso$/i, ' completado');
     next.updatedAt = nowIso();
+    await persistJob(next);
   } catch (error) {
     next.status = 'failed';
     next.resultMessage = error instanceof Error ? error.message : 'Error al ejecutar el proceso';
     next.title = next.title.replace(/ en proceso$/i, ' fallido');
     next.updatedAt = nowIso();
+    await persistJob(next);
   } finally {
     for (const file of next.files || []) {
       try { await fs.promises.unlink(file.path); } catch {}
     }
+    const index = jobs.findIndex((item) => item.id === next.id);
+    if (index >= 0) jobs.splice(index, 1);
     isProcessing = false;
-    setTimeout(processNext, 0);
+    setTimeout(() => {
+      processNext().catch(() => {});
+    }, 0);
   }
 }
 
-router.get('/', (_req, res) => {
-  res.json(jobs.slice().reverse().map(publicJob));
+router.get('/', async (req, res) => {
+  try {
+    const userId = getUserIdFromReq(req);
+    const queueJobs = jobs
+      .filter((job) => (job.userId || null) === (userId || null))
+      .map(publicJob);
+
+    const persistedJobs = await listPersistedJobs(userId);
+    const queueIds = new Set(queueJobs.map((job) => job.id));
+    const history = persistedJobs.filter((job) => !queueIds.has(job.id));
+
+    res.json([...queueJobs.reverse(), ...history]);
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo obtener el historial de procesos' });
+  }
+});
+
+router.delete('/', async (req, res) => {
+  try {
+    const userId = getUserIdFromReq(req);
+
+    for (let i = jobs.length - 1; i >= 0; i -= 1) {
+      const job = jobs[i];
+      if ((job.userId || null) === (userId || null) && job.status !== 'processing') {
+        for (const file of job.files || []) {
+          try { await fs.promises.unlink(file.path); } catch {}
+        }
+        jobs.splice(i, 1);
+      }
+    }
+
+    await clearPersistedJobs(userId);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: 'No se pudo borrar el historial de procesos' });
+  }
 });
 
 router.post('/', upload.array('images', 10), async (req, res) => {
@@ -154,12 +339,14 @@ router.post('/', upload.array('images', 10), async (req, res) => {
 
   const job = {
     id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    userId: getUserIdFromReq(req),
     agentId,
     message,
     title: parseTitle(message),
     status: 'pending',
     createdAt: nowIso(),
     updatedAt: nowIso(),
+    resultMessage: '',
     authHeader: req.headers.authorization || '',
     imageColorMap,
     files: (req.files || []).map((file) => ({
@@ -170,6 +357,7 @@ router.post('/', upload.array('images', 10), async (req, res) => {
   };
 
   jobs.push(job);
+  await persistJob(job);
   processNext().catch(() => {});
 
   res.status(202).json({ ok: true, job: publicJob(job) });
