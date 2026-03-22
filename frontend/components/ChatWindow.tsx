@@ -5183,10 +5183,16 @@ onMouseLeave={(e) => {
   type="button"
   onClick={async () => {
     try {
-      await fetchWithRetry(`${API}/jobs`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
+      const token = localStorage.getItem("token") || "";
+
+await fetchWithRetry(`${API}/jobs`, {
+  method: "DELETE",
+  headers: token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : undefined,
+});
 
    
       pushAssistantInfo("Historial borrado correctamente.");
