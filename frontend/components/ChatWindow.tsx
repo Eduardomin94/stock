@@ -5179,6 +5179,35 @@ onMouseLeave={(e) => {
               Cerrar
             </button>
           </div>
+          <button
+  type="button"
+  onClick={async () => {
+    try {
+      await fetchWithRetry(`${API}/jobs`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+   
+      pushAssistantInfo("Historial borrado correctamente.");
+    } catch {
+      pushAssistantInfo("No se pudo borrar el historial.");
+    }
+  }}
+  style={{
+    width: "100%",
+    marginBottom: 12,
+    border: "1px solid #7f1d1d",
+    background: "#991b1b",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "10px 12px",
+    cursor: "pointer",
+    fontWeight: 600,
+  }}
+>
+  🗑️ Borrar historial
+</button>
           {jobs.length === 0 ? (
             <div style={{ fontSize: 14, color: "#94a3b8" }}>Todavía no hay procesos.</div>
           ) : (
