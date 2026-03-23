@@ -3707,7 +3707,7 @@ onMouseLeave={(e) => {
           const response = await sendEditPayload({
   action: "cambiar_stock",
   productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
   manageStock: true,
   stockQuantity:
     Array.isArray(editFoundProduct?.variations) &&
@@ -3870,7 +3870,7 @@ setTimeout(async () => {
             {
               action: "cambiar_fotos_variantes",
               productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
               selectedCombinations: selectedEditCombinations.map((combo) =>
                 Object.values(combo)
               ),
@@ -3921,7 +3921,7 @@ setTimeout(async () => {
           const response = await sendEditPayload({
             action: "quitar_fotos_variantes",
             productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
             selectedCombinations: selectedEditCombinations.map((combo) =>
               Object.values(combo)
             ),
@@ -4097,7 +4097,7 @@ onMouseLeave={(e) => {
             const response = await sendEditPayload({
               action: "ordenar_fotos_producto",
               productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
               orderedImageIds: currentImages.map((item) => item.id),
             });
 
@@ -4158,7 +4158,7 @@ onMouseLeave={(e) => {
               const response = await sendEditPayload({
                 action: "eliminar_fotos_producto",
                 productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
                 imageIds: [img.id],
               });
 
@@ -4228,7 +4228,7 @@ onMouseLeave={(e) => {
         {
           action: "agregar_fotos_producto",
           productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         },
         selectedFiles
       );
@@ -4676,14 +4676,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
   ? {
       action: "cambiar_categorias",
       productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
       categoryIds: editSelectedCategoryIds,
     }
   : editActionType === "cambiar_precio"
   ? {
       action: "cambiar_precio",
       productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
       regularPrice: editValue.trim(),
       selectedCombinations: selectedEditCombinations.map((combo) =>
         Object.values(combo)
@@ -4693,7 +4693,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "agregar_precio_rebajado",
         productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4703,7 +4703,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "cambiar_precio_rebajado",
         productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4713,7 +4713,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "quitar_precio_rebajado",
         productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
         ),
@@ -4722,7 +4722,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
 ? {
     action: "cambiar_precio_efectivo",
     productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
     cashPriceGeneral: editValue.trim(),
     selectedCombinations: selectedEditCombinations.map((combo) =>
       Object.values(combo)
@@ -4732,14 +4732,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "mover_producto_fecha",
         productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         targetProductId: moveTargetProduct?.id,
         position: moveProductMode,
       }
     : {
         action: "cambiar_descripcion",
         productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
+      productName: editFoundProduct.name,
         description: editValue.trim(),
       };
 
