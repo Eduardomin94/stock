@@ -104,6 +104,24 @@ function traducirEstado(status: string) {
   }
 }
 
+function getEditCurrentLabel(editSection: string, editActionType: string) {
+  if (editSection === "precio") {
+    if (editActionType === "agregar_precio_rebajado") return "Editando: agregar precio de oferta";
+    if (editActionType === "cambiar_precio_rebajado") return "Editando: cambiar precio de oferta";
+    if (editActionType === "quitar_precio_rebajado") return "Editando: quitar precio de oferta";
+    if (editActionType === "cambiar_precio_efectivo") return "Editando: precio en efectivo";
+    return "Editando: precio";
+  }
+
+  if (editSection === "stock") return "Editando: stock";
+  if (editSection === "fotos") return "Editando: fotos";
+  if (editSection === "descripcion") return "Editando: descripción";
+  if (editSection === "categorias") return "Editando: categorías";
+  if (editActionType === "mover_producto_fecha") return "Editando: posición";
+
+  return "Elegí qué querés editar";
+}
+
 function getEstadoBadgeStyle(status: string): React.CSSProperties {
   const base: React.CSSProperties = {
     display: "inline-block",
@@ -3257,6 +3275,20 @@ onMouseLeave={(e) => {
     Posición
   </button>
 </div>
+
+    <div
+      style={{
+        color: "#93c5fd",
+        fontSize: 13,
+        fontWeight: 700,
+        padding: "10px 12px",
+        borderRadius: 12,
+        border: "1px solid rgba(37,99,235,0.35)",
+        background: "rgba(37,99,235,0.10)",
+      }}
+    >
+      {getEditCurrentLabel(editSection, editActionType)}
+    </div>
 
 {editSection === "precio" && (
   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
