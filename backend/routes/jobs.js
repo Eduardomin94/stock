@@ -60,16 +60,17 @@ function parseTitle(message = '') {
   if (text.startsWith('__edit_product_action__:')) {
     try {
       const payload = JSON.parse(text.replace('__edit_product_action__:', ''));
-      const productId = payload?.productId ? ` #${payload.productId}` : '';
+      const productLabel = String(payload?.productName || '').trim() || (payload?.productId ? `#${payload.productId}` : '');
+      const productSuffix = productLabel ? ` ${productLabel}` : '';
       switch (payload?.action) {
-        case 'cambiar_stock': return `Edición de producto${productId} en proceso`;
-        case 'agregar_fotos_producto': return `Carga de fotos de producto${productId} en proceso`;
-        case 'eliminar_fotos_producto': return `Eliminar fotos de producto${productId} en proceso`;
-        case 'ordenar_fotos_producto': return `Ordenar fotos de producto${productId} en proceso`;
-        case 'cambiar_fotos_variantes': return `Carga de fotos por variante${productId} en proceso`;
-        case 'quitar_fotos_variantes': return `Quitar fotos por variante${productId} en proceso`;
-        case 'cambiar_categorias': return `Cambio de categorías de producto${productId} en proceso`;
-        default: return `Edición de producto${productId} en proceso`;
+        case 'cambiar_stock': return `Edición de producto${productSuffix} en proceso`;
+        case 'agregar_fotos_producto': return `Carga de fotos de producto${productSuffix} en proceso`;
+        case 'eliminar_fotos_producto': return `Eliminar fotos de producto${productSuffix} en proceso`;
+        case 'ordenar_fotos_producto': return `Ordenar fotos de producto${productSuffix} en proceso`;
+        case 'cambiar_fotos_variantes': return `Carga de fotos por variante${productSuffix} en proceso`;
+        case 'quitar_fotos_variantes': return `Quitar fotos por variante${productSuffix} en proceso`;
+        case 'cambiar_categorias': return `Cambio de categorías de producto${productSuffix} en proceso`;
+        default: return `Edición de producto${productSuffix} en proceso`;
       }
     } catch {
       return 'Edición de producto en proceso';
