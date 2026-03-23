@@ -1475,6 +1475,9 @@ if (looksLikeEditProductActionCommand(message)) {
                   .map((attr) => `${String(attr?.name || "").trim()}: ${String(attr?.option || "").trim()}`)
                   .join(" | ")
               : `Variación #${updatedVariation.id || v.id}`,
+            previous_manage_stock: currentManageStock,
+            previous_stock_quantity: currentStockQuantity,
+            previous_stock_status: currentStockStatus,
             manage_stock: updatedVariation.manage_stock ?? nextManageStock,
             stock_quantity: updatedVariation.stock_quantity ?? null,
             stock_status: updatedVariation.stock_status || nextStockStatus,

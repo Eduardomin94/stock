@@ -49,107 +49,90 @@ function getUserIdFromReq(req) {
   }
 }
 
-function formatVariantLabelFromItem(item) {
-  if (!item) return '';
+function humanizeAttributesText(text = '') {
+  return String(text || '')
+    .split('|')
+    .map((part) => String(part || '').split(':').slice(1).join(':').trim() || String(part || '').trim())
+    .filter(Boolean)
+    .join(' / ');
+}
 
-  if (Array.isArray(item)) {
-    return item
-      .map((value) => String(value || '').trim())
-      .filter(Boolean)
-      .join(' / ');
+function translateStockStatus(status) {
+  if (status === 'instock') return 'Disponible';
+  if (status === 'outofstock') return 'Agotado';
+  if (status === 'onbackorder') return 'En espera';
+  return String(status || '').trim();
+}
+
+function buildStockChangeLabel(item) {
+  const variationLabel = humanizeAttributesText(item?.attributes_text || `Variación #${item?.variation_id || ''}`);
+  const before = item?.previous_manage_stock
+    ? `${item?.previous_stock_quantity ?? 0} unidades`
+    : translateStockStatus(item?.previous_stock_status);
+  const after = item?.manage_stock
+    ? `${item?.stock_quantity ?? 0} unidades`
+    : translateStockStatus(item?.stock_status);
+
+  if (before && after && before !== after) {
+    return `${variationLabel}: ${before} → ${after}`;
   }
 
-  if (typeof item === 'object') {
-    if (Array.isArray(item.attributes) && item.attributes.length > 0) {
-      const fromAttributes = item.attributes
-        .map((attr) => String(attr?.option || attr?.value || '').trim())
-        .filter(Boolean)
-        .join(' / ');
+  return `${variationLabel}: ${after || 'actualizado'}`;
+}
 
-      if (fromAttributes) return fromAttributes;
+function buildCompletedTitle(message = '', data = {}) {
+  const text = String(message || '');
+  if (!text.startsWith('__edit_product_action__:')) return '';
+
+  try {
+    const payload = JSON.parse(text.replace('__edit_product_action__:', ''));
+    const action = String(payload?.action || '').trim();
+    const toolResult = data?.toolResult || {};
+    const productLabel = String(toolResult?.name || payload?.productName || '').trim() || (payload?.productId ? `#${payload.productId}` : '');
+    const productSuffix = productLabel ? ` ${productLabel}` : '';
+
+    if (action === 'cambiar_stock') {
+      const changes = Array.isArray(toolResult?.results) ? toolResult.results : [];
+      if (changes.length > 0) {
+        const visible = changes.slice(0, 2).map(buildStockChangeLabel).filter(Boolean);
+        const extra = changes.length - visible.length;
+        const changesLabel = extra > 0 ? `${visible.join(' | ')} y ${extra} más` : visible.join(' | ');
+        return `Cambio de stock de producto${productSuffix}: ${changesLabel} completado`;
+      }
+      return `Cambio de stock de producto${productSuffix} completado`;
     }
 
-    const entries = Object.entries(item)
-      .filter(([key, value]) => {
-        if (value === null || value === undefined) return false;
-        const cleanKey = String(key || '').trim().toLowerCase();
-        return ![
-          'id',
-          'variation_id',
-          'productid',
-          'product_id',
-          'manage_stock',
-          'stock_quantity',
-          'stock_status',
-          'stock_touched',
-          'status_touched',
-          'touched',
-          'selected',
-          'checked',
-          'image',
-          'imageid',
-          'image_id',
-          'src',
-          'name',
-        ].includes(cleanKey);
-      })
-      .map(([, value]) => String(value || '').trim())
-      .filter(Boolean);
-
-    return entries.join(' / ');
+    switch (action) {
+      case 'cambiar_precio':
+        return `Cambio de precio de producto${productSuffix} completado`;
+      case 'agregar_precio_rebajado':
+      case 'cambiar_precio_rebajado':
+      case 'quitar_precio_rebajado':
+        return `Cambio de precio rebajado de producto${productSuffix} completado`;
+      case 'cambiar_precio_efectivo':
+        return `Cambio de precio en efectivo de producto${productSuffix} completado`;
+      case 'agregar_fotos_producto':
+        return `Carga de fotos de producto${productSuffix} completado`;
+      case 'eliminar_fotos_producto':
+        return `Eliminar fotos de producto${productSuffix} completado`;
+      case 'ordenar_fotos_producto':
+        return `Ordenar fotos de producto${productSuffix} completado`;
+      case 'cambiar_fotos_variantes':
+        return `Cambio de fotos por variante de producto${productSuffix} completado`;
+      case 'quitar_fotos_variantes':
+        return `Quitar fotos por variante de producto${productSuffix} completado`;
+      case 'cambiar_categorias':
+        return `Cambio de categorías de producto${productSuffix} completado`;
+      case 'cambiar_descripcion':
+        return `Cambio de descripción de producto${productSuffix} completado`;
+      case 'mover_producto_fecha':
+        return `Cambio de posición de producto${productSuffix} completado`;
+      default:
+        return `Edición de producto${productSuffix} completado`;
+    }
+  } catch {
+    return '';
   }
-
-  return '';
-}
-
-function uniqueVariantLabels(labels = []) {
-  const seen = new Set();
-  const result = [];
-
-  for (const raw of labels) {
-    const label = String(raw || '').trim();
-    const key = label.toLowerCase();
-    if (!label || seen.has(key)) continue;
-    seen.add(key);
-    result.push(label);
-  }
-
-  return result;
-}
-
-function extractEditedVariantLabels(payload = {}) {
-  const selectedLabels = uniqueVariantLabels(
-    (Array.isArray(payload?.selectedCombinations) ? payload.selectedCombinations : [])
-      .map(formatVariantLabelFromItem)
-  );
-
-  if (selectedLabels.length > 0) return selectedLabels;
-
-  const touchedVariationLabels = uniqueVariantLabels(
-    (Array.isArray(payload?.variations) ? payload.variations : [])
-      .filter((variation) => {
-        if (!variation || typeof variation !== 'object') return false;
-        return Boolean(
-          variation.stock_touched ||
-          variation.status_touched ||
-          variation.touched ||
-          variation.manage_stock_touched
-        );
-      })
-      .map(formatVariantLabelFromItem)
-  );
-
-  if (touchedVariationLabels.length > 0) return touchedVariationLabels;
-
-  return [];
-}
-
-function buildVariantSuffix(payload = {}) {
-  const labels = extractEditedVariantLabels(payload);
-  if (labels.length === 0) return '';
-  if (labels.length === 1) return ` (${labels[0]})`;
-  if (labels.length === 2) return ` (${labels[0]} y ${labels[1]})`;
-  return ` (${labels[0]}, ${labels[1]} y ${labels.length - 2} más)`;
 }
 
 function parseTitle(message = '') {
@@ -165,21 +148,22 @@ function parseTitle(message = '') {
       const payload = JSON.parse(text.replace('__edit_product_action__:', ''));
       const productLabel = String(payload?.productName || '').trim() || (payload?.productId ? `#${payload.productId}` : '');
       const productSuffix = productLabel ? ` ${productLabel}` : '';
-      const variantSuffix = buildVariantSuffix(payload);
       switch (payload?.action) {
-        case 'cambiar_stock': return `Cambio de stock de producto${productSuffix}${variantSuffix} en proceso`;
-        case 'cambiar_precio': return `Cambio de precio de producto${productSuffix}${variantSuffix} en proceso`;
+        case 'cambiar_stock': return `Cambio de stock de producto${productSuffix} en proceso`;
+        case 'cambiar_precio': return `Cambio de precio de producto${productSuffix} en proceso`;
         case 'agregar_precio_rebajado':
-        case 'cambiar_precio_rebajado': return `Cambio de precio rebajado de producto${productSuffix}${variantSuffix} en proceso`;
-        case 'quitar_precio_rebajado': return `Quitar precio rebajado de producto${productSuffix}${variantSuffix} en proceso`;
-        case 'cambiar_precio_efectivo': return `Cambio de precio en efectivo de producto${productSuffix}${variantSuffix} en proceso`;
+        case 'cambiar_precio_rebajado':
+        case 'quitar_precio_rebajado': return `Cambio de precio rebajado de producto${productSuffix} en proceso`;
+        case 'cambiar_precio_efectivo': return `Cambio de precio en efectivo de producto${productSuffix} en proceso`;
         case 'agregar_fotos_producto': return `Carga de fotos de producto${productSuffix} en proceso`;
         case 'eliminar_fotos_producto': return `Eliminar fotos de producto${productSuffix} en proceso`;
         case 'ordenar_fotos_producto': return `Ordenar fotos de producto${productSuffix} en proceso`;
-        case 'cambiar_fotos_variantes': return `Carga de fotos por variante de producto${productSuffix}${variantSuffix} en proceso`;
-        case 'quitar_fotos_variantes': return `Quitar fotos por variante de producto${productSuffix}${variantSuffix} en proceso`;
+        case 'cambiar_fotos_variantes': return `Cambio de fotos por variante de producto${productSuffix} en proceso`;
+        case 'quitar_fotos_variantes': return `Quitar fotos por variante de producto${productSuffix} en proceso`;
         case 'cambiar_categorias': return `Cambio de categorías de producto${productSuffix} en proceso`;
-        default: return `Edición de producto${productSuffix}${variantSuffix} en proceso`;
+        case 'cambiar_descripcion': return `Cambio de descripción de producto${productSuffix} en proceso`;
+        case 'mover_producto_fecha': return `Cambio de posición de producto${productSuffix} en proceso`;
+        default: return `Edición de producto${productSuffix} en proceso`;
       }
     } catch {
       return 'Edición de producto en proceso';
@@ -374,7 +358,7 @@ async function processNext() {
 
     next.status = 'completed';
     next.resultMessage = String(data?.reply || 'Proceso completado.');
-    next.title = next.title.replace(/ en proceso$/i, ' completado');
+    next.title = buildCompletedTitle(next.message, data) || next.title.replace(/ en proceso$/i, ' completado');
     next.updatedAt = nowIso();
     await persistJob(next);
   } catch (error) {
