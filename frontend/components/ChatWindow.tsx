@@ -104,24 +104,6 @@ function traducirEstado(status: string) {
   }
 }
 
-function getEditCurrentLabel(editSection: string, editActionType: string) {
-  if (editSection === "precio") {
-    if (editActionType === "agregar_precio_rebajado") return "Editando: agregar precio de oferta";
-    if (editActionType === "cambiar_precio_rebajado") return "Editando: cambiar precio de oferta";
-    if (editActionType === "quitar_precio_rebajado") return "Editando: quitar precio de oferta";
-    if (editActionType === "cambiar_precio_efectivo") return "Editando: precio en efectivo";
-    return "Editando: precio";
-  }
-
-  if (editSection === "stock") return "Editando: stock";
-  if (editSection === "fotos") return "Editando: fotos";
-  if (editSection === "descripcion") return "Editando: descripción";
-  if (editSection === "categorias") return "Editando: categorías";
-  if (editActionType === "mover_producto_fecha") return "Editando: posición";
-
-  return "Elegí qué querés editar";
-}
-
 function getEstadoBadgeStyle(status: string): React.CSSProperties {
   const base: React.CSSProperties = {
     display: "inline-block",
@@ -3276,20 +3258,6 @@ onMouseLeave={(e) => {
   </button>
 </div>
 
-    <div
-      style={{
-        color: "#93c5fd",
-        fontSize: 13,
-        fontWeight: 700,
-        padding: "10px 12px",
-        borderRadius: 12,
-        border: "1px solid rgba(37,99,235,0.35)",
-        background: "rgba(37,99,235,0.10)",
-      }}
-    >
-      {getEditCurrentLabel(editSection, editActionType)}
-    </div>
-
 {editSection === "precio" && (
   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
     <button
@@ -3739,7 +3707,7 @@ onMouseLeave={(e) => {
           const response = await sendEditPayload({
   action: "cambiar_stock",
   productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
   manageStock: true,
   stockQuantity:
     Array.isArray(editFoundProduct?.variations) &&
@@ -3902,7 +3870,7 @@ setTimeout(async () => {
             {
               action: "cambiar_fotos_variantes",
               productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
               selectedCombinations: selectedEditCombinations.map((combo) =>
                 Object.values(combo)
               ),
@@ -3953,7 +3921,7 @@ setTimeout(async () => {
           const response = await sendEditPayload({
             action: "quitar_fotos_variantes",
             productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
             selectedCombinations: selectedEditCombinations.map((combo) =>
               Object.values(combo)
             ),
@@ -4129,7 +4097,7 @@ onMouseLeave={(e) => {
             const response = await sendEditPayload({
               action: "ordenar_fotos_producto",
               productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
               orderedImageIds: currentImages.map((item) => item.id),
             });
 
@@ -4190,7 +4158,7 @@ onMouseLeave={(e) => {
               const response = await sendEditPayload({
                 action: "eliminar_fotos_producto",
                 productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
                 imageIds: [img.id],
               });
 
@@ -4260,7 +4228,7 @@ onMouseLeave={(e) => {
         {
           action: "agregar_fotos_producto",
           productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         },
         selectedFiles
       );
@@ -4708,14 +4676,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
   ? {
       action: "cambiar_categorias",
       productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
       categoryIds: editSelectedCategoryIds,
     }
   : editActionType === "cambiar_precio"
   ? {
       action: "cambiar_precio",
       productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
       regularPrice: editValue.trim(),
       selectedCombinations: selectedEditCombinations.map((combo) =>
         Object.values(combo)
@@ -4725,7 +4693,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "agregar_precio_rebajado",
         productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4735,7 +4703,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "cambiar_precio_rebajado",
         productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         salePrice: editValue.trim(),
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
@@ -4745,7 +4713,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "quitar_precio_rebajado",
         productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         selectedCombinations: selectedEditCombinations.map((combo) =>
           Object.values(combo)
         ),
@@ -4754,7 +4722,7 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
 ? {
     action: "cambiar_precio_efectivo",
     productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
     cashPriceGeneral: editValue.trim(),
     selectedCombinations: selectedEditCombinations.map((combo) =>
       Object.values(combo)
@@ -4764,14 +4732,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
     ? {
         action: "mover_producto_fecha",
         productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         targetProductId: moveTargetProduct?.id,
         position: moveProductMode,
       }
     : {
         action: "cambiar_descripcion",
         productId: editFoundProduct.id,
-      productName: editFoundProduct.name,
+              productName: editFoundProduct.name,
         description: editValue.trim(),
       };
 
