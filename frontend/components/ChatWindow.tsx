@@ -310,11 +310,30 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
     sale = variation?.sale_price || sale;
   }
 
-  const productLevelAttributes = Array.isArray(product?.attributeOptions)
+  const variationAttributeNames = new Set(
+    Array.isArray(product?.variations)
+      ? product.variations.flatMap((variationItem: any) =>
+          Array.isArray(variationItem?.attributes)
+            ? variationItem.attributes
+                .map((attr: any) => String(attr?.name || "").trim().toLowerCase())
+                .filter(Boolean)
+            : []
+        )
+      : []
+  );
+
+  const rawProductLevelAttributes = Array.isArray(product?.attributeOptions)
     ? product.attributeOptions
     : Array.isArray(product?.attributes)
-      ? product.attributes.filter((attr: any) => Array.isArray(attr?.options))
+      ? product.attributes.filter((attr: any) => attr?.variation === true && Array.isArray(attr?.options))
       : [];
+
+  const productLevelAttributes = rawProductLevelAttributes.filter((attr: any) => {
+    const cleanName = String(attr?.name || "").trim().toLowerCase();
+    if (!cleanName) return false;
+    if (variationAttributeNames.size === 0) return true;
+    return variationAttributeNames.has(cleanName);
+  });
 
       return {
     id: product.id,
@@ -1074,8 +1093,25 @@ function getSingleVariationAttributeLabel(product: EditFoundProduct | null) {
 function getEditVariationAttributes(product: EditFoundProduct | null) {
   if (!product) return [] as { id?: number; name: string; options: string[] }[];
 
+  const variationAttributeNames = new Set(
+    (product.variations || []).flatMap((variation) =>
+      (variation.attributes || [])
+        .map((attr) => String(attr?.name || "").trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+
   if (Array.isArray(product.attributes) && product.attributes.length > 0) {
-    return product.attributes;
+    const filtered = product.attributes.filter((attr) => {
+      const cleanName = String(attr?.name || "").trim().toLowerCase();
+      if (!cleanName) return false;
+      if (variationAttributeNames.size === 0) return true;
+      return variationAttributeNames.has(cleanName);
+    });
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
   }
 
   const byName = new Map<string, { id?: number; name: string; options: string[] }>();
