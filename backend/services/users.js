@@ -184,3 +184,50 @@ export async function createUser({
 
   return newUser;
 }
+
+export async function updateUserPasswordById(id, hashedPassword) {
+  const safeId = String(id || "").trim();
+  const safePassword = String(hashedPassword || "");
+
+  if (!safeId || !safePassword) {
+    throw new Error("Faltan id o password");
+  }
+
+  if (hasDatabase) {
+    const result = await query(
+      `UPDATE users
+       SET password = $2
+       WHERE id = $1
+       RETURNING id, email, password, store_url, consumer_key, consumer_secret, created_at`,
+      [safeId, safePassword]
+    );
+
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      email: row.email,
+      password: row.password,
+      store_url: row.store_url || "",
+      consumer_key: row.consumer_key || "",
+      consumer_secret: row.consumer_secret || "",
+      created_at: row.created_at,
+    };
+  }
+
+  const users = readUsersFile();
+  const index = users.findIndex((user) => String(user.id || "").trim() === safeId);
+
+  if (index === -1) {
+    return null;
+  }
+
+  users[index] = {
+    ...users[index],
+    password: safePassword,
+  };
+
+  writeUsersFile(users);
+  return users[index];
+}

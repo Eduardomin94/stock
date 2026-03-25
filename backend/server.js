@@ -18,6 +18,7 @@ import { query } from "./services/db.js";
 import uploadImageRoute from "./routes/uploadImage.js";
 import meRoute from "./routes/me.js";
 import jobsRoute from "./routes/jobs.js";
+import adminUsersRoute from "./routes/adminUsers.js";
 
 
 dotenv.config();
@@ -80,6 +81,7 @@ app.use("/login", loginRoute);
 app.use("/me", meRoute);
 app.use("/run-agent", runAgentRoute);
 app.use("/jobs", jobsRoute);
+app.use("/admin/users", adminUsersRoute);
 app.use("/test-woo-audit", testWooAuditRoute);
 app.use("/test-enable-manage-stock-dry-run", testEnableManageStockDryRunRoute);
 app.use("/test-enable-manage-stock", testEnableManageStockRoute);
