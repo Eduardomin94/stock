@@ -310,6 +310,12 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
     sale = variation?.sale_price || sale;
   }
 
+  const productLevelAttributes = Array.isArray(product?.attributeOptions)
+    ? product.attributeOptions
+    : Array.isArray(product?.attributes)
+      ? product.attributes.filter((attr: any) => Array.isArray(attr?.options))
+      : [];
+
       return {
     id: product.id,
     name: product.name,
@@ -325,6 +331,13 @@ function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProd
           parent: Number(cat?.parent || 0),
         }))
       : [],
+    attributes: productLevelAttributes.map((attr: any) => ({
+      id: attr?.id ? Number(attr.id) : undefined,
+      name: String(attr?.name || "").trim(),
+      options: Array.isArray(attr?.options)
+        ? attr.options.map((option: any) => String(option || "").trim()).filter(Boolean)
+        : [],
+    })).filter((attr: any) => attr.name),
 
   images: Array.isArray(product?.images)
     ? product.images.map((img: any) => ({
@@ -858,12 +871,13 @@ const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateFor
 const [editValue, setEditValue] = useState("");
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
-const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias">("");
+const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias" | "variaciones">("");
 const [categoryOptions, setCategoryOptions] = useState<CategoryItem[]>([]);
 const [categoriesLoading, setCategoriesLoading] = useState(false);
 const [categoriesError, setCategoriesError] = useState("");
 const [createSelectedCategoryIds, setCreateSelectedCategoryIds] = useState<number[]>([]);
 const [editSelectedCategoryIds, setEditSelectedCategoryIds] = useState<number[]>([]);
+const [newVariationValues, setNewVariationValues] = useState<Record<string, string>>({});
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
 const [moveTargetSearch, setMoveTargetSearch] = useState("");
 const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
@@ -1040,6 +1054,55 @@ return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) =
   }, {});
 }
 
+function getEditVariationAttributes(product: EditFoundProduct | null) {
+  if (!product) return [] as { id?: number; name: string; options: string[] }[];
+
+  if (Array.isArray(product.attributes) && product.attributes.length > 0) {
+    return product.attributes;
+  }
+
+  const byName = new Map<string, { id?: number; name: string; options: string[] }>();
+
+  (product.variations || []).forEach((variation) => {
+    (variation.attributes || []).forEach((attr) => {
+      const cleanName = String(attr?.name || "").trim();
+      const cleanOption = String(attr?.option || "").trim();
+      if (!cleanName) return;
+      const key = cleanName.toLowerCase();
+      const current = byName.get(key) || { name: cleanName, options: [] };
+      if (cleanOption && !current.options.includes(cleanOption)) {
+        current.options.push(cleanOption);
+      }
+      byName.set(key, current);
+    });
+  });
+
+  return Array.from(byName.values());
+}
+
+async function refreshEditProduct(product: EditFoundProduct | null) {
+  if (!product) return;
+
+  const mode = product?.sku ? "sku" : "nombre";
+  const value = product?.sku || product?.name;
+  if (!value) return;
+
+  const form = new FormData();
+  form.append("agentId", agentId);
+  form.append("message", `__search_edit_product__:${mode}|${value}`);
+
+  const token = localStorage.getItem("token") || "";
+  const res = await fetchWithRetry(`${API}/run-agent`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  const refreshed = await res.json();
+
+  if (refreshed?.product) {
+    setEditFoundProduct(normalizeEditFoundProduct(refreshed.product, refreshed.variationSample));
+  }
+}
 
   async function sendToAgent(messageToSend: string, filesOverride?: File[]) {
     const filesToSend = filesOverride ?? selectedFiles;
@@ -1585,6 +1648,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   setEditValue("");
   setEditSection("");
   setEditAttributeValues({});
+  setNewVariationValues({});
   setCreateForm(initialCreateForm);
   setCreateStepIndex(0);
   setText("");
@@ -3351,6 +3415,46 @@ onMouseLeave={(e) => {
   <button
     type="button"
     onClick={() => {
+      setEditSection("variaciones");
+      setEditActionType("");
+      setEditValue("");
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
+      setNewVariationValues({});
+    }}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
+  >
+    Variaciones
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
       setEditSection("descripcion");
       setEditActionType("cambiar_descripcion");
       setEditValue("");
@@ -4002,6 +4106,176 @@ setTimeout(async () => {
     >
       Guardar stock
     </button>
+  </div>
+)}
+
+{editSection === "variaciones" && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid #334155",
+      background: "#020617",
+    }}
+  >
+    {editFoundProduct?.type !== "variable" ? (
+      <div style={{ color: "#94a3b8", fontSize: 13 }}>
+        Este producto no es variable.
+      </div>
+    ) : (
+      <>
+        <div style={{ color: "#cbd5e1", fontSize: 13 }}>
+          Acá podés agregar una variación nueva o eliminar una existente.
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {(editFoundProduct?.variations || []).map((variation) => {
+            const variationLabel =
+              variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`;
+
+            return (
+              <div
+                key={variation.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #334155",
+                  background: "#0f172a",
+                }}
+              >
+                <div style={{ color: "#e5e7eb", fontSize: 14 }}>{variationLabel}</div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!editFoundProduct?.id) return;
+                    try {
+                      setLoading(true);
+                      const response = await sendEditPayload({
+                        action: "eliminar_variacion",
+                        productId: editFoundProduct.id,
+                        productName: editFoundProduct.name,
+                        variationId: variation.id,
+                      });
+                      pushAssistantInfo(response?.reply || "Variación enviada a eliminar.");
+                      await refreshEditProduct(editFoundProduct);
+                    } catch (error: any) {
+                      pushAssistantInfo(error?.message || "No pude eliminar la variación.");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  style={{
+                    border: "1px solid #7f1d1d",
+                    background: "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)",
+                    color: "white",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #334155",
+            background: "#0f172a",
+          }}
+        >
+          <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
+            Agregar variación
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            {getEditVariationAttributes(editFoundProduct).map((attr) => (
+              <input
+                key={attr.name}
+                type="text"
+                value={newVariationValues[attr.name] || ""}
+                onChange={(e) =>
+                  setNewVariationValues((prev) => ({
+                    ...prev,
+                    [attr.name]: e.target.value,
+                  }))
+                }
+                placeholder={attr.name}
+                style={{
+                  width: "100%",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "white",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  outline: "none",
+                  fontSize: 14,
+                }}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              if (!editFoundProduct?.id) return;
+              const attrs = getEditVariationAttributes(editFoundProduct)
+                .map((attr) => ({
+                  id: attr.id,
+                  name: attr.name,
+                  option: String(newVariationValues[attr.name] || "").trim(),
+                }))
+                .filter((attr) => attr.name);
+
+              if (attrs.length === 0 || attrs.some((attr) => !attr.option)) {
+                pushAssistantInfo("Completá todos los atributos de la variación.");
+                return;
+              }
+
+              try {
+                setLoading(true);
+                const response = await sendEditPayload({
+                  action: "agregar_variacion",
+                  productId: editFoundProduct.id,
+                  productName: editFoundProduct.name,
+                  attributes: attrs,
+                  regularPrice: editFoundProduct.regularPrice || "",
+                  salePrice: editFoundProduct.salePrice || "",
+                  cashPriceGeneral: editFoundProduct.cashPriceGeneral || "",
+                });
+                pushAssistantInfo(response?.reply || "Variación enviada a crear.");
+                setNewVariationValues({});
+                await refreshEditProduct(editFoundProduct);
+              } catch (error: any) {
+                pushAssistantInfo(error?.message || "No pude agregar la variación.");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            style={wizardPrimaryButtonStyle}
+          >
+            Agregar variación
+          </button>
+        </div>
+      </>
+    )}
   </div>
 )}
 

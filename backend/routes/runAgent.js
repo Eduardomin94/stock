@@ -29,6 +29,8 @@ import {
   assignImageToSelectedVariations,
   removeImageFromSelectedVariations,
   updateProductCategories,
+  addProductVariation,
+  removeProductVariation,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -91,6 +93,7 @@ function extractGlobalAttributeOptions(product = {}) {
   return attributes
     .filter((attr) => attr && attr.variation === true)
     .map((attr) => ({
+      id: attr?.id ? Number(attr.id) : undefined,
       name: String(attr?.name || "").trim(),
       options: Array.isArray(attr?.options)
         ? attr.options.map((opt) => String(opt || "").trim()).filter(Boolean)
@@ -1633,7 +1636,54 @@ if (action === "quitar_fotos_variantes") {
   });
 }
 
-  // ✅ CAMBIAR DESCRIPCIÓN CORTA
+  if (action === "agregar_variacion") {
+  const attributes = Array.isArray(payload?.attributes)
+    ? payload.attributes
+        .map((attr) => ({
+          id: attr?.id ? Number(attr.id) : undefined,
+          name: String(attr?.name || "").trim(),
+          option: String(attr?.option || "").trim(),
+        }))
+        .filter((attr) => attr.name && attr.option)
+    : [];
+
+  if (!attributes.length) {
+    return res.status(400).json({
+      error: "Faltan atributos para la nueva variación.",
+    });
+  }
+
+  result = await addProductVariation({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    attributes,
+    regularPrice: String(payload?.regularPrice ?? "").replace(/[^\d]/g, ""),
+    salePrice: String(payload?.salePrice ?? "").replace(/[^\d]/g, ""),
+    cashPriceGeneral: String(payload?.cashPriceGeneral ?? "").replace(/[^\d]/g, ""),
+  });
+}
+
+if (action === "eliminar_variacion") {
+  const variationId = Number(payload?.variationId);
+
+  if (!variationId) {
+    return res.status(400).json({
+      error: "Falta variationId.",
+    });
+  }
+
+  result = await removeProductVariation({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    variationId,
+  });
+}
+
+// ✅ CAMBIAR DESCRIPCIÓN CORTA
 if (action === "cambiar_descripcion") {
   const description = payload?.description;
 
@@ -1905,6 +1955,16 @@ if (action === "quitar_fotos_variantes") {
     result.updated_count === 1
       ? `Foto eliminada de 1 variante de ${result.name}:\n${variationLines}`
       : `Foto eliminada de ${result.updated_count} variantes de ${result.name}:\n${variationLines}`;
+}
+
+if (action === "agregar_variacion") {
+  reply = `Variación agregada correctamente en ${result.name}:
+- ${result.attributes_text || `Variación #${result.variation_id}`}`;
+}
+
+if (action === "eliminar_variacion") {
+  reply = `Variación eliminada correctamente en ${result.name}:
+- ${result.attributes_text || `Variación #${result.variation_id}`}`;
 }
 
 if (action === "mover_producto_fecha") {

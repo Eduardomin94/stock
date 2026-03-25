@@ -313,6 +313,37 @@ async function updateProduct(baseUrl, consumerKey, consumerSecret, productId, pa
   return response.data;
 }
 
+async function deleteVariation(baseUrl, consumerKey, consumerSecret, productId, variationId) {
+  const response = await axios.delete(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations/${variationId}`,
+    buildWooConfig(consumerKey, consumerSecret, {
+      params: {
+        force: true,
+      },
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  return response.data;
+}
+
+function uniqueOptionList(values = []) {
+  const seen = new Set();
+  const out = [];
+
+  for (const value of values) {
+    const clean = String(value || "").trim();
+    const key = normalizeText(clean);
+    if (!clean || !key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+
+  return out;
+}
+
 function buildKnownWooError(message, extra = {}) {
   const error = new Error(message);
   if (extra.status) error.status = Number(extra.status);
@@ -2835,6 +2866,211 @@ export async function createVariableProduct({
     product_sku: createdProduct.sku ?? "",
     variations_created: createdVariations.length,
     variation_ids: createdVariations.map((item) => item.id),
+  };
+}
+
+export async function addProductVariation({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  attributes = [],
+  regularPrice = "",
+  salePrice = "",
+  cashPriceGeneral = "",
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const cleanAttributes = Array.isArray(attributes)
+    ? attributes
+        .map((attr) => ({
+          id: attr?.id ? Number(attr.id) : undefined,
+          name: String(attr?.name || "").trim(),
+          option: String(attr?.option || "").trim(),
+        }))
+        .filter((attr) => attr.name && attr.option)
+    : [];
+
+  if (cleanAttributes.length === 0) {
+    throw new Error("Faltan atributos de la variación.");
+  }
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+
+  if (String(product?.type || "").toLowerCase() !== "variable") {
+    throw new Error("Solo se pueden agregar variaciones a productos variables.");
+  }
+
+  const productAttributes = Array.isArray(product?.attributes) ? product.attributes : [];
+  const variationAttributes = productAttributes.filter((attr) => attr && attr.variation === true);
+
+  const existingVariations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  const alreadyExists = existingVariations.some((variation) => {
+    const attrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
+    if (attrs.length !== cleanAttributes.length) return false;
+
+    return cleanAttributes.every((incomingAttr) =>
+      attrs.some(
+        (existingAttr) =>
+          normalizeText(existingAttr?.name || "") === normalizeText(incomingAttr.name) &&
+          normalizeText(existingAttr?.option || "") === normalizeText(incomingAttr.option)
+      )
+    );
+  });
+
+  if (alreadyExists) {
+    throw new Error("Esa variación ya existe en el producto.");
+  }
+
+  const nextProductAttributes = productAttributes.map((attr) => {
+    if (!attr || attr.variation !== true) return attr;
+
+    const incoming = cleanAttributes.find(
+      (item) => normalizeText(item.name) === normalizeText(attr?.name || "")
+    );
+
+    if (!incoming) return attr;
+
+    const mergedOptions = uniqueOptionList([
+      ...(Array.isArray(attr?.options) ? attr.options : []),
+      incoming.option,
+    ]);
+
+    return {
+      ...attr,
+      options: mergedOptions,
+    };
+  });
+
+  const missingVariationAttrs = cleanAttributes.filter(
+    (incoming) =>
+      !variationAttributes.some(
+        (attr) => normalizeText(attr?.name || "") === normalizeText(incoming.name)
+      )
+  );
+
+  for (const missingAttr of missingVariationAttrs) {
+    nextProductAttributes.push({
+      name: missingAttr.name,
+      visible: true,
+      variation: true,
+      options: [missingAttr.option],
+    });
+  }
+
+  await updateProduct(baseUrl, consumerKey, consumerSecret, productId, {
+    attributes: nextProductAttributes.map((attr) => ({
+      ...(attr?.id ? { id: Number(attr.id) } : { name: String(attr?.name || "").trim() }),
+      visible: attr?.visible !== false,
+      variation: attr?.variation === true,
+      options: uniqueOptionList(Array.isArray(attr?.options) ? attr.options : []),
+    })),
+  });
+
+  const referenceVariation = Array.isArray(existingVariations) && existingVariations.length > 0
+    ? existingVariations[0]
+    : null;
+
+  const payload = {
+    regular_price: String(regularPrice || referenceVariation?.regular_price || product?.regular_price || product?.price || "").trim(),
+    attributes: cleanAttributes.map((attr) => ({
+      ...(attr.id ? { id: Number(attr.id) } : { name: attr.name }),
+      option: attr.option,
+    })),
+    manage_stock: false,
+    stock_status: "instock",
+  };
+
+  if (!payload.regular_price) {
+    throw new Error("No pude definir el precio normal para la nueva variación.");
+  }
+
+  const cleanSalePrice = String(salePrice || referenceVariation?.sale_price || "").trim();
+  if (cleanSalePrice) {
+    payload.sale_price = cleanSalePrice;
+  }
+
+  const cleanCashPrice = String(cashPriceGeneral || "").trim();
+  if (cleanCashPrice) {
+    payload.meta_data = [
+      { key: "_precio_efectivo", value: cleanCashPrice },
+    ];
+  }
+
+  const created = await axios.post(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
+    payload,
+    buildWooConfig(consumerKey, consumerSecret, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+  );
+
+  return {
+    ok: true,
+    action: "add_product_variation",
+    product_id: productId,
+    name: product?.name || "",
+    variation_id: created.data?.id,
+    attributes_text: formatAttributes(created.data?.attributes || payload.attributes),
+  };
+}
+
+export async function removeProductVariation({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  variationId,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+  if (!variationId) throw new Error("Falta variationId");
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+  const product = productResponse.data || {};
+
+  const variations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  const existing = variations.find((variation) => Number(variation?.id) === Number(variationId));
+  if (!existing) {
+    throw new Error("No encontré la variación a eliminar.");
+  }
+
+  await deleteVariation(baseUrl, consumerKey, consumerSecret, productId, variationId);
+
+  return {
+    ok: true,
+    action: "remove_product_variation",
+    product_id: productId,
+    name: product?.name || "",
+    variation_id: Number(variationId),
+    attributes_text: formatAttributes(existing?.attributes || []),
   };
 }
 
