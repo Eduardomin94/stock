@@ -3031,6 +3031,170 @@ export async function addProductVariation({
   };
 }
 
+export async function expandProductVariationsWithAttribute({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  newAttributeName,
+  newOptions = [],
+  cashPriceGeneral = "",
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const cleanAttributeName = String(newAttributeName || "").trim();
+  const cleanOptions = uniqueOptionList(Array.isArray(newOptions) ? newOptions : []);
+
+  if (!cleanAttributeName) {
+    throw new Error("Falta el nombre del atributo a agregar.");
+  }
+
+  if (cleanOptions.length === 0) {
+    throw new Error("Faltan opciones para el nuevo atributo.");
+  }
+
+  const productResponse = await axios.get(
+    `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
+    buildWooConfig(consumerKey, consumerSecret)
+  );
+
+  const product = productResponse.data || {};
+
+  if (String(product?.type || "").toLowerCase() !== "variable") {
+    throw new Error("Solo se pueden expandir variaciones en productos variables.");
+  }
+
+  const productAttributes = Array.isArray(product?.attributes) ? product.attributes : [];
+  const currentVariationAttrs = productAttributes.filter((attr) => attr && attr.variation === true);
+
+  if (currentVariationAttrs.length !== 1) {
+    throw new Error("Esta acción solo funciona cuando el producto tiene una sola dimensión de variación.");
+  }
+
+  const duplicatedAttr = currentVariationAttrs.find(
+    (attr) => normalizeText(attr?.name || "") === normalizeText(cleanAttributeName)
+  );
+
+  if (duplicatedAttr) {
+    throw new Error("Ese atributo ya existe en las variaciones del producto.");
+  }
+
+  const existingVariations = await fetchAllVariations(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId
+  );
+
+  if (!existingVariations.length) {
+    throw new Error("No encontré variaciones para expandir.");
+  }
+
+  const nextProductAttributes = [
+    ...productAttributes.map((attr) => ({
+      ...(attr?.id ? { id: Number(attr.id) } : { name: String(attr?.name || "").trim() }),
+      visible: attr?.visible !== false,
+      variation: attr?.variation === true,
+      options: uniqueOptionList(Array.isArray(attr?.options) ? attr.options : []),
+    })),
+    {
+      name: cleanAttributeName,
+      visible: true,
+      variation: true,
+      options: cleanOptions,
+    },
+  ];
+
+  await updateProduct(baseUrl, consumerKey, consumerSecret, productId, {
+    attributes: nextProductAttributes,
+  });
+
+  const createdVariations = [];
+  const cleanCashPrice = String(cashPriceGeneral || "").trim();
+
+  for (const variation of existingVariations) {
+    const baseAttributes = Array.isArray(variation?.attributes)
+      ? variation.attributes
+          .map((attr) => ({
+            name: String(attr?.name || "").trim(),
+            option: String(attr?.option || "").trim(),
+          }))
+          .filter((attr) => attr.name && attr.option)
+      : [];
+
+    for (const option of cleanOptions) {
+      const payload = {
+        regular_price: String(
+          variation?.regular_price || product?.regular_price || product?.price || ""
+        ).trim(),
+        sale_price: String(variation?.sale_price || "").trim(),
+        attributes: [
+          ...baseAttributes.map((attr) => ({ name: attr.name, option: attr.option })),
+          { name: cleanAttributeName, option },
+        ],
+        manage_stock: Boolean(variation?.manage_stock),
+        stock_status: variation?.manage_stock ? "outofstock" : String(variation?.stock_status || "instock"),
+      };
+
+      if (!payload.regular_price) {
+        throw new Error("No pude definir el precio normal para las nuevas variaciones.");
+      }
+
+      if (!payload.sale_price) {
+        delete payload.sale_price;
+      }
+
+      if (variation?.manage_stock) {
+        payload.stock_quantity = 0;
+      }
+
+      const inheritedCashPrice =
+        getMetaValue(variation?.meta_data, "_precio_efectivo") ||
+        getMetaValue(variation?.meta_data, "_precio_efectivo_general") ||
+        cleanCashPrice ||
+        getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
+        getMetaValue(product?.meta_data, "_precio_efectivo");
+
+      if (inheritedCashPrice) {
+        payload.meta_data = [{ key: "_precio_efectivo", value: inheritedCashPrice }];
+      }
+
+      const created = await axios.post(
+        `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
+        payload,
+        buildWooConfig(consumerKey, consumerSecret, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+      );
+
+      createdVariations.push(created.data || {});
+    }
+  }
+
+  for (const variation of existingVariations) {
+    await deleteVariation(baseUrl, consumerKey, consumerSecret, productId, variation.id);
+  }
+
+  return {
+    ok: true,
+    action: "expand_product_variations_with_attribute",
+    product_id: productId,
+    name: product?.name || "",
+    added_attribute_name: cleanAttributeName,
+    added_options: cleanOptions,
+    previous_variations_deleted: existingVariations.length,
+    created_variations: createdVariations.length,
+    stock_note: existingVariations.some((variation) => variation?.manage_stock)
+      ? "Las nuevas variaciones con manage_stock quedaron con stock 0 para que lo cargues después."
+      : "",
+  };
+}
+
 export async function removeProductVariation({
   baseUrl,
   consumerKey,

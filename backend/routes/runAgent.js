@@ -31,6 +31,7 @@ import {
   updateProductCategories,
   addProductVariation,
   removeProductVariation,
+  expandProductVariationsWithAttribute,
 } from "../tools/woocommerce.js";
 import jwt from "jsonwebtoken";
 import { findUserById } from "../services/users.js";
@@ -1683,6 +1684,35 @@ if (action === "eliminar_variacion") {
   });
 }
 
+if (action === "agregar_atributo_variaciones") {
+  const newAttributeName = String(payload?.newAttributeName || "").trim();
+  const newOptions = Array.isArray(payload?.newOptions)
+    ? payload.newOptions.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  if (!newAttributeName) {
+    return res.status(400).json({
+      error: "Falta newAttributeName.",
+    });
+  }
+
+  if (!newOptions.length) {
+    return res.status(400).json({
+      error: "Faltan opciones para el nuevo atributo.",
+    });
+  }
+
+  result = await expandProductVariationsWithAttribute({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    newAttributeName,
+    newOptions,
+    cashPriceGeneral: String(payload?.cashPriceGeneral || "").replace(/[^\d]/g, ""),
+  });
+}
+
 // ✅ CAMBIAR DESCRIPCIÓN CORTA
 if (action === "cambiar_descripcion") {
   const description = payload?.description;
@@ -1965,6 +1995,13 @@ if (action === "agregar_variacion") {
 if (action === "eliminar_variacion") {
   reply = `Variación eliminada correctamente en ${result.name}:
 - ${result.attributes_text || `Variación #${result.variation_id}`}`;
+}
+
+if (action === "agregar_atributo_variaciones") {
+  reply = `Variaciones regeneradas correctamente en ${result.name}.
+Se agregó ${result.added_attribute_name} con ${result.added_options.join(", ")}.
+Se crearon ${result.created_variations} variaciones nuevas y se reemplazaron ${result.previous_variations_deleted} variaciones anteriores.${result.stock_note ? `
+${result.stock_note}` : ""}`;
 }
 
 if (action === "mover_producto_fecha") {

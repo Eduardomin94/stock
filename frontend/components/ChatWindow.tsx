@@ -878,6 +878,7 @@ const [categoriesError, setCategoriesError] = useState("");
 const [createSelectedCategoryIds, setCreateSelectedCategoryIds] = useState<number[]>([]);
 const [editSelectedCategoryIds, setEditSelectedCategoryIds] = useState<number[]>([]);
 const [newVariationValues, setNewVariationValues] = useState<Record<string, string>>({});
+const [expandVariationOptions, setExpandVariationOptions] = useState("");
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
 const [moveTargetSearch, setMoveTargetSearch] = useState("");
 const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
@@ -1052,6 +1053,22 @@ return (variation.attributes || []).reduce<Record<string, string>>((acc, attr) =
 
     return acc;
   }, {});
+}
+
+function detectMissingVariationAttribute(product: EditFoundProduct | null) {
+  const attrs = getEditVariationAttributes(product);
+  if (attrs.length !== 1) return "";
+
+  const currentName = String(attrs[0]?.name || "").trim().toLowerCase();
+  if (currentName.includes("color")) return "Talle";
+  if (currentName.includes("talle") || currentName.includes("talla") || currentName.includes("size")) return "Color";
+  return "";
+}
+
+function getSingleVariationAttributeLabel(product: EditFoundProduct | null) {
+  const attrs = getEditVariationAttributes(product);
+  if (attrs.length !== 1) return "";
+  return String(attrs[0]?.name || "").trim();
 }
 
 function getEditVariationAttributes(product: EditFoundProduct | null) {
@@ -4131,6 +4148,95 @@ setTimeout(async () => {
         <div style={{ color: "#cbd5e1", fontSize: 13 }}>
           Acá podés agregar una variación nueva o eliminar una existente.
         </div>
+
+        {getEditVariationAttributes(editFoundProduct).length === 1 && detectMissingVariationAttribute(editFoundProduct) && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              padding: 12,
+              borderRadius: 10,
+              border: "1px solid #334155",
+              background: "#0f172a",
+            }}
+          >
+            <div style={{ color: "#e5e7eb", fontWeight: 700, fontSize: 14 }}>
+              Agregar {detectMissingVariationAttribute(editFoundProduct)} al producto
+            </div>
+
+            <div style={{ color: "#94a3b8", fontSize: 12 }}>
+              Este producto hoy varía solo por {getSingleVariationAttributeLabel(editFoundProduct)}. Acá podés sumarle {detectMissingVariationAttribute(editFoundProduct)} y generar automáticamente las combinaciones nuevas.
+            </div>
+
+            <input
+              type="text"
+              value={expandVariationOptions}
+              onChange={(e) => setExpandVariationOptions(e.target.value)}
+              placeholder={`Ej: ${detectMissingVariationAttribute(editFoundProduct) === "Talle" ? "S, M, L" : "Negro, Blanco"}`}
+              style={{
+                width: "100%",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "white",
+                borderRadius: 10,
+                padding: "10px 12px",
+                outline: "none",
+                fontSize: 14,
+              }}
+            />
+
+            <div style={{ color: "#94a3b8", fontSize: 12 }}>
+              Si las variaciones actuales manejan stock numérico, las nuevas se crean con stock 0 para que después lo cargues por variante.
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                if (!editFoundProduct?.id) return;
+
+                const missingAttribute = detectMissingVariationAttribute(editFoundProduct);
+                const options = expandVariationOptions
+                  .split(",")
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+
+                if (!missingAttribute) {
+                  pushAssistantInfo("Este producto ya tiene más de un atributo de variación.");
+                  return;
+                }
+
+                if (options.length === 0) {
+                  pushAssistantInfo(`Escribí los ${missingAttribute.toLowerCase()} separados por coma.`);
+                  return;
+                }
+
+                try {
+                  setLoading(true);
+                  const response = await sendEditPayload({
+                    action: "agregar_atributo_variaciones",
+                    productId: editFoundProduct.id,
+                    productName: editFoundProduct.name,
+                    newAttributeName: missingAttribute,
+                    newOptions: options,
+                    cashPriceGeneral: editFoundProduct.cashPriceGeneral || "",
+                  });
+
+                  pushAssistantInfo(response?.reply || `${missingAttribute} agregado correctamente.`);
+                  setExpandVariationOptions("");
+                  await refreshEditProduct(editFoundProduct);
+                } catch (error: any) {
+                  pushAssistantInfo(error?.message || `No pude agregar ${missingAttribute.toLowerCase()}.`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={wizardPrimaryButtonStyle}
+            >
+              Agregar {detectMissingVariationAttribute(editFoundProduct)} y generar combinaciones
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {(editFoundProduct?.variations || []).map((variation) => {

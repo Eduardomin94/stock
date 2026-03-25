@@ -125,6 +125,8 @@ function buildCompletedTitle(message = '', data = {}) {
         return `Agregar variación de producto${productSuffix} completado`;
       case 'eliminar_variacion':
         return `Eliminar variación de producto${productSuffix} completado`;
+      case 'agregar_atributo_variaciones':
+        return `Expandir variaciones de producto${productSuffix} completado`;
       case 'cambiar_categorias':
         return `Cambio de categorías de producto${productSuffix} completado`;
       case 'cambiar_descripcion':
@@ -166,6 +168,7 @@ function parseTitle(message = '') {
         case 'quitar_fotos_variantes': return `Quitar fotos por variante de producto${productSuffix} en proceso`;
         case 'agregar_variacion': return `Agregar variación de producto${productSuffix} en proceso`;
         case 'eliminar_variacion': return `Eliminar variación de producto${productSuffix} en proceso`;
+        case 'agregar_atributo_variaciones': return `Expandir variaciones de producto${productSuffix} en proceso`;
         case 'cambiar_categorias': return `Cambio de categorías de producto${productSuffix} en proceso`;
         case 'cambiar_descripcion': return `Cambio de descripción de producto${productSuffix} en proceso`;
         case 'mover_producto_fecha': return `Cambio de posición de producto${productSuffix} en proceso`;
