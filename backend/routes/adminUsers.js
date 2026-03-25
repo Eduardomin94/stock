@@ -19,7 +19,7 @@ router.get("/", requireAdmin, async (_req, res) => {
         id: user.id,
         email: user.email,
         created_at: user.created_at || null,
-        is_admin: String(user.email || "").trim().toLowerCase() === String(process.env.ADMIN_EMAIL || "").trim().toLowerCase(),
+        is_admin: String(user.email || "").trim().toLowerCase() === String(process.env.ADMIN_EMAIL || "admin@tonicastock.com").trim().toLowerCase(),
       })),
     });
   } catch (error) {

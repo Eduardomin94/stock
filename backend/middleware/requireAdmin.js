@@ -18,7 +18,7 @@ export function requireAdmin(req, res, next) {
       process.env.AUTH_JWT_SECRET || "dev_secret_change_this"
     );
 
-    const adminEmail = String(process.env.ADMIN_EMAIL || "")
+    const adminEmail = String(process.env.ADMIN_EMAIL || "admin@tonicastock.com")
       .trim()
       .toLowerCase();
 

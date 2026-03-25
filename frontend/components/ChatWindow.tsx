@@ -7,15 +7,6 @@ type Message = {
   text: string;
 };
 
-
-type AdminPanelUser = {
-  id: string | number;
-  email: string;
-  name?: string;
-  nombre?: string;
-};
-
-
 // === JOB QUEUE HELPERS ===
 type Job = {
   id: string;
@@ -833,18 +824,15 @@ export default function ChatWindow() {
   const [refreshingEditProduct, setRefreshingEditProduct] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeUrl, setStoreUrl] = useState("");
-  const [userMe, setUserMe] = useState<{
-    usa_precio_efectivo?: boolean;
-    role?: string;
-    is_admin?: boolean;
-    isAdmin?: boolean;
-    email?: string;
-  } | null>(null);
-  const [usersPanelOpen, setUsersPanelOpen] = useState(false);
-  const [adminUsers, setAdminUsers] = useState<AdminPanelUser[]>([]);
+  const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean; email?: string; is_admin?: boolean } | null>(null);
+  const [adminUsers, setAdminUsers] = useState<{ id: string; email: string; is_admin?: boolean }[]>([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState("");
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
-  const [savingPasswordFor, setSavingPasswordFor] = useState<string>("");
+  const isAdminUser = useMemo(() => {
+    const email = String(userMe?.email || "").trim().toLowerCase();
+    return Boolean(userMe?.is_admin) || email === "admin@tonicastock.com";
+  }, [userMe]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
@@ -860,7 +848,7 @@ const skuValidationIdRef = useRef(0);
 const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
-  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | "users" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
@@ -903,37 +891,6 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 
     return `chat_history_${userId}_${agentId}`;
   }, [agentId]);
-
-  const canManageUsers = useMemo(() => {
-    const meRole = String(userMe?.role || "").toLowerCase();
-    const meEmail = String(userMe?.email || "").toLowerCase();
-
-    if (userMe?.is_admin || userMe?.isAdmin || meRole === "admin") {
-      return true;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          const parsedUser = JSON.parse(rawUser);
-          const parsedRole = String(parsedUser?.role || "").toLowerCase();
-          const parsedEmail = String(parsedUser?.email || "").toLowerCase();
-
-          if (
-            parsedUser?.is_admin ||
-            parsedUser?.isAdmin ||
-            parsedRole === "admin" ||
-            parsedEmail === "admin"
-          ) {
-            return true;
-          }
-        }
-      } catch {}
-    }
-
-    return meEmail === "admin";
-  }, [userMe]);
 
   const CREATE_STEPS_VISIBLE = CREATE_STEPS.filter((step) => {
   if (step.key === "precioEfectivo" && !userMe?.usa_precio_efectivo) {
@@ -1436,113 +1393,6 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
     setMessages((prev) => [...prev, { role: "assistant", text: textMessage }]);
   }
 
-  async function loadAdminUsers() {
-    if (!canManageUsers) return;
-
-    try {
-      setAdminUsersLoading(true);
-
-      const token = localStorage.getItem("token") || "";
-      const res = await fetchWithRetry(`${API}/admin/users`, {
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : undefined,
-      });
-
-      if (!res.ok) {
-        throw new Error("No se pudo cargar la lista de usuarios.");
-      }
-
-      const data = await res.json();
-      const users = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.users)
-          ? data.users
-          : [];
-
-      setAdminUsers(users);
-    } catch (error) {
-      console.error(error);
-      pushAssistantInfo("No se pudo cargar la lista de usuarios.");
-    } finally {
-      setAdminUsersLoading(false);
-    }
-  }
-
-  async function handleOpenUsersPanel() {
-    if (!canManageUsers) {
-      pushAssistantInfo("Solo el admin puede ver usuarios.");
-      return;
-    }
-
-    setUsersPanelOpen(true);
-    setActiveAction(null);
-    setText("");
-    await loadAdminUsers();
-  }
-
-  async function handleChangeUserPassword(user: AdminPanelUser) {
-    const userId = String(user?.id ?? "");
-    const nextPassword = (passwordDrafts[userId] || "").trim();
-
-    if (!userId) {
-      pushAssistantInfo("Ese usuario no tiene un id válido.");
-      return;
-    }
-
-    if (!nextPassword) {
-      pushAssistantInfo("Escribí una contraseña nueva.");
-      return;
-    }
-
-    try {
-      setSavingPasswordFor(userId);
-
-      const token = localStorage.getItem("token") || "";
-      const res = await fetchWithRetry(`${API}/admin/users/${userId}/password`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : {}),
-        },
-        body: JSON.stringify({
-          password: nextPassword,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(
-          typeof data?.message === "string"
-            ? data.message
-            : "No se pudo cambiar la contraseña."
-        );
-      }
-
-      setPasswordDrafts((prev) => ({ ...prev, [userId]: "" }));
-      pushAssistantInfo(
-        typeof data?.message === "string"
-          ? data.message
-          : `Contraseña actualizada para ${user.email}.`
-      );
-    } catch (error: any) {
-      pushAssistantInfo(
-        typeof error?.message === "string"
-          ? error.message
-          : "No se pudo cambiar la contraseña."
-      );
-    } finally {
-      setSavingPasswordFor("");
-    }
-  }
-
   async function checkSkuExists(sku: string) {
   const cleanSku = String(sku || "").trim();
 
@@ -1985,6 +1835,70 @@ async function nextCreateStep() {
     setCreateSelectedCategoryIds([]);
   }
 
+
+  async function loadAdminUsers() {
+    if (!isAdminUser) return;
+
+    try {
+      setAdminUsersLoading(true);
+      setAdminUsersError("");
+
+      const token = localStorage.getItem("token") || "";
+      const res = await fetchWithRetry(`${API}/admin/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "No se pudieron cargar los usuarios");
+      }
+
+      const users = Array.isArray(data?.users) ? data.users : [];
+      setAdminUsers(users);
+    } catch (error: any) {
+      setAdminUsers([]);
+      setAdminUsersError(error?.message || "No se pudieron cargar los usuarios");
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }
+
+  async function changeUserPassword(userId: string) {
+    if (!isAdminUser) return;
+
+    const newPassword = String(passwordDrafts[userId] || "").trim();
+
+    if (!newPassword) {
+      setAdminUsersError("Escribí una nueva contraseña.");
+      return;
+    }
+
+    try {
+      setAdminUsersError("");
+      const token = localStorage.getItem("token") || "";
+      const res = await fetchWithRetry(`${API}/admin/users/${userId}/password`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "No se pudo cambiar la contraseña");
+      }
+
+      setPasswordDrafts((prev) => ({ ...prev, [userId]: "" }));
+      pushAssistantInfo(data?.message || "Contraseña actualizada correctamente.");
+    } catch (error: any) {
+      setAdminUsersError(error?.message || "No se pudo cambiar la contraseña");
+    }
+  }
+
 useEffect(() => {
   async function loadStoreInfo() {
     try {
@@ -2284,6 +2198,43 @@ onMouseLeave={(e) => {
           Crear producto
         </button>
 
+        {isAdminUser && (
+          <button
+            type="button"
+            onClick={async () => {
+              setActiveAction("users");
+              setText("");
+              setMessages([]);
+              await loadAdminUsers();
+            }}
+            style={{
+              border: "1px solid #2563eb",
+              background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+              color: "white",
+              borderRadius: 14,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 700,
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(-1px)";
+              el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+              el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              el.style.transform = "translateY(0)";
+              el.style.boxShadow = "none";
+              el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+            }}
+          >
+            Ver usuarios
+          </button>
+        )}
+
         <button
   type="button"
   onClick={() => {
@@ -2377,40 +2328,6 @@ onMouseLeave={(e) => {
 >
   Eliminar producto
 </button>
-
-        {canManageUsers && (
-          <button
-            type="button"
-            onClick={handleOpenUsersPanel}
-            style={{
-              border: "1px solid #2563eb",
-              background: usersPanelOpen
-                ? "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)"
-                : "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
-              color: "white",
-              borderRadius: 14,
-              padding: "10px 14px",
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 700,
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(-1px)";
-              el.style.boxShadow = "0 10px 25px rgba(0,0,0,0.35)";
-              el.style.borderColor = "#3b82f6";
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget;
-              el.style.transform = "translateY(0)";
-              el.style.boxShadow = "none";
-              el.style.borderColor = "#2563eb";
-            }}
-          >
-            Ver usuarios
-          </button>
-        )}
       </div>
 
       <div
@@ -2438,7 +2355,7 @@ onMouseLeave={(e) => {
   </div>
 )}
 
-{messages.length === 0 && activeAction !== null && (
+{messages.length === 0 && activeAction !== null && activeAction !== "users" && (
   <div
     style={{
       color: "#94a3b8",
@@ -2450,133 +2367,105 @@ onMouseLeave={(e) => {
   </div>
 )}
 
-{usersPanelOpen && canManageUsers && (
-  <div
-    style={{
-      width: "100%",
-      background: "#0f172a",
-      border: "1px solid #1e293b",
-      borderRadius: 16,
-      padding: 16,
-      display: "flex",
-      flexDirection: "column",
-      gap: 12,
-    }}
-  >
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-      <div>
-        <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Usuarios</div>
-        <div style={{ color: "#94a3b8", fontSize: 13 }}>
-          Desde acá el admin puede cambiar contraseñas.
-        </div>
-      </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          onClick={loadAdminUsers}
-          style={{
-            border: "1px solid #2b3950",
-            background: "#111827",
-            color: "#e5e7eb",
-            borderRadius: 10,
-            padding: "8px 12px",
-            cursor: "pointer",
-          }}
-        >
-          {adminUsersLoading ? "Cargando..." : "Actualizar"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setUsersPanelOpen(false)}
-          style={{
-            border: "1px solid #2b3950",
-            background: "#111827",
-            color: "#e5e7eb",
-            borderRadius: 10,
-            padding: "8px 12px",
-            cursor: "pointer",
-          }}
-        >
-          Cerrar
-        </button>
-      </div>
-    </div>
-
-    {adminUsersLoading ? (
-      <div style={{ color: "#94a3b8" }}>Cargando usuarios...</div>
-    ) : adminUsers.length === 0 ? (
-      <div style={{ color: "#94a3b8" }}>No hay usuarios para mostrar.</div>
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {adminUsers.map((userItem) => {
-          const userId = String(userItem?.id ?? "");
-          const label = userItem?.email || userItem?.nombre || userItem?.name || `Usuario ${userId}`;
-
-          return (
+        {activeAction === "users" && isAdminUser && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              width: "100%",
+            }}
+          >
             <div
-              key={userId || label}
               style={{
-                border: "1px solid #1f2937",
-                borderRadius: 14,
-                padding: 12,
+                alignSelf: "flex-start",
+                maxWidth: "90%",
+                padding: "12px 14px",
+                borderRadius: 16,
                 background: "#111827",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
+                color: "white",
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.5,
+                border: "1px solid #1f2937",
               }}
             >
-              <div style={{ color: "#fff", fontWeight: 600 }}>{label}</div>
+              Acá tenés la lista de usuarios. Podés cambiar la contraseña desde este panel.
+            </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {adminUsersLoading && (
+              <div style={{ color: "#94a3b8" }}>Cargando usuarios...</div>
+            )}
+
+            {!!adminUsersError && (
+              <div style={{ color: "#fca5a5" }}>{adminUsersError}</div>
+            )}
+
+            {!adminUsersLoading && !adminUsersError && adminUsers.length === 0 && (
+              <div style={{ color: "#94a3b8" }}>No hay usuarios para mostrar.</div>
+            )}
+
+            {!adminUsersLoading && !adminUsersError && adminUsers.map((userItem) => (
+              <div
+                key={userItem.id}
+                style={{
+                  border: "1px solid #1f2937",
+                  background: "#0f172a",
+                  borderRadius: 16,
+                  padding: 14,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ color: "white", fontWeight: 700 }}>
+                  {userItem.email}
+                  {userItem.is_admin ? " (admin)" : ""}
+                </div>
+
                 <input
                   type="password"
-                  placeholder="Nueva contraseña"
-                  value={passwordDrafts[userId] || ""}
+                  value={passwordDrafts[userItem.id] || ""}
                   onChange={(e) =>
                     setPasswordDrafts((prev) => ({
                       ...prev,
-                      [userId]: e.target.value,
+                      [userItem.id]: e.target.value,
                     }))
                   }
+                  placeholder="Nueva contraseña"
                   style={{
-                    flex: 1,
-                    minWidth: 220,
+                    width: "100%",
                     background: "#020617",
-                    color: "#e5e7eb",
                     border: "1px solid #334155",
+                    color: "white",
                     borderRadius: 12,
-                    padding: "10px 12px",
+                    padding: "12px 14px",
                     outline: "none",
                   }}
                 />
 
-                <button
-                  type="button"
-                  onClick={() => handleChangeUserPassword(userItem)}
-                  disabled={savingPasswordFor === userId}
-                  style={{
-                    border: "1px solid #2563eb",
-                    background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-                    color: "white",
-                    borderRadius: 12,
-                    padding: "10px 14px",
-                    cursor: savingPasswordFor === userId ? "wait" : "pointer",
-                    opacity: savingPasswordFor === userId ? 0.7 : 1,
-                    fontWeight: 700,
-                  }}
-                >
-                  {savingPasswordFor === userId ? "Guardando..." : "Cambiar contraseña"}
-                </button>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => changeUserPassword(userItem.id)}
+                    style={{
+                      border: "1px solid #2563eb",
+                      background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+                      color: "white",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      fontSize: 14,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Cambiar contraseña
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-)}
+            ))}
+          </div>
+        )}
 
 
         {messages.map((message, index) => (
@@ -2615,7 +2504,7 @@ onMouseLeave={(e) => {
         )}
       </div>
 
-      {activeAction && (
+      {activeAction && activeAction !== "users" && (
       <div
         ref={composerAreaRef}
         onDragOver={(e) => {

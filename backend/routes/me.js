@@ -30,11 +30,16 @@ router.get("/", async (req, res) => {
       });
     }
 
+    const adminEmail = String(process.env.ADMIN_EMAIL || "admin@tonicastock.com")
+      .trim()
+      .toLowerCase();
+
     return res.json({
       id: user.id,
       email: user.email,
       store_url: user.store_url || "",
       usa_precio_efectivo: user.email === "stock@gudaima.com",
+      is_admin: String(user.email || "").trim().toLowerCase() === adminEmail,
     });
   } catch (error) {
     return res.status(401).json({
