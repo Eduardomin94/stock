@@ -15,6 +15,13 @@ type Job = {
   createdAt?: string;
 };
 
+type AdminUser = {
+  id: string | number;
+  email: string;
+  role?: string;
+  name?: string;
+};
+
 async function enqueueJob(body: { agentId: string; message: string; files?: File[]; imageColorMap?: Record<string, string> }) {
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
   const form = new FormData();
@@ -42,6 +49,41 @@ async function fetchJobs(): Promise<Job[]> {
   });
   const data = await res.json();
   return Array.isArray(data) ? data : (data?.jobs || []);
+}
+
+async function fetchAdminUsers(): Promise<AdminUser[]> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
+  const res = await fetchWithRetry(`${API}/admin/users`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.message || "No se pudieron cargar los usuarios.");
+  }
+
+  return Array.isArray(data) ? data : Array.isArray(data?.users) ? data.users : [];
+}
+
+async function updateAdminUserPassword(userId: string | number, password: string) {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || "") : "";
+  const res = await fetchWithRetry(`${API}/admin/users/${userId}/password`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.message || "No se pudo cambiar la contraseña.");
+  }
+
+  return data;
 }
 type CategoryItem = {
   id: number;
@@ -815,6 +857,11 @@ async function safeFetchJson(url: string, options: RequestInit, retries = 1) {
 export default function ChatWindow() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [showJobs, setShowJobs] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState("");
+  const [passwordByUserId, setPasswordByUserId] = useState<Record<string, string>>({});
+  const [savingPasswordUserId, setSavingPasswordUserId] = useState<string>("");
 
   const agentId = "woocommerce-assistant";
   const agentName = "Asistente WooCommerce";
@@ -840,7 +887,7 @@ const skuValidationIdRef = useRef(0);
 const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
-  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | null>(null);
+  const [activeAction, setActiveAction] = useState<"create" | "edit" | "delete" | "users" | null>(null);
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
@@ -1588,6 +1635,46 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   );
 }
 
+async function openUsersPanel() {
+  setActiveAction("users");
+  setText("");
+  setAdminUsersError("");
+  setAdminUsersLoading(true);
+
+  try {
+    const users = await fetchAdminUsers();
+    setAdminUsers(users);
+    pushAssistantInfo("Acá tenés la lista de usuarios. Podés cambiar la contraseña desde este panel.");
+  } catch (error: any) {
+    const message = error?.message || "No se pudieron cargar los usuarios.";
+    setAdminUsersError(message);
+    pushAssistantInfo(message);
+  } finally {
+    setAdminUsersLoading(false);
+  }
+}
+
+async function handleAdminPasswordSave(user: AdminUser) {
+  const userId = String(user.id);
+  const password = String(passwordByUserId[userId] || "").trim();
+
+  if (!password) {
+    pushAssistantInfo(`Escribí una contraseña nueva para ${user.email}.`);
+    return;
+  }
+
+  try {
+    setSavingPasswordUserId(userId);
+    await updateAdminUserPassword(user.id, password);
+    setPasswordByUserId((prev) => ({ ...prev, [userId]: "" }));
+    pushAssistantInfo(`Contraseña actualizada para ${user.email}.`);
+  } catch (error: any) {
+    pushAssistantInfo(error?.message || `No se pudo actualizar la contraseña de ${user.email}.`);
+  } finally {
+    setSavingPasswordUserId("");
+  }
+}
+
 
 
 
@@ -2100,6 +2187,45 @@ onMouseLeave={(e) => {
           flexWrap: "wrap",
         }}
       >
+        <button
+          type="button"
+          onClick={openUsersPanel}
+          style={{
+            border: activeAction === "users" ? "1px solid #2563eb" : "1px solid #2b3950",
+            background:
+              activeAction === "users"
+                ? "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)"
+                : "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+            color: "white",
+            borderRadius: 14,
+            padding: "10px 14px",
+            cursor: "pointer",
+            fontSize: 14,
+            fontWeight: 700,
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget;
+            el.style.transform = "translateY(-1px)";
+            el.style.boxShadow = activeAction === "users"
+              ? "0 12px 30px rgba(37,99,235,0.4)"
+              : "0 10px 25px rgba(0,0,0,0.35)";
+            el.style.borderColor = "#3b82f6";
+            el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget;
+            el.style.transform = "translateY(0)";
+            el.style.boxShadow = "none";
+            el.style.borderColor = activeAction === "users" ? "#2563eb" : "#2b3950";
+            el.style.background = activeAction === "users"
+              ? "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)"
+              : "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
+          }}
+        >
+          Ver usuarios
+        </button>
+
         <button type="button" onClick={startCreateProduct} style={{
   border: "1px solid #2563eb",
   background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
@@ -5073,6 +5199,172 @@ onMouseLeave={(e) => {
   el.style.background = "linear-gradient(180deg, #111827 0%, #0f172a 100%)";
 }}
                   >
+      {activeAction === "users" ? (
+        <div
+          style={{
+            margin: "16px",
+            padding: "16px",
+            borderRadius: 16,
+            border: "1px solid #22304a",
+            background: "linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.96) 100%)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#f8fafc" }}>
+                Usuarios
+              </div>
+              <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>
+                Desde acá podés cambiar la contraseña del admin y de cualquier usuario.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={openUsersPanel}
+              disabled={adminUsersLoading}
+              style={{
+                border: "1px solid #2b3950",
+                background: "linear-gradient(180deg, #111827 0%, #0f172a 100%)",
+                color: "#e5e7eb",
+                borderRadius: 12,
+                padding: "10px 14px",
+                cursor: adminUsersLoading ? "not-allowed" : "pointer",
+                fontSize: 13,
+                fontWeight: 700,
+                opacity: adminUsersLoading ? 0.7 : 1,
+              }}
+            >
+              {adminUsersLoading ? "Cargando..." : "Actualizar lista"}
+            </button>
+          </div>
+
+          {adminUsersError ? (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(239,68,68,0.35)",
+                background: "rgba(239,68,68,0.08)",
+                color: "#fecaca",
+                fontSize: 13,
+              }}
+            >
+              {adminUsersError}
+            </div>
+          ) : null}
+
+          {adminUsersLoading ? (
+            <div style={{ color: "#cbd5e1", fontSize: 14 }}>Cargando usuarios...</div>
+          ) : adminUsers.length === 0 ? (
+            <div style={{ color: "#cbd5e1", fontSize: 14 }}>
+              No encontré usuarios para mostrar.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {adminUsers.map((user) => {
+                const userId = String(user.id);
+                const isSaving = savingPasswordUserId === userId;
+
+                return (
+                  <div
+                    key={userId}
+                    style={{
+                      border: "1px solid #22304a",
+                      borderRadius: 14,
+                      padding: "14px",
+                      background: "rgba(15, 23, 42, 0.72)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div>
+                        <div style={{ color: "#f8fafc", fontWeight: 700, fontSize: 14 }}>
+                          {user.email}
+                        </div>
+                        <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
+                          Rol: {user.role || "usuario"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                      }}
+                    >
+                      <input
+                        type="password"
+                        value={passwordByUserId[userId] || ""}
+                        onChange={(e) =>
+                          setPasswordByUserId((prev) => ({
+                            ...prev,
+                            [userId]: e.target.value,
+                          }))
+                        }
+                        placeholder="Nueva contraseña"
+                        style={{
+                          flex: "1 1 260px",
+                          minWidth: 220,
+                          background: "#020617",
+                          color: "#e5e7eb",
+                          border: "1px solid #243041",
+                          borderRadius: 12,
+                          padding: "12px 14px",
+                          outline: "none",
+                          fontSize: 14,
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleAdminPasswordSave(user)}
+                        disabled={isSaving}
+                        style={{
+                          border: "1px solid #2563eb",
+                          background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+                          color: "white",
+                          borderRadius: 12,
+                          padding: "12px 14px",
+                          cursor: isSaving ? "not-allowed" : "pointer",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          opacity: isSaving ? 0.75 : 1,
+                        }}
+                      >
+                        {isSaving ? "Guardando..." : "Cambiar contraseña"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+
                     {activeAction === "create" ? "Cargar fotos" : "+ Agregar fotos"}
                   </button>
                 )}
