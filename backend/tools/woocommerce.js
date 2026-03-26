@@ -707,6 +707,34 @@ async function fetchAllGlobalAttributes(baseUrl, consumerKey, consumerSecret) {
   return Array.isArray(response.data) ? response.data : [];
 }
 
+const ATTRIBUTE_SEMANTIC_ALIASES = {
+  color: ["color", "colores"],
+  size: ["talle", "talles", "tamano", "tamaño", "size", "sizes"],
+};
+
+function getAttributeSemanticKey(value) {
+  const normalized = normalizeText(value || "");
+  if (!normalized) return "";
+
+  for (const [semanticKey, aliases] of Object.entries(ATTRIBUTE_SEMANTIC_ALIASES)) {
+    if (aliases.some((alias) => normalizeText(alias) === normalized)) {
+      return semanticKey;
+    }
+  }
+
+  return "";
+}
+
+function findGlobalAttributeBySemantic(attributes, semanticKey) {
+  if (!semanticKey) return null;
+
+  const aliases = ATTRIBUTE_SEMANTIC_ALIASES[semanticKey] || [];
+  return (Array.isArray(attributes) ? attributes : []).find((item) => {
+    const normalizedName = normalizeText(item?.name || "");
+    return aliases.some((alias) => normalizeText(alias) === normalizedName);
+  }) || null;
+}
+
 async function createGlobalAttribute(baseUrl, consumerKey, consumerSecret, name) {
   const response = await axios.post(
     `${normalizeBaseUrl(baseUrl)}/products/attributes`,
@@ -783,10 +811,13 @@ export async function ensureGlobalAttributeWithTerms({
   );
 
   let attribute = allAttributes.find(
-    (item) =>
-      String(item?.name || "").trim().toLowerCase() ===
-      cleanAttributeName.toLowerCase()
+    (item) => normalizeText(item?.name || "") === normalizeText(cleanAttributeName)
   );
+
+  if (!attribute) {
+    const semanticKey = getAttributeSemanticKey(cleanAttributeName);
+    attribute = findGlobalAttributeBySemantic(allAttributes, semanticKey);
+  }
 
   if (!attribute) {
     attribute = await createGlobalAttribute(
@@ -3093,6 +3124,22 @@ export async function expandProductVariationsWithAttribute({
     throw new Error("No encontré variaciones para expandir.");
   }
 
+  const ensuredAttribute = await ensureGlobalAttributeWithTerms({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    attributeName: cleanAttributeName,
+    options: cleanOptions,
+  });
+
+  const resolvedAttributeName = String(ensuredAttribute?.attribute?.name || cleanAttributeName).trim();
+  const resolvedAttributeId = Number(ensuredAttribute?.attribute?.id || 0) || undefined;
+  const resolvedOptions = uniqueOptionList(
+    Array.isArray(ensuredAttribute?.terms) && ensuredAttribute.terms.length > 0
+      ? ensuredAttribute.terms.map((term) => term.name)
+      : cleanOptions
+  );
+
   const nextProductAttributes = [
     ...productAttributes.map((attr) => ({
       ...(attr?.id ? { id: Number(attr.id) } : { name: String(attr?.name || "").trim() }),
@@ -3101,10 +3148,10 @@ export async function expandProductVariationsWithAttribute({
       options: uniqueOptionList(Array.isArray(attr?.options) ? attr.options : []),
     })),
     {
-      name: cleanAttributeName,
+      ...(resolvedAttributeId ? { id: resolvedAttributeId } : { name: resolvedAttributeName }),
       visible: true,
       variation: true,
-      options: cleanOptions,
+      options: resolvedOptions,
     },
   ];
 
@@ -3112,28 +3159,45 @@ export async function expandProductVariationsWithAttribute({
     attributes: nextProductAttributes,
   });
 
+  const currentVariationAttributeDefinitions = currentVariationAttrs.map((attr) => ({
+    id: attr?.id ? Number(attr.id) : undefined,
+    name: String(attr?.name || "").trim(),
+    slug: String(attr?.slug || "").trim(),
+  }));
+
   const createdVariations = [];
   const cleanCashPrice = String(cashPriceGeneral || "").trim();
 
   for (const variation of existingVariations) {
     const baseAttributes = Array.isArray(variation?.attributes)
       ? variation.attributes
-          .map((attr) => ({
-            name: String(attr?.name || "").trim(),
-            option: String(attr?.option || "").trim(),
-          }))
-          .filter((attr) => attr.name && attr.option)
+          .map((attr) => {
+            const matchedDefinition = currentVariationAttributeDefinitions.find((definition) => {
+              const incomingName = normalizeText(attr?.name || attr?.slug || "");
+              return incomingName === normalizeText(definition.name || "") || incomingName === normalizeText(definition.slug || "");
+            });
+
+            const cleanOption = String(attr?.option || "").trim();
+            if (!cleanOption) return null;
+
+            return {
+              ...(matchedDefinition?.id ? { id: Number(matchedDefinition.id) } : {}),
+              name: matchedDefinition?.name || String(attr?.name || "").trim(),
+              option: cleanOption,
+            };
+          })
+          .filter((attr) => attr && attr.name && attr.option)
       : [];
 
-    for (const option of cleanOptions) {
+    for (const option of resolvedOptions) {
       const payload = {
         regular_price: String(
           variation?.regular_price || product?.regular_price || product?.price || ""
         ).trim(),
         sale_price: String(variation?.sale_price || "").trim(),
         attributes: [
-          ...baseAttributes.map((attr) => ({ name: attr.name, option: attr.option })),
-          { name: cleanAttributeName, option },
+          ...baseAttributes.map((attr) => ({ ...(attr.id ? { id: Number(attr.id) } : { name: attr.name }), option: attr.option })),
+          { ...(resolvedAttributeId ? { id: Number(resolvedAttributeId) } : { name: resolvedAttributeName }), option },
         ],
         manage_stock: Boolean(variation?.manage_stock),
         stock_status: variation?.manage_stock ? "outofstock" : String(variation?.stock_status || "instock"),
@@ -3185,8 +3249,8 @@ export async function expandProductVariationsWithAttribute({
     action: "expand_product_variations_with_attribute",
     product_id: productId,
     name: product?.name || "",
-    added_attribute_name: cleanAttributeName,
-    added_options: cleanOptions,
+    added_attribute_name: resolvedAttributeName,
+    added_options: resolvedOptions,
     previous_variations_deleted: existingVariations.length,
     created_variations: createdVariations.length,
     stock_note: existingVariations.some((variation) => variation?.manage_stock)
