@@ -437,7 +437,10 @@ router.post('/', upload.array('images', 10), async (req, res) => {
 
   const imageColorMap = {};
   for (const [key, value] of Object.entries(req.body || {})) {
-    if (key.startsWith('imageColor_')) imageColorMap[key] = String(value || '');
+    if (!key.startsWith('imageColor_')) continue;
+
+    const normalizedKey = key.slice('imageColor_'.length);
+    imageColorMap[normalizedKey] = String(value || '');
   }
 
   const job = {
