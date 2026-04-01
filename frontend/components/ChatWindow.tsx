@@ -941,8 +941,6 @@ const [categoriesLoading, setCategoriesLoading] = useState(false);
 const [categoriesError, setCategoriesError] = useState("");
 const [createSelectedCategoryIds, setCreateSelectedCategoryIds] = useState<number[]>([]);
 const [editSelectedCategoryIds, setEditSelectedCategoryIds] = useState<number[]>([]);
-const [createCategorySearch, setCreateCategorySearch] = useState("");
-const [editCategorySearch, setEditCategorySearch] = useState("");
 const [newVariationValues, setNewVariationValues] = useState<Record<string, string>>({});
 const [expandVariationOptions, setExpandVariationOptions] = useState("");
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
@@ -999,26 +997,6 @@ const hasEditSalePrice = Boolean(String(editFoundProduct?.salePrice || "").trim(
 const editAttributes = editFoundProduct?.attributes || [];
 const hasEditAttributes = editAttributes.length > 0;
 const categoryPathMap = useMemo(() => buildCategoryPathMap(categoryOptions), [categoryOptions]);
-
-const filteredCreateCategoryOptions = useMemo(() => {
-  const query = createCategorySearch.trim().toLowerCase();
-  if (!query) return categoryOptions;
-
-  return categoryOptions.filter((category) => {
-    const label = (categoryPathMap.get(Number(category.id)) || category.name || "").toLowerCase();
-    return label.includes(query);
-  });
-}, [categoryOptions, categoryPathMap, createCategorySearch]);
-
-const filteredEditCategoryOptions = useMemo(() => {
-  const query = editCategorySearch.trim().toLowerCase();
-  if (!query) return categoryOptions;
-
-  return categoryOptions.filter((category) => {
-    const label = (categoryPathMap.get(Number(category.id)) || category.name || "").toLowerCase();
-    return label.includes(query);
-  });
-}, [categoryOptions, categoryPathMap, editCategorySearch]);
 
 async function loadCategories() {
   if (categoriesLoading) return;
@@ -3470,25 +3448,8 @@ Stock general
     {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
     {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
 
-    <input
-      type="text"
-      value={createCategorySearch}
-      onChange={(e) => setCreateCategorySearch(e.target.value)}
-      placeholder="Buscar categoría exacta..."
-      style={{
-        width: "100%",
-        padding: "10px 12px",
-        borderRadius: 10,
-        border: "1px solid #334155",
-        background: "#020617",
-        color: "white",
-        outline: "none",
-        fontSize: 13,
-      }}
-    />
-
     <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-      {filteredCreateCategoryOptions.map((category) => {
+      {categoryOptions.map((category) => {
         const checked = createSelectedCategoryIds.includes(Number(category.id));
         const label = categoryPathMap.get(Number(category.id)) || category.name;
 
@@ -3523,11 +3484,6 @@ Stock general
           </label>
         );
       })}
-      {!categoriesLoading && filteredCreateCategoryOptions.length === 0 && (
-        <div style={{ color: "#94a3b8", fontSize: 13, padding: "8px 4px" }}>
-          No encontré categorías con esa búsqueda.
-        </div>
-      )}
     </div>
   </div>
 )}
@@ -3873,7 +3829,6 @@ onMouseLeave={(e) => {
     onClick={() => {
       setEditSection("categorias");
       setEditActionType("cambiar_categorias");
-      setEditCategorySearch("");
       setEditValue("");
       setEditAttributeValues({});
       setSelectedEditCombinations([]);
@@ -4990,11 +4945,6 @@ onMouseLeave={(e) => {
           </label>
         );
       })}
-      {!categoriesLoading && filteredEditCategoryOptions.length === 0 && (
-        <div style={{ color: "#94a3b8", fontSize: 13, padding: "8px 4px" }}>
-          No encontré categorías con esa búsqueda.
-        </div>
-      )}
     </div>
   </div>
 )}
@@ -5269,24 +5219,8 @@ if (fileInputRef.current) {
     <div style={{ color: "#cbd5e1", fontSize: 13 }}>Marcá las categorías para este producto.</div>
     {categoriesError && <div style={{ color: "#fca5a5", fontSize: 13 }}>{categoriesError}</div>}
     {categoriesLoading && <div style={{ color: "#94a3b8", fontSize: 13 }}>Cargando categorías...</div>}
-    <input
-      type="text"
-      value={editCategorySearch}
-      onChange={(e) => setEditCategorySearch(e.target.value)}
-      placeholder="Buscar categoría exacta..."
-      style={{
-        width: "100%",
-        padding: "10px 12px",
-        borderRadius: 10,
-        border: "1px solid #334155",
-        background: "#020617",
-        color: "white",
-        outline: "none",
-        fontSize: 13,
-      }}
-    />
     <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-      {filteredEditCategoryOptions.map((category) => {
+      {categoryOptions.map((category) => {
         const checked = editSelectedCategoryIds.includes(Number(category.id));
         const label = categoryPathMap.get(Number(category.id)) || category.name;
         return (
@@ -5320,11 +5254,6 @@ if (fileInputRef.current) {
           </label>
         );
       })}
-      {!categoriesLoading && filteredEditCategoryOptions.length === 0 && (
-        <div style={{ color: "#94a3b8", fontSize: 13, padding: "8px 4px" }}>
-          No encontré categorías con esa búsqueda.
-        </div>
-      )}
     </div>
   </div>
 )}
@@ -5572,7 +5501,8 @@ onMouseLeave={(e) => {
   />
 )}
 
-{editActionType !== "mover_producto_fecha" && (
+{editActionType !== "mover_producto_fecha" &&
+  editActionType !== "cambiar_categorias" && (
   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
     <div style={{ fontSize: 12, color: "#94a3b8" }}>
       Seleccioná las variaciones a modificar:
