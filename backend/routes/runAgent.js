@@ -524,13 +524,13 @@ function parseVariableVariationsText(raw) {
   for (const line of lines) {
     const parts = line.split("|").map((item) => item.trim());
 
-    if (parts.length < 3) continue;
+    if (parts.length < 2) continue;
 
     const attrsPart = parts[0];
     const pricePart = parts.find((p) => /^precio\s*:/i.test(p));
     const stockPart = parts.find((p) => /^stock\s*:/i.test(p));
 
-    if (!attrsPart || !pricePart || !stockPart) continue;
+    if (!attrsPart || !pricePart) continue;
 
     const attributes = attrsPart
       .split(",")
@@ -548,17 +548,24 @@ function parseVariableVariationsText(raw) {
       .filter(Boolean);
 
     const regularPrice = pricePart.replace(/^precio\s*:/i, "").trim();
-    const stockQuantity = Number(stockPart.replace(/^stock\s*:/i, "").trim());
+    const stockQuantity = stockPart
+      ? Number(stockPart.replace(/^stock\s*:/i, "").trim())
+      : null;
 
     if (!attributes.length) continue;
     if (!regularPrice) continue;
-    if (Number.isNaN(stockQuantity)) continue;
+    if (stockPart && Number.isNaN(stockQuantity)) continue;
 
-    variations.push({
+    const variation = {
       attributes,
       regular_price: regularPrice,
-      stock_quantity: stockQuantity,
-    });
+    };
+
+    if (stockPart && stockQuantity !== null) {
+      variation.stock_quantity = stockQuantity;
+    }
+
+    variations.push(variation);
   }
 
   return variations;
@@ -2563,7 +2570,7 @@ if (variations.length === 0) {
     agentName: agent.name,
     usedTool: false,
     reply:
-      "No pude armar las variaciones del producto. Revisá que hayas cargado precio, atributos válidos y, si corresponde, stock por variación.",
+      "No pude armar las variaciones del producto. Revisá que hayas cargado precio y atributos válidos. El stock por variación es opcional.",
   });
 }
 

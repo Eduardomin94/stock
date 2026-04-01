@@ -57,6 +57,7 @@ type CreateProductForm = {
   colores: string;
   talles: string;
   precio: string;
+  priceMode: "global" | "perVariation";
   precioRebajado: string;
   precioEfectivo: string;
   stockMode: "none" | "same" | "perVariation";
@@ -193,7 +194,7 @@ const CREATE_STEPS: {
   {
     key: "precio",
     title: "Precio",
-    helper: "Ingresá el precio normal del producto.",
+    helper: "Ingresá el precio normal del producto o elegí precio por variación.",
     placeholder: "Ej: 12900",
   },
   {
@@ -244,6 +245,7 @@ const initialCreateForm: CreateProductForm = {
   colores: "",
   talles: "",
   precio: "",
+  priceMode: "global",
   precioRebajado: "",
   precioEfectivo: "",
   stockMode: "none",
@@ -540,11 +542,13 @@ function translateAgentError(message: any) {
 function buildCreateProductMessage(
   form: CreateProductForm,
   stockByVariationMap: Record<string, string>,
-  selectedCategoryIds: number[] = []
+  selectedCategoryIds: number[] = [],
+  priceByVariationMap: Record<string, string> = {}
 ) {
   const cleanColors = normalizeCommaField(form.colores);
   const cleanSizes = normalizeCommaField(form.talles);
   const cleanPrice = cleanMoney(form.precio);
+  const isPerVariationPrice = form.priceMode === "perVariation" && (cleanColors || cleanSizes);
   const cleanSalePrice = cleanMoney(form.precioRebajado);
   const cleanCashPrice = cleanMoney(form.precioEfectivo);
   const shortDescription = form.descripcionCorta.trim();
@@ -576,13 +580,53 @@ function buildCreateProductMessage(
     lines.push("crear producto variable");
     lines.push(`nombre: ${name}`);
     if (sku) lines.push(`sku: ${sku}`);
-    lines.push(`precio: ${cleanPrice}`);
+    const variationPriceEntries = Object.entries(priceByVariationMap)
+      .map(([key, value]) => [key, cleanMoney(value)] as const)
+      .filter(([, value]) => Boolean(value));
+
+    const fallbackVariationPrice =
+      variationPriceEntries[0]?.[1] || cleanPrice;
+
+    if (!isPerVariationPrice || fallbackVariationPrice) {
+      lines.push(`precio: ${isPerVariationPrice ? fallbackVariationPrice : cleanPrice}`);
+    }
+
     if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
     if (cleanCashPrice) lines.push(`precio_efectivo: ${cleanCashPrice}`);
 
     lines.push("atributos:");
     if (cleanColors) lines.push(`Color: ${cleanColors}`);
     if (cleanSizes) lines.push(`Talle: ${cleanSizes}`);
+
+    if (isPerVariationPrice) {
+      const variationLines = Object.entries(priceByVariationMap)
+        .map(([key, rawPrice]) => {
+          const cleanVariationPrice = cleanMoney(rawPrice);
+          if (!cleanVariationPrice) return "";
+
+          const [color, talle] = key.split("__");
+          const cleanColor = String(color || "").trim();
+          const cleanTalle = String(talle || "").trim();
+          const cleanQty = form.stockMode === "same"
+            ? String(form.stockGeneral || "").trim()
+            : String(stockByVariationMap[key] || "").trim();
+
+          const attrs: string[] = [];
+          if (cleanColor) attrs.push(`Color: ${cleanColor}`);
+          if (cleanTalle) attrs.push(`Talle: ${cleanTalle}`);
+
+          if (attrs.length === 0) return "";
+
+          const stockPart = cleanQty ? ` | stock: ${cleanQty}` : "";
+          return `${attrs.join(", ")} | precio: ${cleanVariationPrice}${stockPart}`;
+        })
+        .filter(Boolean);
+
+      if (variationLines.length > 0) {
+        lines.push("variaciones:");
+        lines.push(...variationLines);
+      }
+    }
 
     if (form.stockMode === "same") {
   const cleanQty = String(form.stockGeneral || "").trim();
@@ -869,6 +913,7 @@ export default function ChatWindow() {
   const [isDragging, setIsDragging] = useState(false);
   const [imageColorMap, setImageColorMap] = useState<Record<string, string>>({});
   const [stockByVariationMap, setStockByVariationMap] = useState<Record<string, string>>({});
+  const [priceByVariationMap, setPriceByVariationMap] = useState<Record<string, string>>({});
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
   const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
   const [draggedProductImageIndex, setDraggedProductImageIndex] = useState<number | null>(null);
@@ -1706,6 +1751,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   setCreateStepIndex(0);
   setText("");
   setStockByVariationMap({});
+  setPriceByVariationMap({});
   resetSkuValidationState();
 
   pushAssistantInfo(
@@ -1774,6 +1820,7 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   setCreateForm(initialCreateForm);
   setText("");
   setStockByVariationMap({});
+  setPriceByVariationMap({});
   setCreateSelectedCategoryIds([]);
   resetSkuValidationState();
 }
@@ -1787,6 +1834,9 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
 
     if (!rawValue && !isOptional) {
       if (currentCreateStep.key === "categoria" && createSelectedCategoryIds.length > 0) {
+        return true;
+      }
+      if (currentCreateStep.key === "precio" && createForm.priceMode === "perVariation" && isVariableProductDraft) {
         return true;
       }
       return false;
@@ -1842,7 +1892,9 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
         : step.key === "talles"
           ? createForm.talles
           : step.key === "precio"
-            ? createForm.precio
+            ? createForm.priceMode === "global"
+              ? createForm.precio
+              : ""
             : step.key === "precioRebajado"
               ? createForm.precioRebajado
               : step.key === "precioEfectivo"
@@ -1931,8 +1983,16 @@ async function nextCreateStep() {
 
     const missingRequired: string[] = [];
 
+    const hasPerVariationPrice = Object.values(priceByVariationMap).some((value) => Boolean(cleanMoney(value)));
+
     if (!finalForm.nombre.trim()) missingRequired.push("Nombre");
-    if (!cleanMoney(finalForm.precio)) missingRequired.push("Precio");
+    if (
+      finalForm.priceMode === "perVariation" && isVariableProductDraft
+        ? !hasPerVariationPrice
+        : !cleanMoney(finalForm.precio)
+    ) {
+      missingRequired.push("Precio");
+    }
     if (!finalForm.categoria.trim() && createSelectedCategoryIds.length === 0) missingRequired.push("Categoría");
 
     if (missingRequired.length > 0) {
@@ -1940,7 +2000,7 @@ async function nextCreateStep() {
       return;
     }
 
-    const builtMessage = buildCreateProductMessage(finalForm, stockByVariationMap, createSelectedCategoryIds);
+    const builtMessage = buildCreateProductMessage(finalForm, stockByVariationMap, createSelectedCategoryIds, priceByVariationMap);
 
     await sendToAgent(builtMessage, selectedFiles);
 
@@ -1949,6 +2009,7 @@ async function nextCreateStep() {
     setCreateForm(initialCreateForm);
     setText("");
     setStockByVariationMap({});
+    setPriceByVariationMap({});
     setCreateSelectedCategoryIds([]);
   }
 
@@ -2147,16 +2208,27 @@ setStoreName(`${prettyName} (${domain})`);
   }, [activeAction, createStepIndex]);
 
   useEffect(() => {
-  if (!isVariableProductDraft && createForm.stockMode === "perVariation") {
-    setCreateForm((prev) => ({
-      ...prev,
-      stockMode: "none",
-      stockGeneral: "",
-    }));
+  if (!isVariableProductDraft) {
+    if (createForm.stockMode === "perVariation") {
+      setCreateForm((prev) => ({
+        ...prev,
+        stockMode: "none",
+        stockGeneral: "",
+      }));
 
-    setStockByVariationMap({});
+      setStockByVariationMap({});
+    }
+
+    if (createForm.priceMode === "perVariation") {
+      setCreateForm((prev) => ({
+        ...prev,
+        priceMode: "global",
+      }));
+
+      setPriceByVariationMap({});
+    }
   }
-}, [isVariableProductDraft, createForm.stockMode]);
+}, [isVariableProductDraft, createForm.stockMode, createForm.priceMode]);
 
 
 
@@ -2843,7 +2915,59 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
   </div>
 ) : (
   <>
-    {currentCreateStep?.key === "stock" && (
+    {currentCreateStep?.key === "precio" && isVariableProductDraft && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: "#e5e7eb",
+        fontSize: 14,
+      }}
+    >
+      <input
+        type="radio"
+        name="priceMode"
+        checked={createForm.priceMode === "global"}
+        onChange={() => {
+          setCreateForm((prev) => ({
+            ...prev,
+            priceMode: "global",
+          }));
+          setPriceByVariationMap({});
+        }}
+      />
+      Un solo precio
+    </label>
+
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: "#e5e7eb",
+        fontSize: 14,
+      }}
+    >
+      <input
+        type="radio"
+        name="priceMode"
+        checked={createForm.priceMode === "perVariation"}
+        onChange={() => {
+          setCreateForm((prev) => ({
+            ...prev,
+            priceMode: "perVariation",
+            precio: "",
+          }));
+        }}
+      />
+      Precio por variación
+    </label>
+  </div>
+)}
+
+{currentCreateStep?.key === "stock" && (
   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
     <label
       style={{
@@ -2950,7 +3074,163 @@ Stock general
   </div>
 )}
 
-       {currentCreateStep?.key === "stock" ? (
+       {currentCreateStep?.key === "precio" && createForm.priceMode === "perVariation" ? (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+    {(() => {
+      const colors = (createForm.colores || "")
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+
+      const sizes = (createForm.talles || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      if (colors.length > 0 && sizes.length > 0) {
+        return colors.flatMap((color) =>
+          sizes.map((talle) => {
+            const variationKey = getVariationKey(color, talle);
+
+            return (
+              <div
+                key={variationKey}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 120px",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ color: "#e5e7eb", fontSize: 14 }}>
+                  {color} / {talle}
+                </div>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={priceByVariationMap[variationKey] || ""}
+                  onChange={(e) =>
+                    setPriceByVariationMap((prev) => ({
+                      ...prev,
+                      [variationKey]: cleanMoney(e.target.value),
+                    }))
+                  }
+                  placeholder="Precio"
+                  style={{
+                    width: "100%",
+                    border: "1px solid #334155",
+                    background: "#020617",
+                    color: "white",
+                    borderRadius: 10,
+                    padding: "8px 10px",
+                    outline: "none",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+            );
+          })
+        );
+      }
+
+      if (colors.length > 0) {
+        return colors.map((color) => {
+          const variationKey = getVariationKey(color, "");
+
+          return (
+            <div
+              key={variationKey}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 120px",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ color: "#e5e7eb", fontSize: 14 }}>{color}</div>
+
+              <input
+                type="number"
+                min="0"
+                value={priceByVariationMap[variationKey] || ""}
+                onChange={(e) =>
+                  setPriceByVariationMap((prev) => ({
+                    ...prev,
+                    [variationKey]: cleanMoney(e.target.value),
+                  }))
+                }
+                placeholder="Precio"
+                style={{
+                  width: "100%",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "white",
+                  borderRadius: 10,
+                  padding: "8px 10px",
+                  outline: "none",
+                  fontSize: 14,
+                }}
+              />
+            </div>
+          );
+        });
+      }
+
+      if (sizes.length > 0) {
+        return sizes.map((talle) => {
+          const variationKey = getVariationKey("", talle);
+
+          return (
+            <div
+              key={variationKey}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 120px",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ color: "#e5e7eb", fontSize: 14 }}>{talle}</div>
+
+              <input
+                type="number"
+                min="0"
+                value={priceByVariationMap[variationKey] || ""}
+                onChange={(e) =>
+                  setPriceByVariationMap((prev) => ({
+                    ...prev,
+                    [variationKey]: cleanMoney(e.target.value),
+                  }))
+                }
+                placeholder="Precio"
+                style={{
+                  width: "100%",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "white",
+                  borderRadius: 10,
+                  padding: "8px 10px",
+                  outline: "none",
+                  fontSize: 14,
+                }}
+              />
+            </div>
+          );
+        });
+      }
+
+      return null;
+    })()}
+
+    {(createForm.colores || "").split(",").map((c) => c.trim()).filter(Boolean).length === 0 &&
+    (createForm.talles || "").split(",").map((t) => t.trim()).filter(Boolean).length === 0 && (
+      <div style={{ color: "#94a3b8", fontSize: 13 }}>
+        Para cargar precio por variación primero completá colores o talles.
+      </div>
+    )}
+  </div>
+) : currentCreateStep?.key === "stock" ? (
   <>
     {createForm.stockMode === "perVariation" && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
