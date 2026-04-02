@@ -911,7 +911,7 @@ function parseSupplierVariableProductMessage(message) {
   const priceRaw = normalizeSpaces(data.precio || "");
   const categoryName = normalizeSpaces(data.categoria || "");
   const subcategoryName = normalizeSpaces(data.subcategoria || "");
-  const shortDescription = normalizeSpaces(data.descripcion_corta || "");
+  const shortDescription = String(data.descripcion_corta || "").trim();
   const salePriceRaw = normalizeSpaces(data.precio_rebajado || "");
   const colorRaw = normalizeSpaces(data.color || "");
   const sizeRaw = normalizeSpaces(data.talle || "");
@@ -2282,7 +2282,21 @@ const cashPrice = cashPriceRaw
   : null;
 const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
       const description = extractField(message, "descripcion");
-      const shortDescription = extractField(message, "descripcion_corta");
+      const shortDescription = extractBlock(message, "descripcion_corta", [
+  "categoria",
+  "categorias_ids",
+  "subcategoria",
+  "descripcion",
+  "precio",
+  "precio_rebajado",
+  "precio_efectivo",
+  "stock",
+  "stock_estado",
+  "atributos",
+  "variaciones",
+  "sku",
+  "nombre",
+]).trim();
 
     if (!name || regularPrice == null || Number.isNaN(regularPrice)) {
   return res.json({
@@ -2423,7 +2437,21 @@ if (files.length > 0) {
   const name = extractField(message, "nombre");
 const sku = extractField(message, "sku");
 const description = extractField(message, "descripcion");
-const shortDescription = extractField(message, "descripcion_corta");
+const shortDescription = extractBlock(message, "descripcion_corta", [
+  "categoria",
+  "categorias_ids",
+  "subcategoria",
+  "descripcion",
+  "precio",
+  "precio_rebajado",
+  "precio_efectivo",
+  "stock",
+  "stock_estado",
+  "atributos",
+  "variaciones",
+  "sku",
+  "nombre",
+]).trim();
 const categoryName = extractField(message, "categoria");
 const subcategoryName = extractField(message, "subcategoria");
 const categoryIdsRaw = extractField(message, "categorias_ids");
