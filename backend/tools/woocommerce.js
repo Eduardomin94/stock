@@ -755,16 +755,29 @@ async function createGlobalAttribute(baseUrl, consumerKey, consumerSecret, name)
 }
 
 async function fetchTermsForGlobalAttribute(baseUrl, consumerKey, consumerSecret, attributeId) {
-  const response = await axios.get(
-    `${normalizeBaseUrl(baseUrl)}/products/attributes/${attributeId}/terms`,
-    buildWooConfig(consumerKey, consumerSecret, {
-      params: {
-        per_page: 100,
-      },
-    })
-  );
+  const allTerms = [];
+  let page = 1;
 
-  return Array.isArray(response.data) ? response.data : [];
+  while (true) {
+    const response = await axios.get(
+      `${normalizeBaseUrl(baseUrl)}/products/attributes/${attributeId}/terms`,
+      buildWooConfig(consumerKey, consumerSecret, {
+        params: {
+          per_page: 100,
+          page,
+          hide_empty: false,
+        },
+      })
+    );
+
+    const batch = Array.isArray(response.data) ? response.data : [];
+    allTerms.push(...batch);
+
+    if (batch.length < 100) break;
+    page += 1;
+  }
+
+  return allTerms;
 }
 
 async function createTermForGlobalAttribute(baseUrl, consumerKey, consumerSecret, attributeId, name) {
@@ -852,19 +865,51 @@ export async function ensureGlobalAttributeWithTerms({
       continue;
     }
 
-    const createdTerm = await createTermForGlobalAttribute(
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      attribute.id,
-      option
-    );
+        try {
+      const createdTerm = await createTermForGlobalAttribute(
+        baseUrl,
+        consumerKey,
+        consumerSecret,
+        attribute.id,
+        option
+      );
 
-    ensuredTerms.push({
-      id: createdTerm.id,
-      name: createdTerm.name,
-      slug: createdTerm.slug ?? "",
-    });
+      ensuredTerms.push({
+        id: createdTerm.id,
+        name: createdTerm.name,
+        slug: createdTerm.slug ?? "",
+      });
+    } catch (error) {
+      const apiError = error?.response?.data;
+
+      if (apiError?.code === "term_exists") {
+        const resourceId = Number(apiError?.data?.resource_id || 0);
+
+        if (resourceId > 0) {
+          const matchedExisting = existingTerms.find(
+            (term) => Number(term?.id || 0) === resourceId
+          );
+
+          if (matchedExisting) {
+            ensuredTerms.push({
+              id: matchedExisting.id,
+              name: matchedExisting.name,
+              slug: matchedExisting.slug ?? "",
+            });
+            continue;
+          }
+
+          ensuredTerms.push({
+            id: resourceId,
+            name: option,
+            slug: "",
+          });
+          continue;
+        }
+      }
+
+      throw error;
+    }
   }
 
   return {
