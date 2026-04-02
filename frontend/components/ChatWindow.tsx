@@ -683,7 +683,10 @@ function buildCreateProductMessage(
   }
 }
 
-    if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
+    if (shortDescription) {
+  lines.push("descripcion_corta:");
+  lines.push(shortDescription);
+}
     if (categoryIds.length > 0) {
       lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
     } else {
@@ -711,7 +714,10 @@ if (form.stockMode === "none") {
   }
 }
 
-if (shortDescription) lines.push(`descripcion_corta: ${shortDescription}`);
+if (shortDescription) {
+  lines.push("descripcion_corta:");
+  lines.push(shortDescription);
+}
 if (categoryIds.length > 0) {
   lines.push(`categorias_ids: ${categoryIds.join(", ")}`);
 } else {
