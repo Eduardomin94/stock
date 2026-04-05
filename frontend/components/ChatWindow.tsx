@@ -1764,6 +1764,21 @@ async function loadEditProductDetails(candidate: EditFoundProduct) {
   throw new Error("No pude cargar el detalle completo del producto.");
 }
 
+async function refreshCurrentEditProduct(showSuccessMessage = true) {
+  if (!editFoundProduct) {
+    throw new Error("No hay un producto cargado para refrescar.");
+  }
+
+  const refreshed = await loadEditProductDetails(editFoundProduct);
+  setEditFoundProduct(refreshed);
+
+  if (showSuccessMessage) {
+    pushAssistantInfo("Fotos refrescadas correctamente.");
+  }
+
+  return refreshed;
+}
+
   function startCreateProduct() {
   setActiveAction("create");
   setEditFoundProduct(null);
@@ -5168,6 +5183,36 @@ onMouseLeave={(e) => {
     <button
   type="button"
   onClick={async () => {
+    if (!editFoundProduct?.id) {
+      pushAssistantInfo("Primero seleccioná un producto.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await refreshCurrentEditProduct(true);
+    } catch (error: any) {
+      pushAssistantInfo(
+        error?.message || "No pude refrescar las fotos."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }}
+  style={{
+    ...wizardPrimaryButtonStyle,
+    background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
+    border: "1px solid #475569",
+    color: "#e2e8f0",
+    marginBottom: 10,
+  }}
+>
+  Refrescar fotos
+</button>
+
+    <button
+  type="button"
+  onClick={async () => {
     if (!editFoundProduct?.id || selectedFiles.length === 0) {
       pushAssistantInfo("Agregá al menos una foto.");
       return;
@@ -5189,30 +5234,9 @@ onMouseLeave={(e) => {
         response?.reply || "Fotos agregadas correctamente."
       );
 
-      const mode = editFoundProduct?.sku ? "sku" : "nombre";
-const value = editFoundProduct?.sku || editFoundProduct?.name;
-
-if (value && !response?.queued) {
-  const form = new FormData();
-  form.append("agentId", agentId);
-  form.append("message", `__search_edit_product__:${mode}|${value}`);
-
-  const token = localStorage.getItem("token") || "";
-
-  const refreshRes = await fetchWithRetry(`${API}/run-agent`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    body: form,
-  });
-
-  const refreshed = await refreshRes.json();
-
-  if (refreshed?.product) {
-    setEditFoundProduct(
-      normalizeEditFoundProduct(refreshed.product, refreshed.variationSample)
-    );
-  }
-}
+      if (!response?.queued) {
+        await refreshCurrentEditProduct(false);
+      }
 
 setSelectedFiles([]);
 if (fileInputRef.current) {
