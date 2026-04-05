@@ -4799,7 +4799,7 @@ setTimeout(async () => {
       }}
       style={wizardPrimaryButtonStyle}
     >
-      Cargar foto para variante/s
+      Cargar foto
     </button>
 
     <button
