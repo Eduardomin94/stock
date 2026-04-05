@@ -935,6 +935,7 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
   const [deleteMode, setDeleteMode] = useState<"sku" | "nombre">("sku");
   const [editFoundProduct, setEditFoundProduct] = useState<EditFoundProduct | null>(null);
   const [editCandidates, setEditCandidates] = useState<EditFoundProduct[]>([]);
+  const [deleteCandidates, setDeleteCandidates] = useState<EditFoundProduct[]>([]);
   const [editActionType, setEditActionType] = useState<EditActionType>("");
 const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
@@ -1527,6 +1528,42 @@ setMoveProductMode("before");
       .map((line) => line.trim())
       .filter(Boolean);
 
+    if (deleteMode === "nombre" && lines.length === 1) {
+      setText("");
+      setLoading(true);
+
+      try {
+        const data = await searchDeleteProductsByName(lines[0]);
+
+        if (Array.isArray(data?.products) && data.products.length > 0) {
+          const message = `eliminar producto\nnombre: ${lines[0]}`;
+          resetDeleteCandidates();
+          await sendToAgent(message, filesOverride);
+          return;
+        }
+
+        if (Array.isArray(data?.candidates) && data.candidates.length > 0) {
+          setDeleteCandidates(
+            data.candidates.map((item: any) => normalizeEditFoundProduct(item))
+          );
+          pushAssistantInfo("No encontré una coincidencia exacta. Elegí uno de estos productos parecidos para enviarlo a la papelera.");
+          return;
+        }
+
+        resetDeleteCandidates();
+        pushAssistantInfo("No encontré ese producto para eliminar.");
+        return;
+      } catch (err: any) {
+        resetDeleteCandidates();
+        pushAssistantInfo(
+          err?.message || "Hubo un error buscando el producto para eliminar."
+        );
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     const message =
       deleteMode === "sku"
         ? `eliminar producto\nsku: ${lines.join(", ")}`
@@ -1534,6 +1571,7 @@ setMoveProductMode("before");
           ? `eliminar producto\nnombre: ${lines[0]}`
           : `eliminar producto\nnombre:\n${lines.join("\n")}`;
 
+    resetDeleteCandidates();
     await sendToAgent(message, filesOverride);
     setText("");
     return;
@@ -1578,6 +1616,50 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
 
   function pushAssistantInfo(textMessage: string) {
     setMessages((prev) => [...prev, { role: "assistant", text: textMessage }]);
+  }
+
+  function resetDeleteCandidates() {
+    setDeleteCandidates([]);
+  }
+
+  async function searchDeleteProductsByName(rawName: string) {
+    const value = String(rawName || "").trim();
+
+    if (!value) {
+      throw new Error("Escribí al menos un nombre.");
+    }
+
+    const token = localStorage.getItem("token") || "";
+    const form = new FormData();
+    form.append("agentId", agentId);
+    form.append("message", `__search_edit_product__:nombre|${value}`);
+
+    return safeFetchJson(
+      `${API}/run-agent`,
+      {
+        method: "POST",
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
+        body: form,
+      },
+      1
+    );
+  }
+
+  async function deleteProductByCandidate(candidate: EditFoundProduct) {
+    if (!String(candidate.sku || candidate.name || "").trim()) {
+      throw new Error("No pude identificar el producto a eliminar.");
+    }
+
+    const deleteMessage = candidate.sku
+      ? `eliminar producto\nsku: ${candidate.sku}`
+      : `eliminar producto\nnombre: ${candidate.name}`;
+
+    resetDeleteCandidates();
+    await sendToAgent(deleteMessage);
   }
 
   async function checkSkuExists(sku: string) {
@@ -2479,6 +2561,7 @@ onMouseLeave={(e) => {
     setMoveTargetSearch("");
     setMoveTargetProduct(null);
     setMoveProductMode("before");
+    resetDeleteCandidates();
     setText("");
     pushAssistantInfo(
       "Decime el producto que querés editar. Podés escribir el SKU o el nombre."
@@ -2527,6 +2610,7 @@ onMouseLeave={(e) => {
     setMoveTargetSearch("");
     setMoveTargetProduct(null);
     setMoveProductMode("before");
+    resetDeleteCandidates();
     setText("");
     pushAssistantInfo(
       "Elegí si querés eliminar por SKU o por nombre. También podés pasar varios."
@@ -5858,6 +5942,7 @@ setMoveProductMode("before");
           checked={deleteMode === "sku"}
           onChange={() => {
             setDeleteMode("sku");
+            resetDeleteCandidates();
             setText("");
           }}
         />
@@ -5879,6 +5964,7 @@ setMoveProductMode("before");
           checked={deleteMode === "nombre"}
           onChange={() => {
             setDeleteMode("nombre");
+            resetDeleteCandidates();
             setText("");
           }}
         />
@@ -5891,6 +5977,59 @@ setMoveProductMode("before");
         ? "Escribí uno o varios SKU, uno por línea."
         : "Escribí uno o varios nombres, uno por línea."}
     </div>
+
+    {deleteMode === "nombre" && deleteCandidates.length > 0 && (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          marginTop: 6,
+        }}
+      >
+        <div style={{ color: "#e5e7eb", fontWeight: 600, fontSize: 13 }}>
+          Sugerencias para eliminar
+        </div>
+
+        <div style={{ color: "#94a3b8", fontSize: 12 }}>
+          Tocá el producto correcto para enviarlo a la papelera.
+        </div>
+
+        {deleteCandidates.map((candidate) => (
+          <button
+            key={`delete-candidate-${candidate.id}`}
+            type="button"
+            onClick={async () => {
+              try {
+                setLoading(true);
+                await deleteProductByCandidate(candidate);
+              } catch (error: any) {
+                pushAssistantInfo(
+                  error?.message || "No pude eliminar el producto seleccionado."
+                );
+              } finally {
+                setLoading(false);
+              }
+            }}
+            style={{
+              textAlign: "left",
+              border: "1px solid #334155",
+              background: "#020617",
+              color: "#e5e7eb",
+              borderRadius: 12,
+              padding: "10px 12px",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            <div style={{ fontWeight: 700 }}>{candidate.name}</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+              SKU: {candidate.sku || "(sin SKU)"} · Tipo: {candidate.type || "-"}
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
   </div>
 )}
 
