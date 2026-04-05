@@ -125,6 +125,40 @@ function mapVariationImagePreview(variation = {}) {
     manage_stock: Boolean(variation?.manage_stock),
   };
 }
+
+async function buildEditProductSnapshot(baseUrl, consumerKey, consumerSecret, productId) {
+  const baseApiUrl = `${String(baseUrl || "").replace(/\/+$/, "")}`;
+
+  const [productResponse, variationsResponse] = await Promise.all([
+    axios.get(`${baseApiUrl}/products/${productId}`, {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+      },
+    }),
+    axios.get(`${baseApiUrl}/products/${productId}/variations`, {
+      params: {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        per_page: 100,
+      },
+    }),
+  ]);
+
+  const product = productResponse.data || {};
+  const variations = Array.isArray(variationsResponse.data) ? variationsResponse.data : [];
+
+  return {
+    id: Number(product?.id || productId || 0),
+    name: String(product?.name || ""),
+    sku: String(product?.sku || ""),
+    type: String(product?.type || ""),
+    categories: Array.isArray(product?.categories) ? product.categories : [],
+    attributeOptions: extractGlobalAttributeOptions(product),
+    images: Array.isArray(product?.images) ? product.images : [],
+    variations: variations.map(mapVariationImagePreview),
+  };
+}
 function looksLikeAuditRequest(message) {
   const text = String(message || "").toLowerCase();
 
@@ -1530,6 +1564,29 @@ if (looksLikeEditProductActionCommand(message)) {
       }
     }
 
+  if (action === "refrescar_fotos") {
+    const snapshot = await buildEditProductSnapshot(
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId
+    );
+
+    return res.json({
+      usedTool: true,
+      reply: `Fotos refrescadas correctamente en ${snapshot.name}.`,
+      product: snapshot,
+      toolResult: {
+        ok: true,
+        action: "refrescar_fotos",
+        product_id: snapshot.id,
+        name: snapshot.name,
+        images_count: Array.isArray(snapshot.images) ? snapshot.images.length : 0,
+        variations_count: Array.isArray(snapshot.variations) ? snapshot.variations.length : 0,
+      },
+    });
+  }
+
      // ✅ AGREGAR FOTOS AL PRODUCTO
 if (action === "agregar_fotos_producto") {
   const files = Array.isArray(req.files) ? req.files : [];
@@ -2018,10 +2075,27 @@ if (action === "mover_producto_fecha") {
       : `${result.name} fue movido después de ${result.target_name}.`;
 }
 
+  const shouldReturnFreshPhotoState = [
+    "agregar_fotos_producto",
+    "eliminar_fotos_producto",
+    "ordenar_fotos_producto",
+    "cambiar_fotos_variantes",
+    "quitar_fotos_variantes",
+  ].includes(action);
+
+  const freshSnapshot = shouldReturnFreshPhotoState
+    ? await buildEditProductSnapshot(
+        baseUrl,
+        consumerKey,
+        consumerSecret,
+        result.product_id || productId
+      )
+    : null;
+
   return res.json({
     usedTool: true,
     reply,
-    product: {
+    product: freshSnapshot || {
       id: result.product_id,
       name: result.name,
       type: result.type || "",
