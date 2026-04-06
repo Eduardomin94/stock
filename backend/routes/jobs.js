@@ -226,6 +226,13 @@ function writeFallbackHistory(items) {
 }
 
 async function persistJob(job) {
+  const status = String(job.status || '').toLowerCase();
+  const shouldPersist = status === 'failed' || status === 'warning';
+
+  if (!shouldPersist) {
+    return;
+  }
+
   if (hasDatabase) {
     await query(
       `INSERT INTO jobs_history (
@@ -248,11 +255,38 @@ async function persistJob(job) {
         job.resultMessage || '',
       ]
     );
+
+    if (job.userId) {
+      await query(
+        `DELETE FROM jobs_history
+         WHERE user_id = $1
+           AND id NOT IN (
+             SELECT id
+             FROM jobs_history
+             WHERE user_id = $1
+             ORDER BY created_at DESC
+             LIMIT 100
+           )`,
+        [job.userId]
+      );
+    } else {
+      await query(
+        `DELETE FROM jobs_history
+         WHERE user_id IS NULL
+           AND id NOT IN (
+             SELECT id
+             FROM jobs_history
+             WHERE user_id IS NULL
+             ORDER BY created_at DESC
+             LIMIT 100
+           )`
+      );
+    }
+
     return;
   }
 
   const history = readFallbackHistory();
-  const index = history.findIndex((item) => item.id === job.id);
   const persisted = {
     id: job.id,
     userId: job.userId || null,
@@ -265,10 +299,21 @@ async function persistJob(job) {
     resultMessage: job.resultMessage || '',
   };
 
-  if (index >= 0) history[index] = persisted;
-  else history.push(persisted);
+  const sameUserItems = history.filter(
+    (item) => (item.userId || null) === (job.userId || null)
+  );
+  const otherUsersItems = history.filter(
+    (item) => (item.userId || null) !== (job.userId || null)
+  );
 
-  writeFallbackHistory(history);
+  const filteredSameUser = sameUserItems.filter((item) => item.id !== job.id);
+  filteredSameUser.push(persisted);
+
+  filteredSameUser.sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+
+  writeFallbackHistory([...otherUsersItems, ...filteredSameUser.slice(0, 100)]);
 }
 
 async function listPersistedJobs(userId) {
