@@ -265,7 +265,7 @@ async function persistJob(job) {
              FROM jobs_history
              WHERE user_id = $1
              ORDER BY created_at DESC
-             LIMIT 100
+             LIMIT 50
            )`,
         [job.userId]
       );
@@ -278,7 +278,7 @@ async function persistJob(job) {
              FROM jobs_history
              WHERE user_id IS NULL
              ORDER BY created_at DESC
-             LIMIT 100
+             LIMIT 50
            )`
       );
     }
@@ -313,7 +313,7 @@ async function persistJob(job) {
     (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   );
 
-  writeFallbackHistory([...otherUsersItems, ...filteredSameUser.slice(0, 100)]);
+  writeFallbackHistory([...otherUsersItems, ...filteredSameUser.slice(0, 50)]);
 }
 
 async function listPersistedJobs(userId) {
