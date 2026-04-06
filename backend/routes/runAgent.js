@@ -103,9 +103,22 @@ function extractGlobalAttributeOptions(product = {}) {
     .filter((attr) => attr.name && attr.options.length > 0);
 }
 
+function getMetaValue(metaData = [], key = "") {
+  if (!Array.isArray(metaData)) return "";
+
+  const found = metaData.find(
+    (item) => String(item?.key || "").trim() === String(key || "").trim()
+  );
+
+  return found?.value != null ? String(found.value).trim() : "";
+}
+
 function mapVariationImagePreview(variation = {}) {
   return {
     id: Number(variation?.id || 0),
+    regular_price: String(variation?.regular_price || "").trim(),
+    sale_price: String(variation?.sale_price || "").trim(),
+    price: String(variation?.price || "").trim(),
     attributes: Array.isArray(variation?.attributes)
       ? variation.attributes.map((attr) => ({
           name: String(attr?.name || "").trim(),
@@ -153,6 +166,15 @@ async function buildEditProductSnapshot(baseUrl, consumerKey, consumerSecret, pr
     name: String(product?.name || ""),
     sku: String(product?.sku || ""),
     type: String(product?.type || ""),
+    regular_price: String(product?.regular_price || "").trim(),
+    sale_price: String(product?.sale_price || "").trim(),
+    price: String(product?.price || "").trim(),
+    cash_price_general:
+      String(
+        getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
+        getMetaValue(product?.meta_data, "_precio_efectivo") ||
+        ""
+      ).trim(),
     categories: Array.isArray(product?.categories) ? product.categories : [],
     attributeOptions: extractGlobalAttributeOptions(product),
     images: Array.isArray(product?.images) ? product.images : [],
