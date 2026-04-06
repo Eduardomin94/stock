@@ -104,21 +104,14 @@ function extractGlobalAttributeOptions(product = {}) {
 }
 
 function getMetaValue(metaData = [], key = "") {
-  if (!Array.isArray(metaData)) return "";
-
-  const found = metaData.find(
-    (item) => String(item?.key || "").trim() === String(key || "").trim()
-  );
-
-  return found?.value != null ? String(found.value).trim() : "";
+  if (!Array.isArray(metaData) || !key) return "";
+  const item = metaData.find((entry) => String(entry?.key || "").trim() === key);
+  return item?.value ?? "";
 }
 
 function mapVariationImagePreview(variation = {}) {
   return {
     id: Number(variation?.id || 0),
-    regular_price: String(variation?.regular_price || "").trim(),
-    sale_price: String(variation?.sale_price || "").trim(),
-    price: String(variation?.price || "").trim(),
     attributes: Array.isArray(variation?.attributes)
       ? variation.attributes.map((attr) => ({
           name: String(attr?.name || "").trim(),
@@ -132,7 +125,9 @@ function mapVariationImagePreview(variation = {}) {
             src: String(variation.image.src || ""),
           }
         : null,
-
+    regular_price: String(variation?.regular_price || ""),
+    sale_price: String(variation?.sale_price || ""),
+    price: String(variation?.price || ""),
     stock_quantity: variation?.stock_quantity ?? "",
     stock_status: String(variation?.stock_status || "instock"),
     manage_stock: Boolean(variation?.manage_stock),
@@ -166,15 +161,10 @@ async function buildEditProductSnapshot(baseUrl, consumerKey, consumerSecret, pr
     name: String(product?.name || ""),
     sku: String(product?.sku || ""),
     type: String(product?.type || ""),
-    regular_price: String(product?.regular_price || "").trim(),
-    sale_price: String(product?.sale_price || "").trim(),
-    price: String(product?.price || "").trim(),
-    cash_price_general:
-      String(
-        getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
-        getMetaValue(product?.meta_data, "_precio_efectivo") ||
-        ""
-      ).trim(),
+    regular_price: String(product?.regular_price || ""),
+    sale_price: String(product?.sale_price || ""),
+    price: String(product?.price || ""),
+    cash_price_general: String(getMetaValue(product?.meta_data, "_cash_price") || ""),
     categories: Array.isArray(product?.categories) ? product.categories : [],
     attributeOptions: extractGlobalAttributeOptions(product),
     images: Array.isArray(product?.images) ? product.images : [],
