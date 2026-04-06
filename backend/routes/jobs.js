@@ -9,6 +9,9 @@ import { query, hasDatabase } from '../services/db.js';
 const router = express.Router();
 const TMP_DIR = path.join(os.tmpdir(), 'tonica-stock-jobs');
 const FALLBACK_FILE = path.join(process.cwd(), 'data', 'jobs-history.json');
+const MAX_CONCURRENT_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS || 30));
+const MAX_CONCURRENT_JOBS_PER_USER = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS_PER_USER || 1));
+
 fs.mkdirSync(TMP_DIR, { recursive: true });
 fs.mkdirSync(path.dirname(FALLBACK_FILE), { recursive: true });
 
@@ -26,7 +29,8 @@ const upload = multer({
 });
 
 const jobs = [];
-let isProcessing = false;
+const activeJobIds = new Set();
+const activeJobsByUser = new Map();
 
 function nowIso() {
   return new Date().toISOString();
@@ -47,6 +51,38 @@ function getUserIdFromReq(req) {
   } catch {
     return null;
   }
+}
+
+function getUserQueueKey(userId) {
+  return String(userId || '__anonymous__');
+}
+
+function getActiveJobsForUser(userId) {
+  return activeJobsByUser.get(getUserQueueKey(userId)) || 0;
+}
+
+function incrementActiveJobsForUser(userId) {
+  const key = getUserQueueKey(userId);
+  activeJobsByUser.set(key, getActiveJobsForUser(userId) + 1);
+}
+
+function decrementActiveJobsForUser(userId) {
+  const key = getUserQueueKey(userId);
+  const current = getActiveJobsForUser(userId);
+
+  if (current <= 1) {
+    activeJobsByUser.delete(key);
+    return;
+  }
+
+  activeJobsByUser.set(key, current - 1);
+}
+
+function canStartJob(job) {
+  if (!job || job.status !== 'pending') return false;
+  if (activeJobIds.size >= MAX_CONCURRENT_JOBS) return false;
+  if (getActiveJobsForUser(job.userId) >= MAX_CONCURRENT_JOBS_PER_USER) return false;
+  return true;
 }
 
 function humanizeAttributesText(text = '') {
@@ -372,14 +408,11 @@ async function clearPersistedJobs(userId) {
   writeFallbackHistory(filtered);
 }
 
-async function processNext() {
-  if (isProcessing) return;
-  const next = jobs.find((j) => j.status === 'pending');
-  if (!next) return;
-
-  isProcessing = true;
+async function runJob(next) {
   next.status = 'processing';
   next.updatedAt = nowIso();
+  activeJobIds.add(next.id);
+  incrementActiveJobsForUser(next.userId);
   await persistJob(next);
 
   try {
@@ -425,12 +458,27 @@ async function processNext() {
     for (const file of next.files || []) {
       try { await fs.promises.unlink(file.path); } catch {}
     }
+
     const index = jobs.findIndex((item) => item.id === next.id);
     if (index >= 0) jobs.splice(index, 1);
-    isProcessing = false;
+
+    activeJobIds.delete(next.id);
+    decrementActiveJobsForUser(next.userId);
+
     setTimeout(() => {
-      processNext().catch(() => {});
+      processQueue();
     }, 0);
+  }
+}
+
+function processQueue() {
+  while (activeJobIds.size < MAX_CONCURRENT_JOBS) {
+    const next = jobs.find((job) => canStartJob(job));
+    if (!next) break;
+
+    runJob(next).catch((error) => {
+      console.error('[jobs] Error no controlado al ejecutar job:', error);
+    });
   }
 }
 
@@ -509,7 +557,7 @@ router.post('/', upload.array('images', 10), async (req, res) => {
 
   jobs.push(job);
   await persistJob(job);
-  processNext().catch(() => {});
+  processQueue();
 
   res.status(202).json({ ok: true, job: publicJob(job) });
 });
