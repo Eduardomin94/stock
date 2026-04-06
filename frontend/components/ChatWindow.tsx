@@ -304,12 +304,23 @@ function buildCategoryPathMap(categories: CategoryItem[]) {
 }
 
 function normalizeEditFoundProduct(product: any, variation?: any): EditFoundProduct {
-  let regular = product?.regular_price;
-  let sale = product?.sale_price;
+  const firstVariationWithPrice =
+    Array.isArray(product?.variations)
+      ? product.variations.find(
+          (v: any) =>
+            String(v?.regular_price || "").trim() !== "" ||
+            String(v?.sale_price || "").trim() !== ""
+        )
+      : null;
 
-  if (variation) {
-    regular = variation?.regular_price || regular;
-    sale = variation?.sale_price || sale;
+  const variationSource = variation || firstVariationWithPrice || null;
+
+  let regular = String(product?.regular_price || "").trim();
+  let sale = String(product?.sale_price || "").trim();
+
+  if (variationSource) {
+    regular = String(variationSource?.regular_price || regular).trim();
+    sale = String(variationSource?.sale_price || sale).trim();
   }
 
   const variationAttributeNames = new Set(

@@ -98,11 +98,14 @@ function mapProductForEdit(product) {
     product.sale_price !== product.regular_price;
 
   const regular_price =
-    product?.regular_price && product.regular_price !== ""
-      ? product.regular_price
-      : product?.price || "";
+  product?.regular_price && product.regular_price !== ""
+    ? String(product.regular_price).trim()
+    : "";
 
-  const sale_price = hasSale ? product.sale_price : "";
+const sale_price =
+  product?.sale_price && product.sale_price !== ""
+    ? String(product.sale_price).trim()
+    : "";
 
   const cash_price_general =
     getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
