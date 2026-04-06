@@ -5,7 +5,6 @@ import os from 'os';
 import multer from 'multer';
 import jwt from 'jsonwebtoken';
 import { query, hasDatabase } from '../services/db.js';
-import { jobQueue } from "../queue/queue.js";
 
 const router = express.Router();
 const TMP_DIR = path.join(os.tmpdir(), 'tonica-stock-jobs');
