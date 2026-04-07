@@ -935,6 +935,7 @@ export default function ChatWindow() {
   const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
   const [draggedProductImageIndex, setDraggedProductImageIndex] = useState<number | null>(null);
 const [dragOverProductImageIndex, setDragOverProductImageIndex] = useState<number | null>(null);
+const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [skuChecking, setSkuChecking] = useState(false);
 const [skuStatus, setSkuStatus] = useState<"idle" | "available" | "taken">("idle");
 const [skuStatusMessage, setSkuStatusMessage] = useState("");
@@ -976,6 +977,20 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
   const composerAreaRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const editActionFieldRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const detectTouch = () => {
+      const hasTouch = window.matchMedia?.("(pointer: coarse)")?.matches || ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+      setIsTouchDevice(Boolean(hasTouch));
+    };
+
+    detectTouch();
+    window.addEventListener("resize", detectTouch);
+
+    return () => window.removeEventListener("resize", detectTouch);
+  }, []);
 
   const storageKey = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -1628,6 +1643,61 @@ function moveSelectedFile(fromIndex: number, toIndex: number) {
 
     return next;
   });
+}
+
+function shiftSelectedFile(index: number, direction: -1 | 1) {
+  moveSelectedFile(index, index + direction);
+}
+
+async function reorderEditProductImages(nextImages: { id: number; src: string }[]) {
+  if (!editFoundProduct?.id) return;
+
+  setEditFoundProduct((prev) =>
+    prev
+      ? {
+          ...prev,
+          images: nextImages,
+        }
+      : prev
+  );
+
+  try {
+    setLoading(true);
+
+    const response = await sendEditPayload({
+      action: "ordenar_fotos_producto",
+      productId: editFoundProduct.id,
+      productName: editFoundProduct.name,
+      orderedImageIds: nextImages.map((item) => item.id),
+    });
+
+    pushAssistantInfo(
+      response?.reply || "Fotos reordenadas correctamente."
+    );
+  } catch (error: any) {
+    pushAssistantInfo(
+      error?.message || "No pude reordenar las fotos."
+    );
+    await refreshCurrentEditProduct(false);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function shiftEditProductImage(index: number, direction: -1 | 1) {
+  if (!editFoundProduct?.images?.length) return;
+
+  const toIndex = index + direction;
+  const currentImages = [...(editFoundProduct.images || [])];
+
+  if (toIndex < 0 || toIndex >= currentImages.length || index === toIndex) {
+    return;
+  }
+
+  const [movedItem] = currentImages.splice(index, 1);
+  currentImages.splice(toIndex, 0, movedItem);
+
+  await reorderEditProductImages(currentImages);
 }
 
   function pushAssistantInfo(textMessage: string) {
@@ -2683,6 +2753,7 @@ onMouseLeave={(e) => {
   >
     Elegí una acción para empezar.
   </div>
+  </>
 )}
 
 {messages.length === 0 && activeAction !== null && activeAction !== "users" && (
@@ -2872,7 +2943,7 @@ onMouseLeave={(e) => {
         marginBottom: 6,
       }}
     >
-      Arrastrá las fotos para ordenar. La primera será la principal.
+      Arrastrá las fotos para ordenar. En celular también podés usar Subir y Bajar. La primera será la principal.
     </div>
 
     <div
@@ -2995,6 +3066,52 @@ boxShadow: dragOverFileIndex === index ? "0 0 0 2px #3b82f6 inset" : "none",
       );
     })}
 </select>
+
+{isTouchDevice && (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+      marginLeft: 6,
+    }}
+  >
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={() => shiftSelectedFile(index, -1)}
+      disabled={index === 0}
+      style={{
+        border: "1px solid #334155",
+        background: index === 0 ? "#0f172a" : "#1e293b",
+        color: index === 0 ? "#64748b" : "#e2e8f0",
+        borderRadius: 8,
+        padding: "4px 8px",
+        fontSize: 12,
+        cursor: index === 0 ? "not-allowed" : "pointer",
+      }}
+    >
+      Subir
+    </button>
+    <button
+      type="button"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={() => shiftSelectedFile(index, 1)}
+      disabled={index === selectedFiles.length - 1}
+      style={{
+        border: "1px solid #334155",
+        background: index === selectedFiles.length - 1 ? "#0f172a" : "#1e293b",
+        color: index === selectedFiles.length - 1 ? "#64748b" : "#e2e8f0",
+        borderRadius: 8,
+        padding: "4px 8px",
+        fontSize: 12,
+        cursor: index === selectedFiles.length - 1 ? "not-allowed" : "pointer",
+      }}
+    >
+      Bajar
+    </button>
+  </div>
+)}
 
                 <button
                   type="button"
@@ -5219,6 +5336,10 @@ onMouseLeave={(e) => {
 )}
 
     {Array.isArray(editFoundProduct?.images) && editFoundProduct.images.length > 0 && (
+  <>
+  <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 10 }}>
+    Arrastrá las fotos para ordenarlas. En celular también podés usar Subir y Bajar.
+  </div>
   <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
     {editFoundProduct.images.map((img, index) => (
       <div
@@ -5247,38 +5368,10 @@ onMouseLeave={(e) => {
           const [movedItem] = currentImages.splice(draggedProductImageIndex, 1);
           currentImages.splice(index, 0, movedItem);
 
-          setEditFoundProduct((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  images: currentImages,
-                }
-              : prev
-          );
-
           setDraggedProductImageIndex(null);
           setDragOverProductImageIndex(null);
 
-          try {
-            setLoading(true);
-
-            const response = await sendEditPayload({
-              action: "ordenar_fotos_producto",
-              productId: editFoundProduct.id,
-              productName: editFoundProduct.name,
-              orderedImageIds: currentImages.map((item) => item.id),
-            });
-
-            pushAssistantInfo(
-              response?.reply || "Fotos reordenadas correctamente."
-            );
-          } catch (error: any) {
-            pushAssistantInfo(
-              error?.message || "No pude reordenar las fotos."
-            );
-          } finally {
-            setLoading(false);
-          }
+          await reorderEditProductImages(currentImages);
         }}
         onDragEnd={() => {
           setDraggedProductImageIndex(null);
@@ -5314,6 +5407,45 @@ onMouseLeave={(e) => {
         <div style={{ color: "#94a3b8", fontSize: 12 }}>
           {index === 0 ? "Principal" : `Foto ${index + 1}`}
         </div>
+
+        {isTouchDevice && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => shiftEditProductImage(index, -1)}
+              disabled={loading || index === 0}
+              style={{
+                flex: 1,
+                border: "1px solid #334155",
+                background: loading || index === 0 ? "#0f172a" : "#1e293b",
+                color: loading || index === 0 ? "#64748b" : "#e2e8f0",
+                borderRadius: 8,
+                padding: "6px 8px",
+                fontSize: 12,
+                cursor: loading || index === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              Subir
+            </button>
+            <button
+              type="button"
+              onClick={() => shiftEditProductImage(index, 1)}
+              disabled={loading || index === (editFoundProduct?.images?.length || 0) - 1}
+              style={{
+                flex: 1,
+                border: "1px solid #334155",
+                background: loading || index === (editFoundProduct?.images?.length || 0) - 1 ? "#0f172a" : "#1e293b",
+                color: loading || index === (editFoundProduct?.images?.length || 0) - 1 ? "#64748b" : "#e2e8f0",
+                borderRadius: 8,
+                padding: "6px 8px",
+                fontSize: 12,
+                cursor: loading || index === (editFoundProduct?.images?.length || 0) - 1 ? "not-allowed" : "pointer",
+              }}
+            >
+              Bajar
+            </button>
+          </div>
+        )}
 
         <button
           type="button"
@@ -5379,6 +5511,7 @@ onMouseLeave={(e) => {
       </div>
     ))}
   </div>
+  </>
 )}
 
     <button
