@@ -679,7 +679,7 @@ export async function deleteProductById({
     `${normalizeBaseUrl(baseUrl)}/products/${productId}`,
     buildWooConfig(consumerKey, consumerSecret, {
       params: {
-        force: false,
+        force: true,
       },
     })
   );

@@ -1577,7 +1577,7 @@ setMoveProductMode("before");
           setDeleteCandidates(
             data.candidates.map((item: any) => normalizeEditFoundProduct(item))
           );
-          pushAssistantInfo("No encontré una coincidencia exacta. Elegí uno de estos productos parecidos para enviarlo a la papelera.");
+          pushAssistantInfo("No encontré una coincidencia exacta. Elegí uno de estos productos parecidos para eliminarlo definitivamente.");
           return;
         }
 
@@ -6241,7 +6241,7 @@ setMoveProductMode("before");
         </div>
 
         <div style={{ color: "#94a3b8", fontSize: 12 }}>
-          Tocá el producto correcto para enviarlo a la papelera.
+          Tocá el producto correcto para eliminarlo definitivamente.
         </div>
 
         {deleteCandidates.map((candidate) => (
