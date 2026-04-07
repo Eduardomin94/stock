@@ -2753,7 +2753,6 @@ onMouseLeave={(e) => {
   >
     Elegí una acción para empezar.
   </div>
-  </>
 )}
 
 {messages.length === 0 && activeAction !== null && activeAction !== "users" && (
