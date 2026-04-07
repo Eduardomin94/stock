@@ -1743,53 +1743,21 @@ if (action === "quitar_fotos_variantes") {
 }
 
 if (action === "eliminar_variacion") {
-  const variationIds = Array.isArray(payload?.variationIds)
-    ? payload.variationIds.map((id) => Number(id)).filter(Boolean)
-    : [];
-  const singleVariationId = Number(payload?.variationId);
-  const resolvedVariationIds = variationIds.length
-    ? Array.from(new Set(variationIds))
-    : singleVariationId
-      ? [singleVariationId]
-      : [];
+  const variationId = Number(payload?.variationId);
 
-  if (!resolvedVariationIds.length) {
+  if (!variationId) {
     return res.status(400).json({
       error: "Falta variationId.",
     });
   }
 
-  if (resolvedVariationIds.length === 1) {
-    result = await removeProductVariation({
-      baseUrl,
-      consumerKey,
-      consumerSecret,
-      productId,
-      variationId: resolvedVariationIds[0],
-    });
-  } else {
-    const removedVariations = [];
-
-    for (const variationId of resolvedVariationIds) {
-      const removed = await removeProductVariation({
-        baseUrl,
-        consumerKey,
-        consumerSecret,
-        productId,
-        variationId,
-      });
-      removedVariations.push(removed);
-    }
-
-    result = {
-      ok: true,
-      action: "remove_product_variations",
-      product_id: productId,
-      name: removedVariations[0]?.name || String(payload?.productName || "").trim(),
-      deleted_count: removedVariations.length,
-      results: removedVariations,
-    };
-  }
+  result = await removeProductVariation({
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    variationId,
+  });
 }
 
 if (action === "agregar_atributo_variaciones") {
@@ -2101,18 +2069,8 @@ if (action === "agregar_variacion") {
 }
 
 if (action === "eliminar_variacion") {
-  if (Array.isArray(result?.results) && result.results.length > 1) {
-    const variationLines = result.results
-      .map((item) => `- ${item.attributes_text || `Variación #${item.variation_id}`}`)
-      .join("
-");
-
-    reply = `Se eliminaron ${result.results.length} variaciones correctamente en ${result.name}:
-${variationLines}`;
-  } else {
-    reply = `Variación eliminada correctamente en ${result.name}:
+  reply = `Variación eliminada correctamente en ${result.name}:
 - ${result.attributes_text || `Variación #${result.variation_id}`}`;
-  }
 }
 
 if (action === "agregar_atributo_variaciones") {
