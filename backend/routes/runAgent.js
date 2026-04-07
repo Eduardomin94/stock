@@ -699,7 +699,7 @@ function parseSupplierStockBlock(raw) {
     .filter(Boolean);
   const stockMap = new Map();
   for (const line of lines) {
-    const threePartsMatch = line.match(/^(.+?)\s+([A-Za-z0-9]+)\s+(\d+)$/);
+    const threePartsMatch = line.match(/^(.+?)\s+([A-Za-z0-9\/._-]+)\s+(\d+)$/);
     if (threePartsMatch) {
       const color = normalizeSpaces(threePartsMatch[1]);
       const sizeToken = normalizeSpaces(threePartsMatch[2]);
