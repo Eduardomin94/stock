@@ -963,6 +963,7 @@ const [createSelectedCategoryIds, setCreateSelectedCategoryIds] = useState<numbe
 const [editSelectedCategoryIds, setEditSelectedCategoryIds] = useState<number[]>([]);
 const [newVariationValues, setNewVariationValues] = useState<Record<string, string>>({});
 const [expandVariationOptions, setExpandVariationOptions] = useState("");
+const [selectedVariationIdsToDelete, setSelectedVariationIdsToDelete] = useState<number[]>([]);
 const [moveProductMode, setMoveProductMode] = useState<"before" | "after">("before");
 const [moveTargetSearch, setMoveTargetSearch] = useState("");
 const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | null>(null);
@@ -1236,7 +1237,11 @@ async function refreshEditProduct(product: EditFoundProduct | null) {
   const refreshed = await res.json();
 
   if (refreshed?.product) {
-    setEditFoundProduct(normalizeEditFoundProduct(refreshed.product, refreshed.variationSample));
+    const normalizedProduct = normalizeEditFoundProduct(refreshed.product, refreshed.variationSample);
+    setEditFoundProduct(normalizedProduct);
+    setSelectedVariationIdsToDelete((prev) =>
+      prev.filter((id) => (normalizedProduct?.variations || []).some((variation) => Number(variation.id) === Number(id)))
+    );
   }
 }
 
@@ -4619,7 +4624,7 @@ setTimeout(async () => {
     ) : (
       <>
         <div style={{ color: "#cbd5e1", fontSize: 13 }}>
-          Acá podés agregar una variación nueva o eliminar una existente.
+          Acá podés agregar una variación nueva o eliminar una existente. También podés seleccionar varias y eliminarlas juntas.
         </div>
 
         {getEditVariationAttributes(editFoundProduct).length === 1 && detectMissingVariationAttribute(editFoundProduct) && (
@@ -4711,62 +4716,163 @@ setTimeout(async () => {
           </div>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {(editFoundProduct?.variations || []).map((variation) => {
-            const variationLabel =
-              variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`;
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const variations = editFoundProduct?.variations || [];
+                if (!variations.length) return;
+                setSelectedVariationIdsToDelete((prev) =>
+                  prev.length === variations.length ? [] : variations.map((variation) => Number(variation.id))
+                );
+              }}
+              style={{
+                ...wizardSecondaryButtonStyle,
+                padding: "8px 12px",
+                fontSize: 13,
+              }}
+            >
+              {(editFoundProduct?.variations || []).length > 0 &&
+              selectedVariationIdsToDelete.length === (editFoundProduct?.variations || []).length
+                ? "Deseleccionar todas"
+                : "Seleccionar todas"}
+            </button>
 
-            return (
-              <div
-                key={variation.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #334155",
-                  background: "#0f172a",
-                }}
-              >
-                <div style={{ color: "#e5e7eb", fontSize: 14 }}>{variationLabel}</div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!editFoundProduct?.id) return;
-                    try {
-                      setLoading(true);
-                      const response = await sendEditPayload({
-                        action: "eliminar_variacion",
-                        productId: editFoundProduct.id,
-                        productName: editFoundProduct.name,
-                        variationId: variation.id,
-                      });
-                      pushAssistantInfo(response?.reply || "Variación enviada a eliminar.");
-                      await refreshEditProduct(editFoundProduct);
-                    } catch (error: any) {
-                      pushAssistantInfo(error?.message || "No pude eliminar la variación.");
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+            <button
+              type="button"
+              disabled={selectedVariationIdsToDelete.length === 0 || loading}
+              onClick={async () => {
+                if (!editFoundProduct?.id || selectedVariationIdsToDelete.length === 0) return;
+                try {
+                  setLoading(true);
+                  const response = await sendEditPayload({
+                    action: "eliminar_variacion",
+                    productId: editFoundProduct.id,
+                    productName: editFoundProduct.name,
+                    variationIds: selectedVariationIdsToDelete,
+                  });
+                  pushAssistantInfo(
+                    response?.reply ||
+                      `${selectedVariationIdsToDelete.length} variación${selectedVariationIdsToDelete.length === 1 ? "" : "es"} enviada${selectedVariationIdsToDelete.length === 1 ? "" : "s"} a eliminar.`
+                  );
+                  setSelectedVariationIdsToDelete([]);
+                  await refreshEditProduct(editFoundProduct);
+                } catch (error: any) {
+                  pushAssistantInfo(error?.message || "No pude eliminar las variaciones seleccionadas.");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={{
+                border: "1px solid #7f1d1d",
+                background:
+                  selectedVariationIdsToDelete.length === 0 || loading
+                    ? "#334155"
+                    : "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)",
+                color: "white",
+                borderRadius: 10,
+                padding: "8px 12px",
+                cursor: selectedVariationIdsToDelete.length === 0 || loading ? "not-allowed" : "pointer",
+                fontSize: 13,
+                fontWeight: 700,
+                opacity: selectedVariationIdsToDelete.length === 0 || loading ? 0.7 : 1,
+              }}
+            >
+              Eliminar seleccionadas ({selectedVariationIdsToDelete.length})
+            </button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(editFoundProduct?.variations || []).map((variation) => {
+              const variationLabel =
+                variation.attributes.map((attr) => attr.option).join(" / ") || `Variación ${variation.id}`;
+              const isSelected = selectedVariationIdsToDelete.includes(Number(variation.id));
+
+              return (
+                <div
+                  key={variation.id}
                   style={{
-                    border: "1px solid #7f1d1d",
-                    background: "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)",
-                    color: "white",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
                     borderRadius: 10,
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: 700,
+                    border: isSelected ? "1px solid #60a5fa" : "1px solid #334155",
+                    background: isSelected ? "#111c34" : "#0f172a",
                   }}
                 >
-                  Eliminar
-                </button>
-              </div>
-            );
-          })}
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      color: "#e5e7eb",
+                      fontSize: 14,
+                      flex: 1,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() =>
+                        setSelectedVariationIdsToDelete((prev) =>
+                          prev.includes(Number(variation.id))
+                            ? prev.filter((id) => id !== Number(variation.id))
+                            : [...prev, Number(variation.id)]
+                        )
+                      }
+                    />
+                    <span>{variationLabel}</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editFoundProduct?.id) return;
+                      try {
+                        setLoading(true);
+                        const response = await sendEditPayload({
+                          action: "eliminar_variacion",
+                          productId: editFoundProduct.id,
+                          productName: editFoundProduct.name,
+                          variationId: variation.id,
+                        });
+                        pushAssistantInfo(response?.reply || "Variación enviada a eliminar.");
+                        setSelectedVariationIdsToDelete((prev) => prev.filter((id) => id !== Number(variation.id)));
+                        await refreshEditProduct(editFoundProduct);
+                      } catch (error: any) {
+                        pushAssistantInfo(error?.message || "No pude eliminar la variación.");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    style={{
+                      border: "1px solid #7f1d1d",
+                      background: "linear-gradient(180deg, #b91c1c 0%, #991b1b 100%)",
+                      color: "white",
+                      borderRadius: 10,
+                      padding: "8px 12px",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div
