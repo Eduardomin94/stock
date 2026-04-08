@@ -9,7 +9,7 @@ import { query, hasDatabase } from '../services/db.js';
 const router = express.Router();
 const TMP_DIR = path.join(os.tmpdir(), 'tonica-stock-jobs');
 const FALLBACK_FILE = path.join(process.cwd(), 'data', 'jobs-history.json');
-const MAX_CONCURRENT_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS || 30));
+const MAX_CONCURRENT_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS || 5));
 const MAX_CONCURRENT_JOBS_PER_USER = Math.max(1, Number(process.env.MAX_CONCURRENT_JOBS_PER_USER || 1));
 
 fs.mkdirSync(TMP_DIR, { recursive: true });

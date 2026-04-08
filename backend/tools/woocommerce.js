@@ -81,6 +81,25 @@ function scoreSkuCandidate(search, product) {
   return score;
 }
 
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postVariationWithRetry(url, payload, config, retries = 4) {
+  try {
+    return await axios.post(url, payload, config);
+  } catch (error) {
+    const status = error?.response?.status;
+
+    if (status === 429 && retries > 0) {
+      await sleep(1200);
+      return postVariationWithRetry(url, payload, config, retries - 1);
+    }
+
+    throw error;
+  }
+}
 function getMetaValue(metaData, key) {
   if (!Array.isArray(metaData)) return "";
 
@@ -2924,7 +2943,7 @@ export async function createVariableProduct({
       payload.stock_status = "instock";
     }
 
-    const response = await axios.post(
+    const response = await postVariationWithRetry(
       `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
       payload,
       buildWooConfig(consumerKey, consumerSecret, {
@@ -2935,6 +2954,7 @@ export async function createVariableProduct({
     );
 
     createdVariations.push(response.data);
+    await sleep(400);
   }
 
   return {
