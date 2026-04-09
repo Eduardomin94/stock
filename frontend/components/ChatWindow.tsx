@@ -936,6 +936,7 @@ export default function ChatWindow() {
   const [draggedProductImageIndex, setDraggedProductImageIndex] = useState<number | null>(null);
 const [dragOverProductImageIndex, setDragOverProductImageIndex] = useState<number | null>(null);
 const [isTouchDevice, setIsTouchDevice] = useState(false);
+const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [skuChecking, setSkuChecking] = useState(false);
 const [skuStatus, setSkuStatus] = useState<"idle" | "available" | "taken">("idle");
 const [skuStatusMessage, setSkuStatusMessage] = useState("");
@@ -984,6 +985,7 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
     const detectTouch = () => {
       const hasTouch = window.matchMedia?.("(pointer: coarse)")?.matches || ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
       setIsTouchDevice(Boolean(hasTouch));
+      setIsMobileViewport(window.innerWidth <= 768);
     };
 
     detectTouch();
@@ -1017,6 +1019,12 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 const currentCreateStep =
   activeAction === "create" ? CREATE_STEPS_VISIBLE[createStepIndex] : null;
   const isCreateStepPhotos = currentCreateStep?.key === "fotos";
+  const isMobileDescriptionCreateStep =
+    activeAction === "create" &&
+    currentCreateStep?.key === "descripcionCorta" &&
+    isMobileViewport;
+  const isMobileDescriptionEditStep =
+    editActionType === "cambiar_descripcion" && isMobileViewport;
 
 const hasColors = (createForm.colores || "")
   .split(",")
@@ -3651,6 +3659,7 @@ Stock general
   <textarea
   ref={composerRef}
   value={text}
+  enterKeyHint={isMobileDescriptionCreateStep ? "enter" : "send"}
   onChange={(e) => {
     const value = e.target.value;
     setText(value);
@@ -3661,6 +3670,10 @@ Stock general
   }}
     onKeyDown={(e) => {
       if (e.key === "Enter" && !e.shiftKey) {
+        if (isMobileDescriptionCreateStep) {
+          return;
+        }
+
         e.preventDefault();
 
         if (activeAction === "create") {
@@ -5710,6 +5723,7 @@ if (fileInputRef.current) {
   <textarea
     value={editValue}
     onChange={(e) => setEditValue(e.target.value)}
+    enterKeyHint={isMobileDescriptionEditStep ? "enter" : "done"}
     placeholder="Nueva descripción"
     rows={4}
     style={{
