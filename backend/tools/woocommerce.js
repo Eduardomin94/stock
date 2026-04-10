@@ -1274,6 +1274,49 @@ export async function createSimpleProduct({
   };
 }
 
+export async function updateProductNameSku({
+  baseUrl,
+  consumerKey,
+  consumerSecret,
+  productId,
+  name,
+  sku,
+}) {
+  if (!baseUrl) throw new Error("Falta baseUrl");
+  if (!consumerKey) throw new Error("Falta consumerKey");
+  if (!consumerSecret) throw new Error("Falta consumerSecret");
+  if (!productId) throw new Error("Falta productId");
+
+  const cleanName = String(name || "").trim();
+  const cleanSku = String(sku || "").trim();
+
+  if (!cleanName) {
+    throw new Error("Falta name");
+  }
+
+  const updated = await updateProduct(
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    productId,
+    {
+      name: cleanName,
+      sku: cleanSku,
+    }
+  );
+
+  return {
+    ok: true,
+    action: "update_product_name_sku",
+    product_id: updated?.id ?? Number(productId),
+    name: String(updated?.name || cleanName).trim(),
+    sku: String(updated?.sku || cleanSku).trim(),
+    type: String(updated?.type || "").trim(),
+    regular_price: String(updated?.regular_price || "").trim(),
+    sale_price: String(updated?.sale_price || "").trim(),
+  };
+}
+
 export async function updateProductCategories({
   baseUrl,
   consumerKey,

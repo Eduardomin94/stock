@@ -139,7 +139,8 @@ type EditActionType =
   | "cambiar_categorias"
   | "cambiar_fotos_variantes"
   | "quitar_fotos_variantes"
-  | "mover_producto_fecha";
+  | "mover_producto_fecha"
+  | "cambiar_nombre_sku";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
 
@@ -953,6 +954,7 @@ const skuValidationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(nul
 const [createStepIndex, setCreateStepIndex] = useState(0);
 const [createForm, setCreateForm] = useState<CreateProductForm>(initialCreateForm);
 const [editValue, setEditValue] = useState("");
+const [editNameSkuValue, setEditNameSkuValue] = useState({ name: "", sku: "" });
 const [editAttributeValues, setEditAttributeValues] = useState<Record<string, string[]>>({});
 const [selectedEditCombinations, setSelectedEditCombinations] = useState<Record<string, string>[]>([]);
 const [editSection, setEditSection] = useState<"" | "precio" | "stock" | "fotos" | "descripcion" | "categorias" | "variaciones">("");
@@ -4118,6 +4120,49 @@ onMouseLeave={(e) => {
   <button
     type="button"
     onClick={() => {
+      setEditSection("");
+      setEditActionType("cambiar_nombre_sku");
+      setEditValue("");
+      setEditNameSkuValue({
+        name: String(editFoundProduct?.name || ""),
+        sku: String(editFoundProduct?.sku || ""),
+      });
+      setEditAttributeValues({});
+      setSelectedEditCombinations([]);
+      setMoveTargetSearch("");
+      setMoveTargetProduct(null);
+      setMoveProductMode("before");
+    }}
+    style={{
+  border: "1px solid #2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  color: "white",
+  borderRadius: 14,
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 700,
+  transition: "all 0.2s ease",
+}}
+onMouseEnter={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(-1px)";
+  el.style.boxShadow = "0 12px 30px rgba(37,99,235,0.4)";
+  el.style.background = "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)";
+}}
+onMouseLeave={(e) => {
+  const el = e.currentTarget;
+  el.style.transform = "translateY(0)";
+  el.style.boxShadow = "none";
+  el.style.background = "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)";
+}}
+  >
+    Nombre y SKU
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
       setEditSection("categorias");
       setEditActionType("cambiar_categorias");
       setEditValue("");
@@ -5717,6 +5762,7 @@ if (fileInputRef.current) {
   {editActionType === "cambiar_categorias" && "Marcá las categorías y guardá."}
   {editActionType === "mover_producto_fecha" && "Elegí si querés poner este producto antes o después de otro producto."}
   {editActionType === "cambiar_precio_efectivo" && "Escribí el nuevo precio en efectivo."}
+  {editActionType === "cambiar_nombre_sku" && "Cambiá el nombre del producto y el SKU. Podés dejar el SKU vacío."}
 </div>
 
 {editActionType === "cambiar_descripcion" ? (
@@ -5739,6 +5785,52 @@ if (fileInputRef.current) {
       lineHeight: 1.5,
     }}
   />
+) : editActionType === "cambiar_nombre_sku" ? (
+  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <input
+      type="text"
+      value={editNameSkuValue.name}
+      onChange={(e) =>
+        setEditNameSkuValue((prev) => ({
+          ...prev,
+          name: e.target.value,
+        }))
+      }
+      placeholder="Nuevo nombre del producto"
+      style={{
+        width: "100%",
+        border: "1px solid #334155",
+        background: "#020617",
+        color: "white",
+        borderRadius: 10,
+        padding: "10px 12px",
+        outline: "none",
+        fontSize: 14,
+      }}
+    />
+
+    <input
+      type="text"
+      value={editNameSkuValue.sku}
+      onChange={(e) =>
+        setEditNameSkuValue((prev) => ({
+          ...prev,
+          sku: e.target.value,
+        }))
+      }
+      placeholder="Nuevo SKU (opcional)"
+      style={{
+        width: "100%",
+        border: "1px solid #334155",
+        background: "#020617",
+        color: "white",
+        borderRadius: 10,
+        padding: "10px 12px",
+        outline: "none",
+        fontSize: 14,
+      }}
+    />
+  </div>
 ) : editActionType === "quitar_precio_rebajado" ? (
   <div
     style={{
@@ -5939,7 +6031,7 @@ onMouseLeave={(e) => {
   />
 )}
 
-{editActionType !== "mover_producto_fecha" && editActionType !== "cambiar_categorias" && (
+{editActionType !== "mover_producto_fecha" && editActionType !== "cambiar_categorias" && editActionType !== "cambiar_nombre_sku" && (
   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
     <div style={{ fontSize: 12, color: "#94a3b8" }}>
       Seleccioná las variaciones a modificar:
@@ -5995,9 +6087,15 @@ if (
   editActionType !== "quitar_precio_rebajado" &&
   editActionType !== "mover_producto_fecha" &&
   editActionType !== "cambiar_categorias" &&
+  editActionType !== "cambiar_nombre_sku" &&
   !editValue.trim()
 ) {
   pushAssistantInfo("Completá el valor antes de guardar.");
+  return;
+}
+
+if (editActionType === "cambiar_nombre_sku" && !editNameSkuValue.name.trim()) {
+  pushAssistantInfo("Completá el nombre del producto.");
   return;
 }
 
@@ -6079,6 +6177,14 @@ if (editActionType === "cambiar_categorias" && editSelectedCategoryIds.length ==
         targetProductId: moveTargetProduct?.id,
         position: moveProductMode,
       }
+    : editActionType === "cambiar_nombre_sku"
+    ? {
+        action: "cambiar_nombre_sku",
+        productId: editFoundProduct.id,
+              productName: editFoundProduct.name,
+        name: editNameSkuValue.name.trim(),
+        sku: editNameSkuValue.sku.trim(),
+      }
     : {
         action: "cambiar_descripcion",
         productId: editFoundProduct.id,
@@ -6148,6 +6254,7 @@ setTimeout(async () => {
 }
 
 setEditValue("");
+setEditNameSkuValue({ name: "", sku: "" });
 setEditSection("");
 setEditActionType("");
 setEditAttributeValues({});

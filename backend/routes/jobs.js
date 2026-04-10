@@ -169,6 +169,8 @@ function buildCompletedTitle(message = '', data = {}) {
         return `Cambio de descripción de producto${productSuffix} completado`;
       case 'mover_producto_fecha':
         return `Cambio de posición de producto${productSuffix} completado`;
+      case 'cambiar_nombre_sku':
+        return `Cambio de nombre y SKU de producto${productSuffix} completado`;
       default:
         return `Edición de producto${productSuffix} completado`;
     }
@@ -208,6 +210,7 @@ function parseTitle(message = '') {
         case 'cambiar_categorias': return `Cambio de categorías de producto${productSuffix} en proceso`;
         case 'cambiar_descripcion': return `Cambio de descripción de producto${productSuffix} en proceso`;
         case 'mover_producto_fecha': return `Cambio de posición de producto${productSuffix} en proceso`;
+        case 'cambiar_nombre_sku': return `Cambio de nombre y SKU de producto${productSuffix} en proceso`;
         default: return `Edición de producto${productSuffix} en proceso`;
       }
     } catch {

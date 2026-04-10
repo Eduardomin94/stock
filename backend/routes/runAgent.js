@@ -29,6 +29,7 @@ import {
   assignImageToSelectedVariations,
   removeImageFromSelectedVariations,
   updateProductCategories,
+  updateProductNameSku,
   addProductVariation,
   removeProductVariation,
   expandProductVariationsWithAttribute,
@@ -1192,6 +1193,23 @@ if (looksLikeEditProductActionCommand(message)) {
         : [],
     });
   }
+  if (action === "cambiar_nombre_sku") {
+    const nextName = String(payload?.name ?? "").trim();
+    const nextSku = String(payload?.sku ?? "").trim();
+    if (!nextName) {
+      return res.status(400).json({
+        error: "Falta name.",
+      });
+    }
+    result = await updateProductNameSku({
+      baseUrl,
+      consumerKey,
+      consumerSecret,
+      productId,
+      name: nextName,
+      sku: nextSku,
+    });
+  }
   // ✅ CAMBIAR STOCK
     if (action === "cambiar_stock") {
       if (Array.isArray(payload?.variations) && payload.variations.length > 0) {
@@ -1777,6 +1795,9 @@ if (action === "mover_producto_fecha") {
     result.position === "before"
       ? `${result.name} fue movido antes de ${result.target_name}.`
       : `${result.name} fue movido después de ${result.target_name}.`;
+}
+if (action === "cambiar_nombre_sku") {
+  reply = `Nombre y SKU actualizados correctamente en ${result.name}${result.sku ? ` (SKU: ${result.sku})` : ""}.`;
 }
   const shouldReturnFreshPhotoState = [
     "agregar_fotos_producto",
