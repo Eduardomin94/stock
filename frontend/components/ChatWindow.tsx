@@ -5155,7 +5155,15 @@ setTimeout(async () => {
   Podés agregar fotos al producto o asignar una foto a variantes específicas.
 </div>
 
-
+    <button
+      type="button"
+      onClick={() => {
+        fileInputRef.current?.click();
+      }}
+      style={wizardPrimaryButtonStyle}
+    >
+      Cargar fotos
+    </button>
 
 {Array.isArray(editFoundProduct?.variations) && editFoundProduct.variations.length > 0 && (
   <div
@@ -5181,16 +5189,6 @@ setTimeout(async () => {
     <div style={{ color: "#94a3b8", fontSize: 12 }}>
       Seleccionadas: {selectedEditCombinations.length}
     </div>
-
-    <button
-      type="button"
-      onClick={() => {
-        fileInputRef.current?.click();
-      }}
-      style={wizardPrimaryButtonStyle}
-    >
-      Cargar foto
-    </button>
 
     <button
       type="button"
