@@ -2026,6 +2026,8 @@ const selectedCategoryIds = String(categoryIdsRaw || "")
   .filter((id) => Number.isFinite(id) && id > 0);
 const salePriceRaw = extractField(message, "precio_rebajado");
 const cashPriceRaw = extractField(message, "precio_efectivo");
+const vendePorCurvaRaw = extractField(message, "vende_por_curva");
+const cantidadCurvaRaw = extractField(message, "cantidad_curva");
 const stockQuantityRaw = extractField(message, "stock");
 const categoryName = extractField(message, "categoria") || extractLooseCategoryValue(message);
       const regularPrice = regularPriceRaw ? Number(regularPriceRaw) : null;
@@ -2034,6 +2036,10 @@ const salePrice = salePriceRaw
   : null;
 const cashPrice = cashPriceRaw
   ? Number(String(cashPriceRaw).replace(/[^\d]/g, ""))
+  : null;
+const vendePorCurva = String(vendePorCurvaRaw || "").trim().toLowerCase() === "si";
+const cantidadCurva = cantidadCurvaRaw
+  ? Number(String(cantidadCurvaRaw).replace(/[^\d]/g, ""))
   : null;
 const stockQuantity = stockQuantityRaw ? Number(stockQuantityRaw) : null;
       const description = extractField(message, "descripcion");
@@ -2132,6 +2138,8 @@ if (files.length > 0) {
   regularPrice,
   salePrice: Number.isFinite(salePrice) ? salePrice : "",
   cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
+  vendePorCurva,
+  cantidadCurva,
   description,
   shortDescription,
   categories,
@@ -2221,6 +2229,8 @@ let variations = parseVariableVariationsText(variationsRaw);
 const regularPriceRaw = extractField(message, "precio");
 const salePriceRaw = extractField(message, "precio_rebajado");
 const cashPriceRaw = extractField(message, "precio_efectivo");
+const vendePorCurvaRaw = extractField(message, "vende_por_curva");
+const cantidadCurvaRaw = extractField(message, "cantidad_curva");
 const regularPrice = regularPriceRaw
   ? Number(String(regularPriceRaw).replace(/[^\d]/g, ""))
   : null;
@@ -2229,6 +2239,10 @@ const salePrice = salePriceRaw
   : null;
 const cashPrice = cashPriceRaw
   ? Number(String(cashPriceRaw).replace(/[^\d]/g, ""))
+  : null;
+const vendePorCurva = String(vendePorCurvaRaw || "").trim().toLowerCase() === "si";
+const cantidadCurva = cantidadCurvaRaw
+  ? Number(String(cantidadCurvaRaw).replace(/[^\d]/g, ""))
   : null;
 const stockBlockMatch = String(message || "").match(/\nstock\s*:\s*([\s\S]*?)(\ncategoria\s*:|\nsubcategoria\s*:|$)/i);
 const stockRaw = stockBlockMatch ? stockBlockMatch[1].trim() : "";
@@ -2371,6 +2385,8 @@ result = await createVariableProduct({
   name,
   sku,
   cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
+  vendePorCurva,
+  cantidadCurva,
   description,
   shortDescription,
   categories,

@@ -39,6 +39,7 @@ router.get("/", async (req, res) => {
       email: user.email,
       store_url: user.store_url || "",
       usa_precio_efectivo: user.email === "stock@gudaima.com",
+      usa_cantidad_curva: user.email === "stock@bunnyboo.com.ar",
       is_admin: String(user.email || "").trim().toLowerCase() === adminEmail,
     });
   } catch (error) {

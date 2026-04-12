@@ -60,6 +60,8 @@ type CreateProductForm = {
   priceMode: "global" | "perVariation";
   precioRebajado: string;
   precioEfectivo: string;
+  vendePorCurva: "" | "si" | "no";
+  cantidadCurva: string;
   stockMode: "none" | "same" | "perVariation";
   stockGeneral: string;
   descripcionCorta: string;
@@ -153,6 +155,8 @@ type CreateStepKey =
   | "precio"
   | "precioRebajado"
   | "precioEfectivo"
+  | "vendePorCurva"
+  | "cantidadCurva"
   | "stock"
   | "descripcionCorta"
   | "categoria"
@@ -212,6 +216,20 @@ const CREATE_STEPS: {
     placeholder: "Ej: 11900",
     optional: true,
   },
+  {
+    key: "vendePorCurva",
+    title: "Venta por curva",
+    helper: "¿Este producto se vende por curva? Respondé si o no.",
+    placeholder: "si o no",
+    optional: true,
+  },
+  {
+    key: "cantidadCurva",
+    title: "Cantidad de la curva",
+    helper: "Si se vende por curva, escribí la cantidad. Ejemplo: 4, 6, 12.",
+    placeholder: "Ej: 4",
+    optional: true,
+  },
     {
   key: "stock",
   title: "Stock",
@@ -249,6 +267,8 @@ const initialCreateForm: CreateProductForm = {
   priceMode: "global",
   precioRebajado: "",
   precioEfectivo: "",
+  vendePorCurva: "",
+  cantidadCurva: "",
   stockMode: "none",
   stockGeneral: "",
   descripcionCorta: "",
@@ -563,6 +583,8 @@ function buildCreateProductMessage(
   const isPerVariationPrice = form.priceMode === "perVariation" && (cleanColors || cleanSizes);
   const cleanSalePrice = cleanMoney(form.precioRebajado);
   const cleanCashPrice = cleanMoney(form.precioEfectivo);
+  const vendePorCurva = form.vendePorCurva === "si";
+  const cantidadCurva = String(form.cantidadCurva || "").replace(/[^\d]/g, "");
   const shortDescription = form.descripcionCorta.trim();
   const category = form.categoria.trim();
   const subcategory = form.subcategoria.trim();
@@ -605,6 +627,10 @@ function buildCreateProductMessage(
 
     if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
     if (cleanCashPrice) lines.push(`precio_efectivo: ${cleanCashPrice}`);
+    if (vendePorCurva) {
+      lines.push("vende_por_curva: si");
+      if (cantidadCurva) lines.push(`cantidad_curva: ${cantidadCurva}`);
+    }
 
     lines.push("atributos:");
     if (cleanColors) lines.push(`Color: ${cleanColors}`);
@@ -714,6 +740,10 @@ if (sku) lines.push(`sku: ${sku}`);
 lines.push(`precio: ${cleanPrice}`);
 if (cleanSalePrice) lines.push(`precio_rebajado: ${cleanSalePrice}`);
 if (cleanCashPrice) lines.push(`precio_efectivo: ${cleanCashPrice}`);
+if (vendePorCurva) {
+  lines.push("vende_por_curva: si");
+  if (cantidadCurva) lines.push(`cantidad_curva: ${cantidadCurva}`);
+}
 
 if (form.stockMode === "none") {
   lines.push("stock_estado: disponible");
@@ -918,7 +948,7 @@ export default function ChatWindow() {
   const [refreshingEditProduct, setRefreshingEditProduct] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeUrl, setStoreUrl] = useState("");
-  const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean; email?: string; is_admin?: boolean } | null>(null);
+  const [userMe, setUserMe] = useState<{ usa_precio_efectivo?: boolean; usa_cantidad_curva?: boolean; email?: string; is_admin?: boolean } | null>(null);
   const [adminUsers, setAdminUsers] = useState<{ id: string; email: string; is_admin?: boolean }[]>([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [adminUsersError, setAdminUsersError] = useState("");
@@ -1013,6 +1043,12 @@ const [moveTargetProduct, setMoveTargetProduct] = useState<EditFoundProduct | nu
 
   const CREATE_STEPS_VISIBLE = CREATE_STEPS.filter((step) => {
   if (step.key === "precioEfectivo" && !userMe?.usa_precio_efectivo) {
+    return false;
+  }
+  if ((step.key === "vendePorCurva" || step.key === "cantidadCurva") && !userMe?.usa_cantidad_curva) {
+    return false;
+  }
+  if (step.key === "cantidadCurva" && createForm.vendePorCurva !== "si") {
     return false;
   }
   return true;
@@ -2118,7 +2154,11 @@ async function refreshCurrentEditProduct(showSuccessMessage = true) {
               ? createForm.precioRebajado
               : step.key === "precioEfectivo"
                 ? createForm.precioEfectivo
-                : step.key === "stock"
+                : step.key === "vendePorCurva"
+                  ? createForm.vendePorCurva
+                  : step.key === "cantidadCurva"
+                    ? createForm.cantidadCurva
+                    : step.key === "stock"
                   ? ""
                   : step.key === "descripcionCorta"
                     ? createForm.descripcionCorta
