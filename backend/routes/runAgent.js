@@ -148,7 +148,12 @@ async function buildEditProductSnapshot(baseUrl, consumerKey, consumerSecret, pr
     regular_price: String(product?.regular_price || ""),
     sale_price: String(product?.sale_price || ""),
     price: String(product?.price || ""),
-    cash_price_general: String(getMetaValue(product?.meta_data, "_cash_price") || ""),
+    cash_price_general: String(
+      getMetaValue(product?.meta_data, "_precio_efectivo_general") ||
+      getMetaValue(product?.meta_data, "_precio_efectivo") ||
+      getMetaValue(product?.meta_data, "_cash_price") ||
+      ""
+    ),
     categories: Array.isArray(product?.categories) ? product.categories : [],
     attributeOptions: extractGlobalAttributeOptions(product),
     images: Array.isArray(product?.images) ? product.images : [],
@@ -2139,7 +2144,7 @@ if (files.length > 0) {
   salePrice: Number.isFinite(salePrice) ? salePrice : "",
   cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
   vendePorCurva,
-  cantidadCurva,
+  cantidadCurva: Number.isFinite(cantidadCurva) ? cantidadCurva : null,
   description,
   shortDescription,
   categories,
@@ -2386,7 +2391,7 @@ result = await createVariableProduct({
   sku,
   cashPrice: Number.isFinite(cashPrice) ? cashPrice : "",
   vendePorCurva,
-  cantidadCurva,
+  cantidadCurva: Number.isFinite(cantidadCurva) ? cantidadCurva : null,
   description,
   shortDescription,
   categories,
@@ -2505,6 +2510,8 @@ result = await createVariableProduct({
   consumerKey,
   consumerSecret,
   name: parsed.name,
+  vendePorCurva: false,
+  cantidadCurva: null,
   description: "",
   shortDescription: parsed.shortDescription || "",
   categories: categoryResult.categories,

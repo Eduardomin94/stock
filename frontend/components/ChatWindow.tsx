@@ -219,14 +219,14 @@ const CREATE_STEPS: {
   {
     key: "vendePorCurva",
     title: "Venta por curva",
-    helper: "¿Este producto se vende por curva? Respondé si o no.",
-    placeholder: "si o no",
+    helper: "¿Este producto se vende por curva? Respondé sí o no.",
+    placeholder: "si",
     optional: true,
   },
   {
     key: "cantidadCurva",
     title: "Cantidad de la curva",
-    helper: "Si se vende por curva, escribí la cantidad. Ejemplo: 4, 6, 12.",
+    helper: "Ingresá la cantidad de la curva. Ejemplo: 4, 6, 12.",
     placeholder: "Ej: 4",
     optional: true,
   },
@@ -2094,6 +2094,9 @@ async function refreshCurrentEditProduct(showSuccessMessage = true) {
       if (currentCreateStep.key === "precio" && createForm.priceMode === "perVariation" && isVariableProductDraft) {
         return true;
       }
+      if (currentCreateStep.key === "cantidadCurva" && createForm.vendePorCurva !== "si") {
+        return true;
+      }
       return false;
     }
 
@@ -2113,6 +2116,12 @@ async function refreshCurrentEditProduct(showSuccessMessage = true) {
           return { ...prev, precioRebajado: rawValue };
         case "precioEfectivo":
           return { ...prev, precioEfectivo: rawValue };
+        case "vendePorCurva": {
+          const normalized = rawValue.toLowerCase() === "si" ? "si" : rawValue.toLowerCase() === "no" ? "no" : "";
+          return { ...prev, vendePorCurva: normalized, cantidadCurva: normalized === "si" ? prev.cantidadCurva : "" };
+        }
+        case "cantidadCurva":
+          return { ...prev, cantidadCurva: rawValue.replace(/[^\d]/g, "") };
         case "stock":
           return prev;
         case "descripcionCorta":
@@ -2155,7 +2164,7 @@ async function refreshCurrentEditProduct(showSuccessMessage = true) {
               : step.key === "precioEfectivo"
                 ? createForm.precioEfectivo
                 : step.key === "vendePorCurva"
-                  ? createForm.vendePorCurva
+                  ? ""
                   : step.key === "cantidadCurva"
                     ? createForm.cantidadCurva
                     : step.key === "stock"
@@ -2235,6 +2244,8 @@ async function nextCreateStep() {
       ...(currentCreateStep?.key === "precio" ? { precio: text.trim() } : {}),
       ...(currentCreateStep?.key === "precioRebajado" ? { precioRebajado: text.trim() } : {}),
       ...(currentCreateStep?.key === "precioEfectivo" ? { precioEfectivo: text.trim() } : {}),
+      ...(currentCreateStep?.key === "vendePorCurva" ? { vendePorCurva: text.trim().toLowerCase() as "" | "si" | "no" } : {}),
+      ...(currentCreateStep?.key === "cantidadCurva" ? { cantidadCurva: text.trim().replace(/[^\d]/g, "") } : {}),
       ...(currentCreateStep?.key === "descripcionCorta" ? { descripcionCorta: text.trim() } : {}),
       ...(currentCreateStep?.key === "categoria" ? { categoria: text.trim() } : {}),
       ...(currentCreateStep?.key === "subcategoria" ? { subcategoria: text.trim() } : {}),
@@ -2465,6 +2476,13 @@ setStoreName(`${prettyName} (${domain})`);
     loadCurrentStepValue(createStepIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAction, createStepIndex]);
+
+  useEffect(() => {
+    if (activeAction !== "create") return;
+    if (currentCreateStep?.key === "vendePorCurva") {
+      setText("");
+    }
+  }, [activeAction, currentCreateStep?.key]);
 
   useEffect(() => {
   if (!isVariableProductDraft) {
@@ -3697,7 +3715,7 @@ Stock general
       </div>
     )}
   </>
-) : (
+) : currentCreateStep?.key === "vendePorCurva" ? null : (
   <textarea
   ref={composerRef}
   value={text}
@@ -6470,6 +6488,40 @@ setMoveProductMode("before");
         {currentCreateStep.helper}
       </div>
 
+
+      {currentCreateStep.key === "vendePorCurva" && (
+        <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateForm((prev) => ({ ...prev, vendePorCurva: "si" }));
+              setText("");
+              const nextIndex = createStepIndex + 1;
+              if (nextIndex < CREATE_STEPS_VISIBLE.length) {
+                setCreateStepIndex(nextIndex);
+              }
+            }}
+            style={wizardPrimaryButtonStyle}
+          >
+            Sí
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateForm((prev) => ({ ...prev, vendePorCurva: "no", cantidadCurva: "" }));
+              setText("");
+              const nextIndex = createStepIndex + 1;
+              if (nextIndex < CREATE_STEPS_VISIBLE.length) {
+                setCreateStepIndex(nextIndex);
+              }
+            }}
+            style={wizardSecondaryButtonStyle}
+          >
+            No
+          </button>
+        </div>
+      )}
+
             <div
         style={{
           display: "flex",
@@ -6556,6 +6608,7 @@ setMoveProductMode("before");
       </button>
 
       {createStepIndex < CREATE_STEPS_VISIBLE.length - 1 ? (
+        currentCreateStep?.key === "vendePorCurva" ? null : (
         <button
           type="button"
           onClick={nextCreateStep}
@@ -6563,6 +6616,7 @@ setMoveProductMode("before");
         >
           Siguiente
         </button>
+        )
       ) : (
         <button
           type="button"

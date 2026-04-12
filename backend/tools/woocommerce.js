@@ -1212,8 +1212,6 @@ export async function createSimpleProduct({
   await ensureSkuIsAvailable(baseUrl, consumerKey, consumerSecret, sku);
 
   const cleanCashPrice = String(cashPrice || "").trim();
-  const cleanCurveQty = Number(cantidadCurva);
-  const hasCurveQty = Boolean(vendePorCurva) && Number.isFinite(cleanCurveQty) && cleanCurveQty > 0;
 
   const payload = {
     name: String(name).trim(),
@@ -1237,31 +1235,32 @@ export async function createSimpleProduct({
     payload.sale_price = String(salePrice).trim();
   }
 
-  payload.meta_data = [];
-
   if (cleanCashPrice) {
-    payload.meta_data.push(
+    payload.meta_data = [
+      ...(Array.isArray(payload.meta_data) ? payload.meta_data : []),
       { key: "_precio_efectivo_general", value: cleanCashPrice },
       { key: "_precio_efectivo", value: cleanCashPrice },
-    );
+    ];
   }
 
-  if (hasCurveQty) {
-    payload.meta_data.push(
+  if (vendePorCurva && Number(cantidadCurva) > 0) {
+    payload.meta_data = [
+      ...(Array.isArray(payload.meta_data) ? payload.meta_data : []),
       { key: "_wcmmq_disable", value: "no" },
       { key: "_wcmmq_enable", value: "yes" },
-      { key: "_wcmmq_min_qty", value: String(cleanCurveQty) },
+      { key: "_wcmmq_min_qty", value: String(Number(cantidadCurva)) },
       { key: "_wcmmq_max_qty", value: "0" },
-      { key: "_wcmmq_step", value: String(cleanCurveQty) },
-    );
+      { key: "_wcmmq_step", value: String(Number(cantidadCurva)) },
+    ];
   } else {
-    payload.meta_data.push(
+    payload.meta_data = [
+      ...(Array.isArray(payload.meta_data) ? payload.meta_data : []),
       { key: "_wcmmq_disable", value: "no" },
       { key: "_wcmmq_enable", value: "no" },
       { key: "_wcmmq_min_qty", value: "0" },
       { key: "_wcmmq_max_qty", value: "0" },
       { key: "_wcmmq_step", value: "0" },
-    );
+    ];
   }
 
   if (Array.isArray(images) && images.length > 0) {
@@ -2904,33 +2903,32 @@ export async function createVariableProduct({
     })),
   };
     const cleanCashPrice = String(cashPrice || "").trim();
-  const cleanCurveQty = Number(cantidadCurva);
-  const hasCurveQty = Boolean(vendePorCurva) && Number.isFinite(cleanCurveQty) && cleanCurveQty > 0;
-
-  productPayload.meta_data = [];
 
   if (cleanCashPrice) {
-    productPayload.meta_data.push(
+    productPayload.meta_data = [
+      ...(Array.isArray(productPayload.meta_data) ? productPayload.meta_data : []),
       { key: "_precio_efectivo_general", value: cleanCashPrice },
-    );
+    ];
   }
 
-  if (hasCurveQty) {
-    productPayload.meta_data.push(
+  if (vendePorCurva && Number(cantidadCurva) > 0) {
+    productPayload.meta_data = [
+      ...(Array.isArray(productPayload.meta_data) ? productPayload.meta_data : []),
       { key: "_wcmmq_disable", value: "no" },
       { key: "_wcmmq_enable", value: "yes" },
-      { key: "_wcmmq_min_qty", value: String(cleanCurveQty) },
+      { key: "_wcmmq_min_qty", value: String(Number(cantidadCurva)) },
       { key: "_wcmmq_max_qty", value: "0" },
-      { key: "_wcmmq_step", value: String(cleanCurveQty) },
-    );
+      { key: "_wcmmq_step", value: String(Number(cantidadCurva)) },
+    ];
   } else {
-    productPayload.meta_data.push(
+    productPayload.meta_data = [
+      ...(Array.isArray(productPayload.meta_data) ? productPayload.meta_data : []),
       { key: "_wcmmq_disable", value: "no" },
       { key: "_wcmmq_enable", value: "no" },
       { key: "_wcmmq_min_qty", value: "0" },
       { key: "_wcmmq_max_qty", value: "0" },
       { key: "_wcmmq_step", value: "0" },
-    );
+    ];
   }
 
   if (Array.isArray(categories) && categories.length > 0) {
