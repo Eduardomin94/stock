@@ -727,6 +727,106 @@ function parseSupplierStockBlock(raw) {
   }
   return stockMap;
 }
+// Versión "smart": matchea cada línea contra una lista conocida de colores/talles
+// para soportar nombres con espacios (ej: "Azul claro", "Talle 38").
+// Solo se usa para usuarios que la opt-in (ver GUDAIMA_EMAIL más abajo).
+function parseSupplierStockBlockSmart(raw, knownColors, knownSizes) {
+  const colorsClean = (Array.isArray(knownColors) ? knownColors : [])
+    .map((value) => normalizeSpaces(value))
+    .filter(Boolean);
+  const sizesClean = (Array.isArray(knownSizes) ? knownSizes : [])
+    .map((value) => normalizeSpaces(value))
+    .filter(Boolean);
+  // Si no hay listas conocidas, delegamos al parser viejo para no cambiar nada.
+  if (colorsClean.length === 0 && sizesClean.length === 0) {
+    return parseSupplierStockBlock(raw);
+  }
+  // Ordenamos del más largo al más corto para que "Azul claro" matchee antes que "Azul".
+  const colorsSorted = [...colorsClean].sort((a, b) => b.length - a.length);
+  const sizesSorted = [...sizesClean].sort((a, b) => b.length - a.length);
+
+  function matchByKnownNames(line) {
+    const qtyMatch = line.match(/^(.*?)\s+(\d+)$/);
+    if (!qtyMatch) return null;
+    const rest = normalizeSpaces(qtyMatch[1]);
+    const qty = Number(qtyMatch[2]);
+    if (!rest) return null;
+    const restLower = normalizeKeyName(rest);
+    // Caso 1: empieza con un color conocido
+    for (const color of colorsSorted) {
+      const colorLower = normalizeKeyName(color);
+      if (
+        restLower === colorLower ||
+        restLower.startsWith(colorLower + " ")
+      ) {
+        const afterColor = rest.slice(color.length).trim();
+        if (!afterColor) {
+          return { color, size: "", qty };
+        }
+        const afterColorLower = normalizeKeyName(afterColor);
+        for (const size of sizesSorted) {
+          const sizeLower = normalizeKeyName(size);
+          if (afterColorLower === sizeLower) {
+            return { color, size, qty };
+          }
+        }
+        return { color, size: afterColor, qty };
+      }
+    }
+    // Caso 2: solo talle conocido (sin color)
+    for (const size of sizesSorted) {
+      const sizeLower = normalizeKeyName(size);
+      if (restLower === sizeLower) {
+        return { color: "", size, qty };
+      }
+    }
+    return null;
+  }
+
+  const lines = String(raw || "")
+    .split("\n")
+    .map((line) => normalizeSpaces(line))
+    .filter(Boolean);
+  const stockMap = new Map();
+  for (const line of lines) {
+    const known = matchByKnownNames(line);
+    if (known) {
+      const normalizedColor = normalizeKeyName(known.color);
+      const normalizedSize = normalizeKeyName(known.size);
+      if (normalizedColor && normalizedSize) {
+        stockMap.set(`${normalizedColor}__${normalizedSize}`, known.qty);
+      } else if (normalizedColor) {
+        stockMap.set(`${normalizedColor}__`, known.qty);
+        stockMap.set(`__${normalizedColor}`, known.qty);
+      } else if (normalizedSize) {
+        stockMap.set(`${normalizedSize}__`, known.qty);
+        stockMap.set(`__${normalizedSize}`, known.qty);
+      }
+      continue;
+    }
+    // Si no matcheó por nombres conocidos, caemos al parser viejo línea a línea.
+    const threePartsMatch = line.match(/^(.+?)\s+([A-Za-z0-9\/._-]+)\s+(\d+)$/);
+    if (threePartsMatch) {
+      const color = normalizeSpaces(threePartsMatch[1]);
+      const sizeToken = normalizeSpaces(threePartsMatch[2]);
+      const qty = Number(threePartsMatch[3]);
+      const key = `${normalizeKeyName(color)}__${normalizeKeyName(sizeToken)}`;
+      stockMap.set(key, qty);
+      continue;
+    }
+    const twoPartsMatch = line.match(/^(.+?)\s+(\d+)$/);
+    if (twoPartsMatch) {
+      const firstPart = normalizeSpaces(twoPartsMatch[1]);
+      const qty = Number(twoPartsMatch[2]);
+      const k = normalizeKeyName(firstPart);
+      stockMap.set(`${k}__`, qty);
+      stockMap.set(`__${k}`, qty);
+    }
+  }
+  return stockMap;
+}
+// Email del usuario para el cual activamos el parser smart de stock.
+const STOCK_SMART_PARSER_EMAILS = new Set(["stock@gudaima.com"]);
 function buildSupplierVariableVariations({ colors = [], sizes = [], price, salePrice = null, stockMap = null }) {
   const variations = [];
   for (const color of colors) {
@@ -860,6 +960,7 @@ const token = authHeader.startsWith("Bearer ")
 let baseUrl = process.env.WC_URL;
 let consumerKey = process.env.WC_KEY;
 let consumerSecret = process.env.WC_SECRET;
+let currentUserEmail = "";
 if (token) {
   try {
     const decoded = jwt.verify(
@@ -868,6 +969,7 @@ if (token) {
     );
    const user = await findUserById(decoded.id);
    if (user) {
+  currentUserEmail = String(user.email || "").trim().toLowerCase();
   const userBaseUrl = String(user.store_url || "").trim();
   const userConsumerKey = String(decryptText(user.consumer_key) || "").trim();
   const userConsumerSecret = String(decryptText(user.consumer_secret) || "").trim();
@@ -2251,7 +2353,24 @@ const cantidadCurva = cantidadCurvaRaw
   : null;
 const stockBlockMatch = String(message || "").match(/\nstock\s*:\s*([\s\S]*?)(\ncategoria\s*:|\nsubcategoria\s*:|$)/i);
 const stockRaw = stockBlockMatch ? stockBlockMatch[1].trim() : "";
-const stockMap = parseSupplierStockBlock(stockRaw);
+let stockMap;
+if (STOCK_SMART_PARSER_EMAILS.has(currentUserEmail)) {
+  // Parser que reconoce colores/talles con espacios (ej: "Azul claro", "Talle 38").
+  // Solo se activa para usuarios en la lista; el resto sigue con el parser viejo.
+  const colorAttrForStock = attributes.find(
+    (attr) => normalizeKeyName(attr.name) === "color"
+  );
+  const talleAttrForStock = attributes.find(
+    (attr) => normalizeKeyName(attr.name) === "talle"
+  );
+  stockMap = parseSupplierStockBlockSmart(
+    stockRaw,
+    colorAttrForStock?.options || [],
+    talleAttrForStock?.options || []
+  );
+} else {
+  stockMap = parseSupplierStockBlock(stockRaw);
+}
 if (
   variations.length === 0 &&
   Number.isFinite(regularPrice) &&
