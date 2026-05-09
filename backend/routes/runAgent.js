@@ -426,24 +426,24 @@ function resolvePublicBaseUrl(req) {
 async function saveImagesAndBuildUrls(files = [], body = {}, req) {
   const orderedImages = extractOrderedImages(files, body);
   const uploadsDir = path.join(__dirname, "../uploads");
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  const savedImages = [];
+  await fs.promises.mkdir(uploadsDir, { recursive: true });
   const publicBaseUrl = resolvePublicBaseUrl(req);
-  for (const image of orderedImages) {
-    const originalName = String(image.file.originalname || "image");
-    const safeName = originalName.replace(/\s+/g, "-");
-    const finalName = `${Date.now()}-${image.position}-${safeName}`;
-    const finalPath = path.join(uploadsDir, finalName);
-    fs.writeFileSync(finalPath, image.file.buffer);
-    const url = `${publicBaseUrl}/uploads/${finalName}`;
-    savedImages.push({
-      src: url,
-      color: image.assignedColor || "",
-      position: image.position,
-    });
-  }
+
+  const savedImages = await Promise.all(
+    orderedImages.map(async (image) => {
+      const originalName = String(image.file.originalname || "image");
+      const safeName = originalName.replace(/\s+/g, "-");
+      const finalName = `${Date.now()}-${image.position}-${safeName}`;
+      const finalPath = path.join(uploadsDir, finalName);
+      await fs.promises.writeFile(finalPath, image.file.buffer);
+      return {
+        src: `${publicBaseUrl}/uploads/${finalName}`,
+        color: image.assignedColor || "",
+        position: image.position,
+      };
+    })
+  );
+
   return savedImages;
 }
 function parseVariableAttributesText(raw) {
