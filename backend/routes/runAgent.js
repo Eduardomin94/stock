@@ -45,7 +45,7 @@ import {
 import multer from "multer";
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 25 * 1024 * 1024 }
 });
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
