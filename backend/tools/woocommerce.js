@@ -3031,7 +3031,7 @@ export async function createVariableProduct({
       payload.manage_stock = false;
       payload.stock_status = "instock";
     }
-
+    console.log("VARIATION PAYLOAD →", JSON.stringify(payload));
     const response = await postVariationWithRetry(
       `${normalizeBaseUrl(baseUrl)}/products/${productId}/variations`,
       payload,
